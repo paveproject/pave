@@ -33,7 +33,7 @@ export const commonSchema = extensionSchema.extend({
   WEB_APP_URL: z.url().default('http://localhost:3000'),
 });
 
-// Static assets served from MinIO/S3 (see libs/assets)
+// Static assets served from RustFS/S3 (see libs/assets)
 export const assetsSchema = z.object({
   ASSETS_BASE_URL: z.url(),
 });

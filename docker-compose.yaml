@@ -45,56 +45,48 @@ services:
       --data-dir /data
       --enable-cors
 
-  minio:
-    image: minio/minio:latest
+  rustfs:
+    image: rustfs/rustfs:1.0.0-alpha.86
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-admin}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-password123}
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY_ID:-admin}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_ACCESS_KEY:-password123}
+      RUSTFS_VOLUMES: /data/rustfs0
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ENABLE: 'true'
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
     ports:
       - '${S3_PORT:-9900}:9000'
       - '${S3_CONSOLE_PORT:-9901}:9001'
     volumes:
-      - ./tmp/minio-data:/data
-    command: server /data --console-address ":9001"
+      - ./tmp/rustfs-data:/data
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/health']
       interval: 5s
       timeout: 5s
       retries: 5
 
-  minio-setup:
-    image: minio/mc:latest
+  rustfs-setup:
+    image: rustfs/rc@sha256:ab024bfebee49a750ce886b4c70963ccd9ddaa03f491704a90710641d7a26699
     depends_on:
-      minio:
+      rustfs:
         condition: service_healthy
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-admin}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-password123}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-admin}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-password123}
       S3_BUCKET: ${S3_BUCKET:-avatars}
       S3_IMPORTS_BUCKET: ${S3_IMPORTS_BUCKET:-imports}
     entrypoint: >
       /bin/sh -c "
-      echo Waiting for MinIO...;
-      mc alias set myminio http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
+      echo Waiting for RustFS...;
+      rc alias set myrustfs http://rustfs:9000 $${S3_ACCESS_KEY_ID} $${S3_SECRET_ACCESS_KEY};
 
-      if ! mc ls myminio/$${S3_BUCKET} > /dev/null 2>&1; then
-        echo Creating bucket $${S3_BUCKET}...;
-        mc mb myminio/$${S3_BUCKET};
+      rc bucket create --ignore-existing myrustfs/$${S3_BUCKET};
+      rc bucket anonymous set download myrustfs/$${S3_BUCKET};
+      echo Bucket $${S3_BUCKET} ready and set to public read.;
 
-        mc anonymous set download myminio/$${S3_BUCKET};
-        echo Bucket $${S3_BUCKET} created and set to public read.;
-      else
-        echo Bucket $${S3_BUCKET} already exists.;
-      fi
-
-      if ! mc ls myminio/$${S3_IMPORTS_BUCKET} > /dev/null 2>&1; then
-        echo Creating bucket $${S3_IMPORTS_BUCKET}...;
-        mc mb myminio/$${S3_IMPORTS_BUCKET};
-        echo Bucket $${S3_IMPORTS_BUCKET} created - private, no anonymous access.;
-      else
-        echo Bucket $${S3_IMPORTS_BUCKET} already exists.;
-      fi
+      rc bucket create --ignore-existing myrustfs/$${S3_IMPORTS_BUCKET};
+      echo Bucket $${S3_IMPORTS_BUCKET} ready - private, no anonymous access.;
       "
 
   assets-sync:
@@ -102,12 +94,12 @@ services:
       context: .
       dockerfile: libs/assets/Dockerfile
     depends_on:
-      minio:
+      rustfs:
         condition: service_healthy
     environment:
-      S3_ENDPOINT: http://minio:9000
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-admin}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-password123}
+      S3_ENDPOINT: http://rustfs:9000
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-admin}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-password123}
       S3_BUCKET: ${S3_BUCKET:-avatars}
       S3_ASSETS_PREFIX: static
     volumes:
