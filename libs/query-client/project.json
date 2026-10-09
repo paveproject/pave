@@ -1,0 +1,19 @@
+{
+  "name": "query-client",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/query-client/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/query-client",
+        "main": "libs/query-client/src/index.ts",
+        "tsConfig": "libs/query-client/tsconfig.lib.json",
+        "assets": ["libs/query-client/*.md"]
+      }
+    }
+  }
+}

@@ -1,0 +1,319 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    name: 🐳 Build & Push Images
+    if: "!startsWith(github.event.head_commit.message, 'chore(main): release') && !startsWith(github.event.head_commit.message, 'chore(mobile): update build fingerprint')"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.prep.outputs.VERSION }}
+      affected_projects: ${{ steps.affected.outputs.PROJECTS }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: 🗄️ Cache Bun install
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Initialize Nx SHAs
+        uses: nrwl/nx-set-shas@v5
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Version Tag
+        id: prep
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          VERSION="b${{ github.run_number }}-${SHORT_SHA}"
+
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "🚀 Build Version: ${VERSION}"
+
+      - name: Prepare Environment Files
+        run: |
+          # Api
+          cat <<EOF > apps/api/.env
+          NODE_ENV=production
+          AUTH_SECRET="${{ secrets.INFISICAL_AUTH_SECRET }}"
+          API_URL="${{ secrets.INFISICAL_API_URL }}"
+          AUTH_GOOGLE_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GOOGLE_CLIENT_ID }}"
+          AUTH_GOOGLE_IOS_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GOOGLE_IOS_CLIENT_ID }}"
+          AUTH_GOOGLE_ANDROID_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GOOGLE_ANDROID_CLIENT_ID }}"
+          AUTH_GOOGLE_CLIENT_SECRET="${{ secrets.INFISICAL_AUTH_GOOGLE_CLIENT_SECRET }}"
+          AUTH_GITHUB_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GITHUB_CLIENT_ID }}"
+          AUTH_GITHUB_CLIENT_SECRET="${{ secrets.INFISICAL_AUTH_GITHUB_CLIENT_SECRET }}"
+          AUTH_FACEBOOK_CLIENT_ID="${{ secrets.INFISICAL_AUTH_FACEBOOK_CLIENT_ID }}"
+          AUTH_FACEBOOK_CLIENT_SECRET="${{ secrets.INFISICAL_AUTH_FACEBOOK_CLIENT_SECRET }}"
+          AUTH_APPLE_CLIENT_ID="${{ secrets.INFISICAL_AUTH_APPLE_CLIENT_ID }}"
+          AUTH_APPLE_TEAM_ID="${{ secrets.INFISICAL_AUTH_APPLE_TEAM_ID }}"
+          AUTH_APPLE_KEY_ID="${{ secrets.INFISICAL_AUTH_APPLE_KEY_ID }}"
+          AUTH_APPLE_PRIVATE_KEY="${{ secrets.INFISICAL_AUTH_APPLE_PRIVATE_KEY }}"
+          AUTH_APPLE_BUNDLE_ID="${{ secrets.INFISICAL_AUTH_APPLE_BUNDLE_ID }}"
+          REVENUECAT_API_KEY="${{ secrets.INFISICAL_REVENUECAT_API_KEY }}"
+          REVENUECAT_WEBHOOK_SECRET="${{ secrets.INFISICAL_REVENUECAT_WEBHOOK_SECRET }}"
+          DATABASE_URL="postgres://localhost:5432/placeholder"
+          ASSETS_BASE_URL="https://assets.example.com"
+          S3_ENDPOINT="https://s3.example.com"
+          S3_ACCESS_KEY_ID="placeholder"
+          S3_SECRET_ACCESS_KEY="placeholder"
+          TYPESENSE_HOST="localhost"
+          TYPESENSE_API_KEY="placeholder"
+          PREFECT_API_URL="https://prefect.example.com/api"
+          PREFECT_API_AUTH_STRING="placeholder"
+          API_INTERNAL_IMPORTS_SECRET="placeholder"
+          EOF
+
+      - name: Build Docker Images (Nx Affected)
+        run: bunx nx affected -t docker-build --parallel=3
+
+      - name: Retag and Push to GHCR
+        id: affected
+        run: |
+          AFFECTED=$(bunx nx show projects --affected --with-target=docker-build --json)
+          echo "Affected projects (JSON): $AFFECTED"
+
+          PROJECTS=$(echo $AFFECTED | jq -r '.[]')
+
+          if [ -z "$PROJECTS" ]; then
+            echo "No docker projects affected."
+            echo "PROJECTS=[]" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          VERSION="${{ steps.prep.outputs.VERSION }}"
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          PIDS=""
+
+          # Loop in parallel to push all images to the registry
+          for PROJECT in $PROJECTS; do
+            (
+              echo "🚀 [${PROJECT}] Processing..."
+              
+              LOCAL_IMAGE="${PROJECT}:latest"
+              REMOTE_IMAGE="ghcr.io/${OWNER}/${PROJECT}"
+              
+              docker tag "${LOCAL_IMAGE}" "${REMOTE_IMAGE}:${VERSION}"
+              
+              echo "⬆️ [${PROJECT}] Pushing ${VERSION}..."
+              docker push "${REMOTE_IMAGE}:${VERSION}"
+              
+              echo "🏷️ [${PROJECT}] Tagging latest via imagetools..."
+              docker buildx imagetools create \
+                -t "${REMOTE_IMAGE}:latest" \
+                "${REMOTE_IMAGE}:${VERSION}"
+              
+              echo "✅ [${PROJECT}] Done."
+            ) &
+            PIDS="$PIDS $!"
+          done
+
+          FAIL=0
+          for PID in $PIDS; do
+            wait $PID || FAIL=1
+          done
+
+          if [ "$FAIL" -eq 1 ]; then
+            echo "❌ One or more images failed to push."
+            exit 1
+          fi
+
+          echo "PROJECTS=$AFFECTED" >> $GITHUB_OUTPUT
+
+  update-infra:
+    name: 🏗️ Update Infra Manifests
+    needs: build-and-push
+    if: needs.build-and-push.outputs.affected_projects != '[]' && needs.build-and-push.outputs.affected_projects != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Infra Repository
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/infra
+          token: ${{ secrets.PAT_TOKEN }}
+          path: infra
+
+      - name: Update Deployment Manifests
+        env:
+          SERVICES_JSON: ${{ needs.build-and-push.outputs.affected_projects }}
+          VERSION: ${{ needs.build-and-push.outputs.version }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          cd infra
+
+          OWNER=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
+          echo "Updates to apply: $SERVICES_JSON -> $VERSION"
+
+          for service in $(echo "$SERVICES_JSON" | jq -r '.[]'); do
+            IMAGE_REF="ghcr.io/${OWNER}/${service}"
+
+            FILES=$(grep -rl "${IMAGE_REF}" --include="*.yaml" .)
+
+            if [ -z "$FILES" ]; then
+              echo "⚠️  No manifest found referencing ${IMAGE_REF} — skipping"
+              continue
+            fi
+
+            for FILE in $FILES; do
+              echo "✅ Updating ${IMAGE_REF} -> ${VERSION} in ${FILE}"
+              sed -i "s|image: ${IMAGE_REF}:.*|image: ${IMAGE_REF}:${VERSION}|g" "$FILE"
+            done
+          done
+
+      - name: Commit and Push Changes
+        env:
+          VERSION: ${{ needs.build-and-push.outputs.version }}
+        run: |
+          cd infra
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add .
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "deploy: update images to version ${VERSION}"
+            git push origin main
+          fi
+
+  # =================================================================================
+  #  JOB 3: OTA Updates for Mobile App (EAS Update)
+  # =================================================================================
+  # update-mobile:
+  #   name: 📱 Deploy OTA Update
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout Code
+  #       uses: actions/checkout@v7
+  #       with:
+  #         fetch-depth: 0
+
+  #     - name: Install Bun
+  #       uses: oven-sh/setup-bun@v2
+  #       with:
+  #         bun-version-file: package.json
+
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v7
+  #       with:
+  #         node-version: 24
+
+  #     - name: Install Dependencies
+  #       run: bun install --frozen-lockfile
+
+  #     - name: Initialize Nx SHAs
+  #       uses: nrwl/nx-set-shas@v5
+
+  #     - name: Check if Mobile is Affected
+  #       id: check-mobile
+  #       run: |
+  #         AFFECTED=$(bunx nx show projects --affected --json)
+  #         echo "Affected projects: $AFFECTED"
+  #         if echo "$AFFECTED" | grep -q '"mobile"'; then
+  #           echo "IS_AFFECTED=true" >> $GITHUB_OUTPUT
+  #         else
+  #           echo "IS_AFFECTED=false" >> $GITHUB_OUTPUT
+  #         fi
+
+  #     - name: 🔨 Setup EAS
+  #       if: steps.check-mobile.outputs.IS_AFFECTED == 'true'
+  #       uses: expo/expo-github-action@v9
+  #       with:
+  #         eas-version: latest
+  #         token: ${{ secrets.INFISICAL_EXPO_TOKEN }}
+
+  #     - name: 📝 Prepare Environment Files
+  #       if: steps.check-mobile.outputs.IS_AFFECTED == 'true'
+  #       run: |
+  #         cat <<EOF > apps/mobile/.env
+  #         APP_VARIANT=production
+  #         EXPO_PUBLIC_API_URL="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_API_URL }}"
+  #         EXPO_PUBLIC_WEB_APP="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_WEB_APP }}"
+  #         EXPO_PUBLIC_FACEBOOK_APP_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_FACEBOOK_APP_ID }}"
+  #         EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN }}"
+  #         EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}"
+  #         EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}"
+  #         EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY }}"
+  #         EXPO_PUBLIC_SENTRY_DSN="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_SENTRY_DSN }}"
+  #         SENTRY_AUTH_TOKEN="${{ secrets.INFISICAL_MOBILE_SENTRY_AUTH_TOKEN }}"
+  #         SENTRY_ORG="${{ secrets.INFISICAL_MOBILE_SENTRY_ORG }}"
+  #         SENTRY_PROJECT="${{ secrets.INFISICAL_MOBILE_SENTRY_PROJECT }}"
+  #         SENTRY_DISABLE_AUTO_UPLOAD="${{ secrets.INFISICAL_MOBILE_SENTRY_DISABLE_AUTO_UPLOAD }}"
+  #         TMDB_IMAGE_BASE_URL="${{ secrets.INFISICAL_MOBILE_TMDB_IMAGE_BASE_URL }}"
+  #         EOF
+
+  #     - name: 📝 Prepare API Environment Files
+  #       if: steps.check-mobile.outputs.IS_AFFECTED == 'true'
+  #       run: |
+  #         # Api
+  #         cat <<EOF > apps/api/.env
+  #         NODE_ENV=production
+  #         AUTH_SECRET="${{ secrets.INFISICAL_AUTH_SECRET }}"
+  #         API_URL="${{ secrets.INFISICAL_API_URL }}"
+  #         AUTH_GOOGLE_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GOOGLE_CLIENT_ID }}"
+  #         AUTH_GOOGLE_IOS_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GOOGLE_IOS_CLIENT_ID }}"
+  #         AUTH_GOOGLE_ANDROID_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GOOGLE_ANDROID_CLIENT_ID }}"
+  #         AUTH_GOOGLE_CLIENT_SECRET="${{ secrets.INFISICAL_AUTH_GOOGLE_CLIENT_SECRET }}"
+  #         AUTH_GITHUB_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GITHUB_CLIENT_ID }}"
+  #         AUTH_GITHUB_CLIENT_SECRET="${{ secrets.INFISICAL_AUTH_GITHUB_CLIENT_SECRET }}"
+  #         AUTH_FACEBOOK_CLIENT_ID="${{ secrets.INFISICAL_AUTH_FACEBOOK_CLIENT_ID }}"
+  #         AUTH_FACEBOOK_CLIENT_SECRET="${{ secrets.INFISICAL_AUTH_FACEBOOK_CLIENT_SECRET }}"
+  #         AUTH_APPLE_CLIENT_ID="${{ secrets.INFISICAL_AUTH_APPLE_CLIENT_ID }}"
+  #         AUTH_APPLE_TEAM_ID="${{ secrets.INFISICAL_AUTH_APPLE_TEAM_ID }}"
+  #         AUTH_APPLE_KEY_ID="${{ secrets.INFISICAL_AUTH_APPLE_KEY_ID }}"
+  #         AUTH_APPLE_PRIVATE_KEY="${{ secrets.INFISICAL_AUTH_APPLE_PRIVATE_KEY }}"
+  #         AUTH_APPLE_BUNDLE_ID="${{ secrets.INFISICAL_AUTH_APPLE_BUNDLE_ID }}"
+  #         REVENUECAT_API_KEY="${{ secrets.INFISICAL_REVENUECAT_API_KEY }}"
+  #         REVENUECAT_WEBHOOK_SECRET="${{ secrets.INFISICAL_REVENUECAT_WEBHOOK_SECRET }}"
+  #         DATABASE_URL="postgres://localhost:5432/placeholder"
+  #         S3_ENDPOINT="https://s3.example.com"
+  #         S3_ACCESS_KEY_ID="placeholder"
+  #         S3_SECRET_ACCESS_KEY="placeholder"
+  #         TYPESENSE_HOST="localhost"
+  #         TYPESENSE_API_KEY="placeholder"
+  #         EOF
+
+  #     - name: 🚀 Publish EAS Update
+  #       if: steps.check-mobile.outputs.IS_AFFECTED == 'true'
+  #       run: |
+  #         bunx nx update mobile --channel production --message "CI Update: ${{ github.event.head_commit.message }}" --environment production --non-interactive
+
+  #     - name: 🧹 Cleanup
+  #       if: always()
+  #       run: |
+  #         rm -f apps/mobile/.env
+  #         rm -f apps/api/.env

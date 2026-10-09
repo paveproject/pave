@@ -1,0 +1,42 @@
+{
+  "name": "mobile",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/mobile/src",
+  "projectType": "application",
+  "tags": [],
+  "targets": {
+    "build": {
+      "dependsOn": ["^build"]
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "APP_VARIANT=development nx start mobile --dev-client --clear"
+      }
+    },
+    "dev-ios": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "APP_VARIANT=development nx run-ios mobile"
+      }
+    },
+    "dev-android": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "APP_VARIANT=development nx run-android mobile"
+      }
+    },
+    "prebuild": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/mobile",
+        "command": "expo prebuild"
+      }
+    },
+    "update": {
+      "command": "eas update",
+      "options": { "cwd": "{projectRoot}" },
+      "dependsOn": ["^build"]
+    }
+  }
+}

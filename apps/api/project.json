@@ -1,0 +1,66 @@
+{
+  "name": "api",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/api/src",
+  "targets": {
+    "build": {
+      "cache": true,
+      "executor": "@monodon/rust:build",
+      "outputs": ["{options.target-dir}"],
+      "options": {
+        "target-dir": "dist/target/api"
+      },
+      "configurations": {
+        "production": {
+          "release": true
+        }
+      }
+    },
+    "test": {
+      "cache": true,
+      "executor": "@monodon/rust:test",
+      "outputs": ["{options.target-dir}"],
+      "options": {
+        "target-dir": "dist/target/api"
+      },
+      "configurations": {
+        "production": {
+          "release": true
+        }
+      }
+    },
+    "lint": {
+      "cache": true,
+      "executor": "@monodon/rust:lint",
+      "outputs": ["{options.target-dir}"],
+      "options": {
+        "target-dir": "dist/target/api"
+      }
+    },
+    "run": {
+      "executor": "@monodon/rust:run",
+      "outputs": ["{options.target-dir}"],
+      "options": {
+        "target-dir": "dist/target/api"
+      },
+      "configurations": {
+        "production": {
+          "release": true
+        }
+      }
+    },
+    "generate-openapi": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": ["build"],
+      "outputs": ["{projectRoot}/.openapi/*"],
+      "inputs": ["default", "{projectRoot}/src/**/*"],
+      "options": {
+        "command": "./dist/target/api/debug/api --emit-openapi apps/api/.openapi/openapi.json",
+        "cwd": "."
+      }
+    }
+  },
+  "tags": []
+}

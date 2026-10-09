@@ -1,0 +1,114 @@
+services:
+  db:
+    build:
+      context: .
+      dockerfile: apps/postgres/Dockerfile
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - '${DB_PORT}:5432'
+    volumes:
+      - ./tmp/db-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:latest
+    restart: unless-stopped
+    ports:
+      - '${REDIS_PORT}:6379'
+    command: redis-server --appendonly yes
+    volumes:
+      - ./tmp/redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  typesense:
+    image: typesense/typesense:30.1
+    restart: unless-stopped
+    ports:
+      - '${TYPESENSE_PORT}:8108'
+    environment:
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY}
+    volumes:
+      - ./tmp/typesense-data:/data
+    command: >
+      --data-dir /data
+      --enable-cors
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-admin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-password123}
+    ports:
+      - '${S3_PORT:-9900}:9000'
+      - '${S3_CONSOLE_PORT:-9901}:9001'
+    volumes:
+      - ./tmp/minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio-setup:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-admin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-password123}
+      S3_BUCKET: ${S3_BUCKET:-avatars}
+      S3_IMPORTS_BUCKET: ${S3_IMPORTS_BUCKET:-imports}
+    entrypoint: >
+      /bin/sh -c "
+      echo Waiting for MinIO...;
+      mc alias set myminio http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
+
+      if ! mc ls myminio/$${S3_BUCKET} > /dev/null 2>&1; then
+        echo Creating bucket $${S3_BUCKET}...;
+        mc mb myminio/$${S3_BUCKET};
+
+        mc anonymous set download myminio/$${S3_BUCKET};
+        echo Bucket $${S3_BUCKET} created and set to public read.;
+      else
+        echo Bucket $${S3_BUCKET} already exists.;
+      fi
+
+      if ! mc ls myminio/$${S3_IMPORTS_BUCKET} > /dev/null 2>&1; then
+        echo Creating bucket $${S3_IMPORTS_BUCKET}...;
+        mc mb myminio/$${S3_IMPORTS_BUCKET};
+        echo Bucket $${S3_IMPORTS_BUCKET} created - private, no anonymous access.;
+      else
+        echo Bucket $${S3_IMPORTS_BUCKET} already exists.;
+      fi
+      "
+
+  assets-sync:
+    build:
+      context: .
+      dockerfile: libs/assets/Dockerfile
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      S3_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-admin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-password123}
+      S3_BUCKET: ${S3_BUCKET:-avatars}
+      S3_ASSETS_PREFIX: static
+    volumes:
+      - ./libs/assets/static:/static:ro

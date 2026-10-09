@@ -1,0 +1,12 @@
+{
+  "common": {
+    "messages": {
+      "welcome": "Welcome"
+    }
+  },
+  "pages": {
+    "home": {
+      "title": "Home"
+    }
+  }
+}

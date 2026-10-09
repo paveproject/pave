@@ -1,0 +1,345 @@
+{
+  "id": "36858a90-8134-4843-98ba-5182f070f282",
+  "prevId": "d3273634-2dff-400d-9ee9-88d152aa2429",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "i18n.countries": {
+      "name": "countries",
+      "schema": "i18n",
+      "columns": {
+        "iso_3166_1": {
+          "name": "iso_3166_1",
+          "type": "char(2)",
+          "primaryKey": true,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "i18n.default_countries": {
+      "name": "default_countries",
+      "schema": "i18n",
+      "columns": {
+        "iso_639_1": {
+          "name": "iso_639_1",
+          "type": "char(2)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "iso_3166_1": {
+          "name": "iso_3166_1",
+          "type": "char(2)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "default_countries_iso_639_1_languages_iso_639_1_fk": {
+          "name": "default_countries_iso_639_1_languages_iso_639_1_fk",
+          "tableFrom": "default_countries",
+          "tableTo": "languages",
+          "schemaTo": "i18n",
+          "columnsFrom": ["iso_639_1"],
+          "columnsTo": ["iso_639_1"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "default_countries_iso_3166_1_countries_iso_3166_1_fk": {
+          "name": "default_countries_iso_3166_1_countries_iso_3166_1_fk",
+          "tableFrom": "default_countries",
+          "tableTo": "countries",
+          "schemaTo": "i18n",
+          "columnsFrom": ["iso_3166_1"],
+          "columnsTo": ["iso_3166_1"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "i18n.languages": {
+      "name": "languages",
+      "schema": "i18n",
+      "columns": {
+        "iso_639_1": {
+          "name": "iso_639_1",
+          "type": "char(2)",
+          "primaryKey": true,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "i18n.supported_languages": {
+      "name": "supported_languages",
+      "schema": "i18n",
+      "columns": {
+        "iso_639_1": {
+          "name": "iso_639_1",
+          "type": "char(2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "iso_3166_1": {
+          "name": "iso_3166_1",
+          "type": "char(2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "language": {
+          "name": "language",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "generated": {
+            "as": "CASE WHEN iso_3166_1 IS NULL THEN iso_639_1 ELSE iso_639_1 || '-' || iso_3166_1 END",
+            "type": "stored"
+          }
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "supported_languages_iso_639_1_languages_iso_639_1_fk": {
+          "name": "supported_languages_iso_639_1_languages_iso_639_1_fk",
+          "tableFrom": "supported_languages",
+          "tableTo": "languages",
+          "schemaTo": "i18n",
+          "columnsFrom": ["iso_639_1"],
+          "columnsTo": ["iso_639_1"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "supported_languages_iso_3166_1_countries_iso_3166_1_fk": {
+          "name": "supported_languages_iso_3166_1_countries_iso_3166_1_fk",
+          "tableFrom": "supported_languages",
+          "tableTo": "countries",
+          "schemaTo": "i18n",
+          "columnsFrom": ["iso_3166_1"],
+          "columnsTo": ["iso_3166_1"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "system.config": {
+      "name": "config",
+      "schema": "system",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "varchar(255)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.profile": {
+      "name": "profile",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "bio": {
+          "name": "bio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "background_image": {
+          "name": "background_image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "welcomed_at": {
+          "name": "welcomed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.push_token": {
+      "name": "push_token",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "push_provider_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "device_type": {
+          "name": "device_type",
+          "type": "device_type_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'web'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "idx_push_token_user_id": {
+          "name": "idx_push_token_user_id",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_push_token_session_id": {
+          "name": "idx_push_token_session_id",
+          "columns": [
+            {
+              "expression": "session_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "unique_user_token_provider": {
+          "name": "unique_user_token_provider",
+          "nullsNotDistinct": false,
+          "columns": ["user_id", "token", "provider"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.device_type_enum": {
+      "name": "device_type_enum",
+      "schema": "public",
+      "values": ["web", "ios", "android"]
+    },
+    "public.push_provider_enum": {
+      "name": "push_provider_enum",
+      "schema": "public",
+      "values": ["fcm", "apns"]
+    }
+  },
+  "schemas": {
+    "i18n": "i18n",
+    "system": "system"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

@@ -1,0 +1,30 @@
+name: PR Title Check
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize]
+
+jobs:
+  check-title:
+    name: 📝 Check PR Title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip for Release Please PRs
+        if: ${{ startsWith(github.head_ref, 'release-please--branches') }}
+        run: echo "Skipping PR title check for Release Please PRs."
+
+      - name: Verify Conventional Commits
+        if: ${{ !startsWith(github.head_ref, 'release-please--branches') }}
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          scopes: |
+            api
+            mobile
+            notify
+            worker
+            deps
+            repo
+            auth
+          requireScope: false

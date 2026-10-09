@@ -1,0 +1,37 @@
+{
+  "name": "i18n",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/i18n/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/i18n",
+        "main": "libs/i18n/src/index.ts",
+        "tsConfig": "libs/i18n/tsconfig.lib.json",
+        "assets": ["libs/i18n/*.md"]
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default", "^production"],
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "bun test --parallel --no-env-file --pass-with-no-tests"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default", "^production"],
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "tsc -p tsconfig.spec.json --noEmit"
+      }
+    }
+  }
+}

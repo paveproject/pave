@@ -1,0 +1,21 @@
+{
+  "name": "@libs/api-js",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "tslib": "^2.3.0",
+    "@hey-api/openapi-ts": "0.91.0",
+    "socket.io-client": "^4.8.3",
+    "@libs/notify-types": "workspace:*",
+    "@libs/realtime": "workspace:*"
+  }
+}

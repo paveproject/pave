@@ -1,0 +1,10 @@
+
+[workspace]
+resolver = '2'
+members = [
+	'apps/api',
+	'libs/auth',
+]
+
+[profile.release]
+lto = true

@@ -1,0 +1,108 @@
+name: 💾 Save Fingerprint
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        description: 'Platform whose fingerprint to (re)compute and commit'
+        required: true
+        type: string
+
+jobs:
+  save-fingerprint:
+    name: 💾 Save Fingerprint (${{ inputs.platform }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.MOBILE_FINGERPRINT_PAT }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - run: bun install --frozen-lockfile
+
+      - name: 📝 Prepare Environment Files
+        run: |
+          cat <<EOF > apps/mobile/.env
+          APP_VARIANT=production
+          EXPO_PUBLIC_API_URL="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_API_URL }}"
+          EXPO_PUBLIC_WEB_APP="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_WEB_APP }}"
+          EXPO_PUBLIC_FACEBOOK_APP_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_FACEBOOK_APP_ID }}"
+          EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN }}"
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}"
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}"
+          EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY }}"
+          EXPO_PUBLIC_SENTRY_DSN="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_SENTRY_DSN }}"
+          SENTRY_AUTH_TOKEN="${{ secrets.INFISICAL_MOBILE_SENTRY_AUTH_TOKEN }}"
+          SENTRY_ORG="${{ secrets.INFISICAL_MOBILE_SENTRY_ORG }}"
+          SENTRY_PROJECT="${{ secrets.INFISICAL_MOBILE_SENTRY_PROJECT }}"
+          SENTRY_DISABLE_AUTO_UPLOAD="${{ secrets.INFISICAL_MOBILE_SENTRY_DISABLE_AUTO_UPLOAD }}"
+          TMDB_IMAGE_BASE_URL="${{ secrets.INFISICAL_MOBILE_TMDB_IMAGE_BASE_URL }}"
+          EOF
+
+      - name: 🔑 Decode Google Services files
+        run: |
+          echo "${{ secrets.INFISICAL_MOBILE_GOOGLE_SERVICES_ANDROID_BASE64 }}" | base64 --decode > apps/mobile/google-services.json
+          echo "${{ secrets.INFISICAL_MOBILE_GOOGLE_SERVICES_IOS_BASE64 }}" | base64 --decode > apps/mobile/GoogleService-Info.plist
+
+      - name: 🔍 Calculate fingerprint
+        id: current
+        working-directory: apps/mobile
+        run: |
+          HASH=$(bunx @expo/fingerprint fingerprint:generate --platform ${{ inputs.platform }} | jq -r '.hash')
+          echo "Computed ${{ inputs.platform }} fingerprint: $HASH"
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+
+      - name: 💾 Commit and Push Fingerprint
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          FILE="apps/mobile/.eas-fingerprint-${{ inputs.platform }}"
+
+          # This job's checkout can be behind main by the time it runs (native
+          # builds take a while), and it may race another Save Fingerprint run
+          # for the other platform. Re-sync onto main's tip and retry the push
+          # a few times instead of failing outright on a non-fast-forward.
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git checkout -B main origin/main
+
+            echo "${{ steps.current.outputs.hash }}" > "$FILE"
+            git add "$FILE"
+
+            if git diff --staged --quiet; then
+              echo "No changes to commit"
+              break
+            fi
+
+            git commit -m "chore(mobile): update build fingerprint"
+
+            if git push origin main; then
+              break
+            fi
+
+            echo "Push rejected (attempt $attempt/5), retrying..."
+            sleep $(( (RANDOM % 5) + 1 ))
+          done
+
+      - name: 🧹 Cleanup
+        if: always()
+        run: |
+          rm -f apps/mobile/.env
+          rm -f apps/mobile/google-services.json
+          rm -f apps/mobile/GoogleService-Info.plist

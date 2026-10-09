@@ -1,0 +1,19 @@
+{
+  "name": "notify-types",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/notify-types/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/notify-types",
+        "main": "libs/notify-types/src/index.ts",
+        "tsConfig": "libs/notify-types/tsconfig.lib.json",
+        "assets": ["libs/notify-types/*.md"]
+      }
+    }
+  },
+  "tags": []
+}

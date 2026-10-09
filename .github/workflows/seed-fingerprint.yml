@@ -1,0 +1,92 @@
+name: 🌱 Seed Fingerprint
+
+on:
+  workflow_dispatch:
+
+jobs:
+  seed-fingerprint:
+    name: 🌱 Compute & Commit Baseline Fingerprint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.MOBILE_FINGERPRINT_PAT }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - run: bun install --frozen-lockfile
+
+      - name: 📝 Prepare Environment Files
+        run: |
+          cat <<EOF > apps/mobile/.env
+          APP_VARIANT=production
+          EXPO_PUBLIC_API_URL="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_API_URL }}"
+          EXPO_PUBLIC_WEB_APP="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_WEB_APP }}"
+          EXPO_PUBLIC_FACEBOOK_APP_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_FACEBOOK_APP_ID }}"
+          EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN }}"
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}"
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}"
+          EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY }}"
+          EXPO_PUBLIC_SENTRY_DSN="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_SENTRY_DSN }}"
+          SENTRY_AUTH_TOKEN="${{ secrets.INFISICAL_MOBILE_SENTRY_AUTH_TOKEN }}"
+          SENTRY_ORG="${{ secrets.INFISICAL_MOBILE_SENTRY_ORG }}"
+          SENTRY_PROJECT="${{ secrets.INFISICAL_MOBILE_SENTRY_PROJECT }}"
+          SENTRY_DISABLE_AUTO_UPLOAD="${{ secrets.INFISICAL_MOBILE_SENTRY_DISABLE_AUTO_UPLOAD }}"
+          TMDB_IMAGE_BASE_URL="${{ secrets.INFISICAL_MOBILE_TMDB_IMAGE_BASE_URL }}"
+          EOF
+
+      - name: 🔑 Decode Google Services files
+        run: |
+          echo "${{ secrets.INFISICAL_MOBILE_GOOGLE_SERVICES_ANDROID_BASE64 }}" | base64 --decode > apps/mobile/google-services.json
+          echo "${{ secrets.INFISICAL_MOBILE_GOOGLE_SERVICES_IOS_BASE64 }}" | base64 --decode > apps/mobile/GoogleService-Info.plist
+
+      - name: 🔍 Calculate current fingerprints
+        id: current
+        working-directory: apps/mobile
+        run: |
+          IOS_HASH=$(bunx @expo/fingerprint fingerprint:generate --platform ios | jq -r '.hash')
+          ANDROID_HASH=$(bunx @expo/fingerprint fingerprint:generate --platform android | jq -r '.hash')
+          echo "Computed iOS fingerprint: $IOS_HASH"
+          echo "Computed Android fingerprint: $ANDROID_HASH"
+          echo "ios_hash=$IOS_HASH" >> "$GITHUB_OUTPUT"
+          echo "android_hash=$ANDROID_HASH" >> "$GITHUB_OUTPUT"
+
+      - name: 💾 Commit and Push Fingerprint
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          echo "${{ steps.current.outputs.ios_hash }}" > apps/mobile/.eas-fingerprint-ios
+          echo "${{ steps.current.outputs.android_hash }}" > apps/mobile/.eas-fingerprint-android
+          git add apps/mobile/.eas-fingerprint-ios apps/mobile/.eas-fingerprint-android
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            # Same message as save-fingerprint's commits (mobile-router.yml), so the
+            # CD Pipeline / Release Please skip guards already in place for it also
+            # apply here — no separate exclusion needed.
+            git commit -m "chore(mobile): update build fingerprint"
+            git push origin HEAD:main
+          fi
+
+      - name: 🧹 Cleanup
+        if: always()
+        run: |
+          rm -f apps/mobile/.env
+          rm -f apps/mobile/google-services.json
+          rm -f apps/mobile/GoogleService-Info.plist

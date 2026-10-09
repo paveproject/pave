@@ -1,0 +1,331 @@
+name: 📱 Mobile Router
+
+on:
+  push:
+    tags:
+      - 'mobile@*'
+  workflow_dispatch:
+
+jobs:
+  check-fingerprint:
+    name: 🔍 Check Fingerprint
+    runs-on: ubuntu-latest
+    outputs:
+      ios_fingerprint_changed: ${{ steps.decide.outputs.ios_fingerprint_changed }}
+      android_fingerprint_changed: ${{ steps.decide.outputs.android_fingerprint_changed }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - run: bun install --frozen-lockfile
+
+      - uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.INFISICAL_EXPO_TOKEN }}
+
+      - name: 📝 Prepare Environment Files
+        run: |
+          cat <<EOF > apps/mobile/.env
+          APP_VARIANT=production
+          EXPO_PUBLIC_API_URL="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_API_URL }}"
+          EXPO_PUBLIC_WEB_APP="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_WEB_APP }}"
+          EXPO_PUBLIC_FACEBOOK_APP_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_FACEBOOK_APP_ID }}"
+          EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN }}"
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}"
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}"
+          EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY }}"
+          EXPO_PUBLIC_SENTRY_DSN="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_SENTRY_DSN }}"
+          SENTRY_AUTH_TOKEN="${{ secrets.INFISICAL_MOBILE_SENTRY_AUTH_TOKEN }}"
+          SENTRY_ORG="${{ secrets.INFISICAL_MOBILE_SENTRY_ORG }}"
+          SENTRY_PROJECT="${{ secrets.INFISICAL_MOBILE_SENTRY_PROJECT }}"
+          SENTRY_DISABLE_AUTO_UPLOAD="${{ secrets.INFISICAL_MOBILE_SENTRY_DISABLE_AUTO_UPLOAD }}"
+          TMDB_IMAGE_BASE_URL="${{ secrets.INFISICAL_MOBILE_TMDB_IMAGE_BASE_URL }}"
+          EOF
+
+      - name: 🔑 Decode Google Services files
+        run: |
+          echo "${{ secrets.INFISICAL_MOBILE_GOOGLE_SERVICES_ANDROID_BASE64 }}" | base64 --decode > apps/mobile/google-services.json
+          echo "${{ secrets.INFISICAL_MOBILE_GOOGLE_SERVICES_IOS_BASE64 }}" | base64 --decode > apps/mobile/GoogleService-Info.plist
+
+      - name: 🔍 Calculate current fingerprints
+        id: current
+        working-directory: apps/mobile
+        run: |
+          IOS_HASH=$(bunx @expo/fingerprint fingerprint:generate --platform ios | jq -r '.hash')
+          ANDROID_HASH=$(bunx @expo/fingerprint fingerprint:generate --platform android | jq -r '.hash')
+          echo "Current iOS fingerprint: $IOS_HASH"
+          echo "Current Android fingerprint: $ANDROID_HASH"
+          echo "ios_hash=$IOS_HASH" >> "$GITHUB_OUTPUT"
+          echo "android_hash=$ANDROID_HASH" >> "$GITHUB_OUTPUT"
+
+      - name: 🧭 Compare Fingerprints
+        id: decide
+        run: |
+          compare() {
+            local platform="$1" current="$2" file="$3"
+            if [ -f "$file" ]; then
+              local last
+              last=$(cat "$file")
+              echo "Last $platform fingerprint: $last" >&2
+            else
+              local last=""
+              echo "No previous $platform build found" >&2
+            fi
+
+            if [ "$current" == "$last" ]; then
+              echo "✅ Identical $platform fingerprint -> also push an OTA update for installs still on it" >&2
+              echo "false"
+            else
+              echo "⚠️ Different $platform fingerprint -> native build" >&2
+              echo "true"
+            fi
+          }
+
+          IOS_CHANGED=$(compare ios "${{ steps.current.outputs.ios_hash }}" apps/mobile/.eas-fingerprint-ios)
+          ANDROID_CHANGED=$(compare android "${{ steps.current.outputs.android_hash }}" apps/mobile/.eas-fingerprint-android)
+
+          echo "ios_fingerprint_changed=$IOS_CHANGED" >> "$GITHUB_OUTPUT"
+          echo "android_fingerprint_changed=$ANDROID_CHANGED" >> "$GITHUB_OUTPUT"
+
+      - name: 🧹 Cleanup
+        if: always()
+        run: |
+          rm -f apps/mobile/.env
+          rm -f apps/mobile/google-services.json
+          rm -f apps/mobile/GoogleService-Info.plist
+
+  ota-update:
+    name: ⚡ OTA Update
+    needs: check-fingerprint
+    if: |
+      needs.check-fingerprint.outputs.ios_fingerprint_changed == 'false' ||
+      needs.check-fingerprint.outputs.android_fingerprint_changed == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - run: bun install --frozen-lockfile
+      - uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.INFISICAL_EXPO_TOKEN }}
+
+      - name: 📝 Prepare Environment Files
+        run: |
+          cat <<EOF > apps/mobile/.env
+          APP_VARIANT=production
+          EXPO_PUBLIC_API_URL="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_API_URL }}"
+          EXPO_PUBLIC_WEB_APP="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_WEB_APP }}"
+          EXPO_PUBLIC_FACEBOOK_APP_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_FACEBOOK_APP_ID }}"
+          EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN }}"
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}"
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}"
+          EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY }}"
+          EXPO_PUBLIC_SENTRY_DSN="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_SENTRY_DSN }}"
+          SENTRY_AUTH_TOKEN="${{ secrets.INFISICAL_MOBILE_SENTRY_AUTH_TOKEN }}"
+          SENTRY_ORG="${{ secrets.INFISICAL_MOBILE_SENTRY_ORG }}"
+          SENTRY_PROJECT="${{ secrets.INFISICAL_MOBILE_SENTRY_PROJECT }}"
+          SENTRY_DISABLE_AUTO_UPLOAD="${{ secrets.INFISICAL_MOBILE_SENTRY_DISABLE_AUTO_UPLOAD }}"
+          TMDB_IMAGE_BASE_URL="${{ secrets.INFISICAL_MOBILE_TMDB_IMAGE_BASE_URL }}"
+          EOF
+
+      - name: 🔑 Decode Google Services files
+        run: |
+          echo "${{ secrets.INFISICAL_MOBILE_GOOGLE_SERVICES_ANDROID_BASE64 }}" | base64 --decode > apps/mobile/google-services.json
+          echo "${{ secrets.INFISICAL_MOBILE_GOOGLE_SERVICES_IOS_BASE64 }}" | base64 --decode > apps/mobile/GoogleService-Info.plist
+
+      - name: 🧭 Resolve target platform
+        id: platforms
+        run: |
+          # `eas update --platform` only accepts a single value: android|ios|all.
+          IOS_OK="${{ needs.check-fingerprint.outputs.ios_fingerprint_changed == 'false' }}"
+          ANDROID_OK="${{ needs.check-fingerprint.outputs.android_fingerprint_changed == 'false' }}"
+
+          if [ "$IOS_OK" == "true" ] && [ "$ANDROID_OK" == "true" ]; then
+            PLATFORM="all"
+          elif [ "$IOS_OK" == "true" ]; then
+            PLATFORM="ios"
+          else
+            PLATFORM="android"
+          fi
+
+          echo "Publishing OTA for: $PLATFORM"
+          echo "value=$PLATFORM" >> "$GITHUB_OUTPUT"
+
+      - name: 🚀 EAS Update
+        run: |
+          bunx nx update mobile \
+            --channel production \
+            --message "Release ${{ github.ref_name }}" \
+            --environment production \
+            --platform "${{ steps.platforms.outputs.value }}" \
+            --non-interactive
+
+      - name: 🧹 Cleanup
+        if: always()
+        run: |
+          rm -f apps/mobile/.env
+          rm -f apps/mobile/google-services.json
+          rm -f apps/mobile/GoogleService-Info.plist
+
+  call-ios-build:
+    name: 🍏 Build iOS
+    needs: check-fingerprint
+    uses: ./.github/workflows/build-submit-ios.yml
+    # This router already saves both platforms' fingerprints itself below,
+    # in one job — the called workflow's own Save Fingerprint job must stay
+    # off here or two parallel runs would race to push to main.
+    with:
+      skip_fingerprint_save: true
+    secrets: inherit
+
+  call-android-build-eas:
+    name: 🤖☁️ Build Android (EAS Cloud)
+    needs: check-fingerprint
+    uses: ./.github/workflows/build-submit-android-eas.yml
+    with:
+      skip_fingerprint_save: true
+    secrets: inherit
+
+  call-android-build:
+    name: 🤖 Build Android (Self-Hosted fallback)
+    needs: [check-fingerprint, call-android-build-eas]
+    if: needs.call-android-build-eas.result == 'failure'
+    uses: ./.github/workflows/build-submit-android.yml
+    with:
+      skip_fingerprint_save: true
+    secrets: inherit
+
+  save-fingerprint:
+    name: 💾 Save Fingerprint
+    needs: [check-fingerprint, call-ios-build, call-android-build-eas, call-android-build]
+    if: |
+      always() &&
+      (needs.call-ios-build.result == 'success' ||
+       needs.call-android-build-eas.result == 'success' ||
+       needs.call-android-build.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.MOBILE_FINGERPRINT_PAT }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - run: bun install --frozen-lockfile
+
+      - name: 📝 Prepare Environment Files
+        run: |
+          cat <<EOF > apps/mobile/.env
+          APP_VARIANT=production
+          EXPO_PUBLIC_API_URL="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_API_URL }}"
+          EXPO_PUBLIC_WEB_APP="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_WEB_APP }}"
+          EXPO_PUBLIC_FACEBOOK_APP_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_FACEBOOK_APP_ID }}"
+          EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN }}"
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}"
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}"
+          EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY }}"
+          EXPO_PUBLIC_SENTRY_DSN="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_SENTRY_DSN }}"
+          SENTRY_AUTH_TOKEN="${{ secrets.INFISICAL_MOBILE_SENTRY_AUTH_TOKEN }}"
+          SENTRY_ORG="${{ secrets.INFISICAL_MOBILE_SENTRY_ORG }}"
+          SENTRY_PROJECT="${{ secrets.INFISICAL_MOBILE_SENTRY_PROJECT }}"
+          SENTRY_DISABLE_AUTO_UPLOAD="${{ secrets.INFISICAL_MOBILE_SENTRY_DISABLE_AUTO_UPLOAD }}"
+          TMDB_IMAGE_BASE_URL="${{ secrets.INFISICAL_MOBILE_TMDB_IMAGE_BASE_URL }}"
+          EOF
+
+      - name: 🔑 Decode Google Services files
+        run: |
+          echo "${{ secrets.INFISICAL_MOBILE_GOOGLE_SERVICES_ANDROID_BASE64 }}" | base64 --decode > apps/mobile/google-services.json
+          echo "${{ secrets.INFISICAL_MOBILE_GOOGLE_SERVICES_IOS_BASE64 }}" | base64 --decode > apps/mobile/GoogleService-Info.plist
+
+      - name: 🔍 Re-calculate fingerprints
+        working-directory: apps/mobile
+        run: |
+          # Only recompute (and later save) a platform's fingerprint if that
+          # platform's build actually succeeded — the other platform failing
+          # must not block it.
+          if [ "${{ needs.call-ios-build.result }}" == "success" ]; then
+            IOS_HASH=$(bunx @expo/fingerprint fingerprint:generate --platform ios | jq -r '.hash')
+            echo "IOS_HASH=$IOS_HASH" >> "$GITHUB_ENV"
+          else
+            echo "iOS build did not succeed, skipping its fingerprint"
+          fi
+
+          if [ "${{ needs.call-android-build-eas.result == 'success' || needs.call-android-build.result == 'success' }}" == "true" ]; then
+            ANDROID_HASH=$(bunx @expo/fingerprint fingerprint:generate --platform android | jq -r '.hash')
+            echo "ANDROID_HASH=$ANDROID_HASH" >> "$GITHUB_ENV"
+          else
+            echo "Android build did not succeed, skipping its fingerprint"
+          fi
+
+      - name: 💾 Commit and Push Fingerprint
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # This job checks out the tag that triggered the build, which can be
+          # behind main by the time the native builds finish. Committing the
+          # fingerprint straight onto main from that detached, possibly-stale
+          # checkout would risk a non-fast-forward push, so switch to main's
+          # current tip first — only the fingerprint files themselves need to
+          # land there, not the rest of the tag's tree.
+          git fetch origin main
+          git checkout -B main origin/main
+
+          if [ -n "$IOS_HASH" ]; then
+            echo "$IOS_HASH" > apps/mobile/.eas-fingerprint-ios
+            git add apps/mobile/.eas-fingerprint-ios
+          fi
+          if [ -n "$ANDROID_HASH" ]; then
+            echo "$ANDROID_HASH" > apps/mobile/.eas-fingerprint-android
+            git add apps/mobile/.eas-fingerprint-android
+          fi
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore(mobile): update build fingerprint"
+            git push origin main
+          fi
+
+      - name: 🧹 Cleanup
+        if: always()
+        run: |
+          rm -f apps/mobile/.env
+          rm -f apps/mobile/google-services.json
+          rm -f apps/mobile/GoogleService-Info.plist

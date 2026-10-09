@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "bun",
+      "request": "launch",
+      "name": "Debug notify",
+      "preLaunchTask": "build notify",
+      "program": "${workspaceFolder}/dist/apps/notify/main.js",
+      "cwd": "${workspaceFolder}",
+      "runtimeArgs": ["--env-file=.env", "--env-file=apps/notify/.env"]
+    },
+    {
+      "type": "bun",
+      "request": "launch",
+      "name": "Debug worker",
+      "preLaunchTask": "build worker",
+      "program": "${workspaceFolder}/dist/apps/worker/main.js",
+      "cwd": "${workspaceFolder}",
+      "runtimeArgs": ["--env-file=.env", "--env-file=apps/worker/.env"]
+    }
+  ]
+}

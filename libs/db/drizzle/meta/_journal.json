@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1788610922536,
+      "tag": "0000_productive_demogoblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788610923366,
+      "tag": "0001_create_i18n_function",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788610924608,
+      "tag": "0002_create_slugify_function",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788610926065,
+      "tag": "0003_enable_postgis_extension",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791551234653,
+      "tag": "0004_grey_dark_beast",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791551438983,
+      "tag": "0005_soft_squadron_sinister",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791552093806,
+      "tag": "0006_rename_profile_to_user",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791561638480,
+      "tag": "0007_mushy_patriot",
+      "breakpoints": true
+    }
+  ]
+}

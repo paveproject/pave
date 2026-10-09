@@ -1,0 +1,85 @@
+{
+  "name": "db",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/db/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "db-seed": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun libs/db/scripts/seed.ts",
+        "cwd": "."
+      }
+    },
+    "db-generate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "drizzle-kit generate --config=libs/db/drizzle.config.ts",
+        "cwd": "."
+      }
+    },
+    "db-push": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "drizzle-kit push --config=libs/db/drizzle.config.ts",
+        "cwd": "."
+      }
+    },
+    "db-migrate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "drizzle-kit migrate --config=libs/db/drizzle.config.ts",
+        "cwd": "."
+      }
+    },
+    "db-studio": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "drizzle-kit studio --config=libs/db/drizzle.config.ts --port 4984",
+        "cwd": "."
+      }
+    },
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/db",
+        "tsConfig": "libs/db/tsconfig.lib.json",
+        "packageJson": "libs/db/package.json",
+        "main": "libs/db/src/index.ts",
+        "assets": ["libs/db/*.md"]
+      }
+    },
+    "build-migrator": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/db-migrator",
+        "main": "libs/db/scripts/run-setup.ts",
+        "tsConfig": "libs/db/tsconfig.lib.json",
+        "platform": "node",
+        "bundle": true,
+        "format": ["cjs"],
+        "generatePackageJson": false,
+        "thirdParty": true,
+        "external": ["pg-native"],
+        "assets": [
+          {
+            "glob": "**/*",
+            "input": "libs/db/drizzle",
+            "output": "./drizzle"
+          }
+        ]
+      }
+    },
+    "docker-build": {
+      "dependsOn": ["build-migrator"],
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": ["docker build -f libs/db/Dockerfile --tag db:latest ."],
+        "parallel": false
+      }
+    }
+  }
+}

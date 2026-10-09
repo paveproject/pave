@@ -1,0 +1,62 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  main:
+    name: 🧪 Lint, Test & Build
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip for Release Please PRs
+        if: ${{ startsWith(github.head_ref, 'release-please--branches') }}
+        run: echo "Skipping CI for Release Please PRs."
+
+      - name: ⬇️ Checkout Code
+        if: ${{ !startsWith(github.head_ref, 'release-please--branches') }}
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: 📦 Setup Bun
+        if: ${{ !startsWith(github.head_ref, 'release-please--branches') }}
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: 🔧 Setup Node.js
+        if: ${{ !startsWith(github.head_ref, 'release-please--branches') }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: 🗄️ Cache Bun install
+        if: ${{ !startsWith(github.head_ref, 'release-please--branches') }}
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: ⚙️ Install Dependencies
+        if: ${{ !startsWith(github.head_ref, 'release-please--branches') }}
+        run: bun install --frozen-lockfile
+
+      - name: 🧠 Initialize Nx SHAs
+        if: ${{ !startsWith(github.head_ref, 'release-please--branches') }}
+        uses: nrwl/nx-set-shas@v5
+
+      - name: 🧹 Run Lint (Affected)
+        if: ${{ !startsWith(github.head_ref, 'release-please--branches') }}
+        run: bunx nx affected -t lint --parallel=3
+
+      - name: 🧪 Run Tests (Affected)
+        if: ${{ !startsWith(github.head_ref, 'release-please--branches') }}
+        run: bunx nx affected -t test --parallel=3

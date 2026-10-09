@@ -1,0 +1,46 @@
+.git
+.github
+.vscode
+.idea
+
+.nx
+.expo
+.eas
+dist
+tmp
+coverage
+web-build
+.metro-health-check*
+*.tsbuildinfo
+
+node_modules
+
+# Only apps/mobile is built on EAS, but Bun needs every workspace's package.json to
+# install the same dependency graph as bun.lock (and the same isolated store paths,
+# which Expo's fingerprint depends on).
+/apps/*/*
+!/apps/*/package.json
+!/apps/mobile/*
+
+ios/
+android/
+
+*.apk
+*.aab
+*.ipa
+*.tar.gz
+*.orig.*
+
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+credentials/
+credentials.json
+google-services*.json
+GoogleService-Info*.plist
+
+.env
+.env*.local

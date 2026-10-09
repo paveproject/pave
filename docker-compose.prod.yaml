@@ -1,0 +1,21 @@
+services:
+  api:
+    image: api:latest
+    env_file:
+      - .env
+    ports:
+      - '3001:3000'
+    restart: unless-stopped
+
+  worker:
+    image: worker:latest
+    env_file:
+      - .env
+    depends_on:
+      - api
+    restart: unless-stopped
+  notify:
+    image: notify:latest
+    env_file:
+      - .env
+    restart: unless-stopped

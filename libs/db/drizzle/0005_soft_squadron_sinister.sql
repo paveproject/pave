@@ -1,0 +1,1 @@
+ALTER TABLE "push_token" ADD CONSTRAINT "push_token_user_id_profile_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."profile"("id") ON DELETE cascade ON UPDATE no action;

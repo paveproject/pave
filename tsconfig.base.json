@@ -1,0 +1,34 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "es2015",
+    "module": "esnext",
+    "lib": ["es2020", "dom"],
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@libs/env": ["libs/env/src/index.ts"],
+      "@libs/assets": ["libs/assets/src/index.ts"],
+      "@libs/db": ["libs/db/src/index.ts"],
+      "@libs/db/*": ["libs/db/src/lib/*"],
+      "@libs/i18n": ["libs/i18n/src/index.ts"],
+      "@libs/query-client": ["libs/query-client/src/index.ts"],
+      "@libs/api-js": ["libs/api-js/src/index.ts"],
+      "@shared/notify": ["libs/shared/notify/src/index.ts"],
+      "@shared/worker": ["libs/shared/worker/src/index.ts"],
+      "@libs/realtime": ["libs/realtime/src/index.ts"],
+      "@libs/notify-types": ["libs/notify-types/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "tmp"]
+}

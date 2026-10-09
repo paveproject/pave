@@ -1,0 +1,19 @@
+{
+  "name": "assets",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/assets/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "generate": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "options": {
+        "command": "bun libs/assets/scripts/generate-manifest.ts",
+        "cwd": "."
+      },
+      "inputs": ["{projectRoot}/static/**/*", "{projectRoot}/scripts/generate-manifest.ts"],
+      "outputs": ["{projectRoot}/src/__generated__"]
+    }
+  }
+}

@@ -1,0 +1,4 @@
+src/__generated__/
+
+# openapi-ts logs
+openapi-ts*.log
