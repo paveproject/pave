@@ -3,7 +3,7 @@ import tw from '../../lib/tw';
 import * as React from 'react';
 import Animated from 'react-native-reanimated';
 
-type Variant = 'default' | 'destructive' | 'outline' | 'accent-yellow';
+type Variant = 'default' | 'destructive' | 'outline';
 
 interface BadgeTextProps extends React.ComponentPropsWithoutRef<typeof Animated.Text> {
   variant?: Variant;
@@ -24,11 +24,6 @@ const BadgeText = React.forwardRef<React.ComponentRef<typeof Animated.Text>, Bad
         case 'outline':
           style = {
             color: colors.foreground,
-          };
-          break;
-        case 'accent-yellow':
-          style = {
-            color: colors.accentYellowForeground,
           };
           break;
         default:
@@ -75,11 +70,6 @@ const Badge = React.forwardRef<React.ComponentRef<typeof Animated.View>, BadgePr
             backgroundColor: colors.background,
             borderColor: colors.muted,
             borderWidth: 1,
-          };
-          break;
-        case 'accent-yellow':
-          style = {
-            backgroundColor: colors.accentYellow,
           };
           break;
         default:

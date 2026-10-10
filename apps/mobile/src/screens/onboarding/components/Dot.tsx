@@ -38,11 +38,13 @@ const Dot = ({ index, x, colors }: Props) => {
   });
 
   const animatedColor = useAnimatedStyle(() => {
-    const backgroundColor = interpolateColor(
-      x.value,
-      colors.map((_, i) => i * SCREEN_WIDTH),
-      colors,
-    );
+    // interpolateColor needs at least two points - with a single onboarding
+    // screen, `colors` has only one, so interpolate it against itself.
+    const colorInputRange =
+      colors.length > 1 ? colors.map((_, i) => i * SCREEN_WIDTH) : [0, SCREEN_WIDTH];
+    const colorOutputRange = colors.length > 1 ? colors : [colors[0], colors[0]];
+
+    const backgroundColor = interpolateColor(x.value, colorInputRange, colorOutputRange);
 
     return {
       backgroundColor: backgroundColor,

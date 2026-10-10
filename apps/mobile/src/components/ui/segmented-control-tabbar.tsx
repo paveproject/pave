@@ -1,5 +1,4 @@
 import type { MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
-import { upperFirst } from 'lodash';
 import { View } from 'react-native';
 import { PADDING_HORIZONTAL, PADDING_VERTICAL } from '../../theme/globals';
 import { SegmentedControl } from './SegmentedControl';
@@ -36,7 +35,7 @@ export const SegmentedControlTabBar = ({
               : options.title !== undefined
                 ? options.title
                 : option.name;
-          return upperFirst(label);
+          return label;
         })}
         selectedIndex={state.index}
         onChange={(event) =>

@@ -18,8 +18,7 @@ export type ButtonVariant =
   | 'muted'
   | 'ghost'
   | 'link'
-  | 'accent-yellow'
-  | 'accent-blue';
+  | 'secondary';
 
 export type ButtonSize = 'default' | 'sm' | 'lg' | 'icon' | 'fit';
 
@@ -133,15 +132,10 @@ export const Button = forwardRef<View, ButtonProps>(
             height: 'auto',
             paddingHorizontal: 0,
           };
-        case 'accent-yellow':
+        case 'secondary':
           return {
             ...baseStyle,
-            backgroundColor: colors.accentYellow,
-          };
-        case 'accent-blue':
-          return {
-            ...baseStyle,
-            backgroundColor: colors.accentBlue,
+            backgroundColor: colors.secondary,
           };
         default:
           return { ...baseStyle, backgroundColor: primaryColor };
@@ -168,15 +162,10 @@ export const Button = forwardRef<View, ButtonProps>(
             color: colors.foreground,
             textDecorationLine: 'underline',
           };
-        case 'accent-yellow':
+        case 'secondary':
           return {
             ...baseTextStyle,
-            color: colors.accentYellowForeground,
-          };
-        case 'accent-blue':
-          return {
-            ...baseTextStyle,
-            color: colors.accentBlueForeground,
+            color: colors.secondaryForeground,
           };
         default:
           return { ...baseTextStyle, color: primaryForegroundColor };
@@ -197,10 +186,8 @@ export const Button = forwardRef<View, ButtonProps>(
           return colors.foreground;
         case 'link':
           return colors.foreground;
-        case 'accent-yellow':
-          return colors.accentYellowForeground;
-        case 'accent-blue':
-          return colors.accentBlueForeground;
+        case 'secondary':
+          return colors.secondaryForeground;
         default:
           return primaryForegroundColor;
       }

@@ -2,7 +2,7 @@ import { forwardRef } from 'react';
 import { View } from 'react-native';
 import { Card, CardHeader, CardTitle } from './card';
 import { useTranslations } from 'use-intl';
-import { Icons } from '../../constants/Icons';
+import { Icons } from '../../constants/IconsOld';
 import { useTheme } from '../../providers/ThemeProvider';
 import tw from '../../lib/tw';
 
@@ -18,7 +18,7 @@ const Empty = forwardRef<View, EmptyProps>(({ title, description, children, ...p
     <Card>
       <CardHeader style={tw`items-center`}>
         <Icons.Empty color={colors.foreground} />
-        <CardTitle>{title || t('common.messages.is_empty')}</CardTitle>
+        <CardTitle>{title || t('messages.is_empty')}</CardTitle>
       </CardHeader>
       <View
         style={[

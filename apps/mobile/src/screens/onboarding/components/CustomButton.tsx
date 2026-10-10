@@ -14,7 +14,6 @@ import { useNavigation, useRouter } from 'expo-router';
 import { useUIStore } from '../../../stores/useUIStore';
 import { useAuth } from '../../../providers/AuthProvider';
 import { useTranslations } from 'use-intl';
-import { upperFirst } from 'lodash';
 import tw from '../../../lib/tw';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -37,9 +36,15 @@ const CustomButton = ({ data, flatListRef, flatListIndex, x }: Props) => {
   const routes = navigation.getState()?.routes;
   const prevRoute = routes ? routes[routes.length - 2] : null;
 
-  const inputRange = data.map((_, i) => i * SCREEN_WIDTH);
-  const bgColors = data.map((d) => d.backgroundColor);
-  const textColors = data.map((d) => d.textColor);
+  // interpolateColor needs at least two points - with a single onboarding
+  // screen, these would otherwise have only one.
+  const inputRange = data.length > 1 ? data.map((_, i) => i * SCREEN_WIDTH) : [0, SCREEN_WIDTH];
+  const bgColors =
+    data.length > 1
+      ? data.map((d) => d.backgroundColor)
+      : [data[0].backgroundColor, data[0].backgroundColor];
+  const textColors =
+    data.length > 1 ? data.map((d) => d.textColor) : [data[0].textColor, data[0].textColor];
 
   const buttonAnimationStyle = useAnimatedStyle(() => {
     return {
@@ -105,7 +110,7 @@ const CustomButton = ({ data, flatListRef, flatListIndex, x }: Props) => {
     >
       <Animated.View style={[styles.container, buttonAnimationStyle, animatedColor]}>
         <Animated.Text style={[tw`absolute font-semibold`, textAnimationStyle]}>
-          {upperFirst(t('common.messages.get_started'))}
+          {t('messages.get_started')}
         </Animated.Text>
         <Animated.View style={[tw`absolute`, arrowAnimationStyle]}>
           <AnimatedChevron

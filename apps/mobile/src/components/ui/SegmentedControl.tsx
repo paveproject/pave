@@ -31,7 +31,7 @@ const SegmentedControl = forwardRef<RNSegmentedControl, SegmentedControlProps>(
       switch (variant) {
         default:
           return {
-            color: colors.accentYellow,
+            color: colors.primary,
           };
       }
     };

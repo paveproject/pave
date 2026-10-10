@@ -1,0 +1,178 @@
+import { useCallback, useMemo } from 'react';
+import { Alert, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
+import * as Application from 'expo-application';
+import { Host, Button, Icon, Row, FieldGroup, Spacer, Text as NativeText } from '@expo/ui';
+import {
+  background,
+  buttonStyle,
+  controlSize,
+  frame,
+  listRowBackground,
+  scrollContentBackground,
+  tint,
+} from '@expo/ui/swift-ui/modifiers';
+import { fillMaxWidth, background as androidBackground } from '@expo/ui/jetpack-compose/modifiers';
+import { useTranslations } from 'use-intl';
+import { useTheme } from '../../../providers/ThemeProvider';
+import { useAuth } from '../../../providers/AuthProvider';
+import { View } from '../../../components/ui/view';
+import { Avatar } from '../../../components/ui/Avatar';
+import { Icons } from '../../../constants/icons';
+import app from '../../../constants/app';
+
+const SettingsScreen = () => {
+  const router = useRouter();
+  const t = useTranslations();
+  const { user, logout } = useAuth();
+  const { colors, theme, mode } = useTheme();
+
+  const appVersion = useMemo(() => Application.nativeApplicationVersion, []);
+
+  const handleSignIn = useCallback(() => {
+    router.push('/auth');
+  }, [router]);
+
+  const handleAppearance = useCallback(() => {
+    router.push('/settings/appearance');
+  }, [router]);
+
+  const handleAccount = useCallback(() => {
+    router.push('/settings/account');
+  }, [router]);
+
+  const handleSignOut = useCallback(() => {
+    Alert.alert(
+      t('messages.are_u_sure'),
+      undefined,
+      [
+        { text: t('messages.cancel'), style: 'cancel' },
+        { text: t('messages.sign_out'), style: 'destructive', onPress: logout },
+      ],
+      { userInterfaceStyle: mode },
+    );
+  }, [t, logout, mode]);
+
+  const signInModifiers =
+    Platform.OS === 'ios'
+      ? [buttonStyle('glassProminent'), controlSize('extraLarge'), tint(colors.secondary)]
+      : [fillMaxWidth(), androidBackground(colors.secondary)];
+
+  const signInLabelModifiers =
+    Platform.OS === 'ios' ? [frame({ maxWidth: Infinity })] : [fillMaxWidth()];
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <Host style={{ flex: 1, width: '100%' }} seedColor={colors.foreground}>
+        <FieldGroup
+          style={{ backgroundColor: colors.background }}
+          modifiers={
+            Platform.OS === 'ios'
+              ? [
+                  scrollContentBackground('hidden'),
+                  background(colors.background),
+                  tint(colors.foreground),
+                ]
+              : undefined
+          }
+        >
+          <FieldGroup.Section>
+            {!user ? (
+              <Button
+                variant="filled"
+                onPress={handleSignIn}
+                style={{ paddingVertical: theme.spaces.sm }}
+                modifiers={signInModifiers}
+              >
+                <NativeText
+                  textStyle={{ color: colors.secondaryForeground, textAlign: 'center' }}
+                  modifiers={signInLabelModifiers}
+                >
+                  {t('messages.sign_in')}
+                </NativeText>
+              </Button>
+            ) : (
+              <>
+                <Row
+                  spacing={theme.spaces.md}
+                  alignment="center"
+                  modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+                >
+                  <Avatar uri={user.image} size={theme.spaces['4xl']} />
+                  <NativeText textStyle={{ color: colors.foreground }}>
+                    {user.username ? `@${user.username}` : user.name || user.email || ''}
+                  </NativeText>
+                </Row>
+                <Row
+                  spacing={theme.spaces.md}
+                  alignment="center"
+                  onPress={handleAccount}
+                  modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+                >
+                  <Icon name={Icons.user} size={theme.icons.sizes.md} color={colors.foreground} />
+                  <NativeText textStyle={{ color: colors.foreground }}>
+                    {t('messages.account')}
+                  </NativeText>
+                  <Spacer flexible />
+                  <Icon
+                    name={Icons.chevronRight}
+                    size={theme.icons.sizes.sm}
+                    color={colors.mutedForeground}
+                  />
+                </Row>
+                <Row
+                  spacing={theme.spaces.md}
+                  alignment="center"
+                  onPress={handleSignOut}
+                  modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+                >
+                  <Icon
+                    name={Icons.signOut}
+                    size={theme.icons.sizes.md}
+                    color={colors.destructive}
+                  />
+                  <NativeText textStyle={{ color: colors.destructive }}>
+                    {t('messages.sign_out')}
+                  </NativeText>
+                </Row>
+              </>
+            )}
+          </FieldGroup.Section>
+
+          <FieldGroup.Section>
+            <Row
+              spacing={theme.spaces.md}
+              alignment="center"
+              onPress={handleAppearance}
+              modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+            >
+              <Icon name={Icons.appearance} size={theme.icons.sizes.md} color={colors.foreground} />
+              <NativeText textStyle={{ color: colors.foreground }}>
+                {t('messages.appearance')}
+              </NativeText>
+              <Spacer flexible />
+              <Icon
+                name={Icons.chevronRight}
+                size={theme.icons.sizes.sm}
+                color={colors.mutedForeground}
+              />
+            </Row>
+
+            <FieldGroup.SectionFooter>
+              <NativeText
+                textStyle={{ color: colors.mutedForeground, textAlign: 'center' }}
+                modifiers={
+                  Platform.OS === 'ios' ? [frame({ maxWidth: Infinity })] : [fillMaxWidth()]
+                }
+              >
+                {`${app.name} • v${appVersion || 'N/A'}`}
+              </NativeText>
+            </FieldGroup.SectionFooter>
+          </FieldGroup.Section>
+        </FieldGroup>
+      </Host>
+    </View>
+  );
+};
+
+export default SettingsScreen;

@@ -1,5 +1,5 @@
-import { RecomendLogo } from '../lib/icons/RecomendLogo';
-import { RecomendIcon } from '../lib/icons/RecomendIcon';
+import { PaveLogo } from '../lib/icons/PaveLogo';
+import { PaveIcon } from '../lib/icons/PaveIcon';
 import {
   AlertCircleIcon,
   ArchiveIcon,
@@ -84,14 +84,13 @@ import {
   PinIcon,
   PinOffIcon,
 } from 'lucide-react-native';
-import { Premium } from '../lib/icons/Premium';
 import { ActivityIndicator } from 'react-native';
 import { Apple, Facebook, Github, Google, Instagram, Messenger, WhatsApp, X } from '../lib/icons';
 
 export const Icons = {
   app: {
-    logo: RecomendLogo,
-    icon: RecomendIcon,
+    logo: PaveLogo,
+    icon: PaveIcon,
   },
   brands: {
     google: Google,
@@ -107,7 +106,6 @@ export const Icons = {
   Loader: ActivityIndicator,
   Archive: ArchiveIcon,
   Unarchive: ArchiveRestoreIcon,
-  premium: Premium,
   home: HomeIcon,
   Text: TextIcon,
   Bell: BellIcon,

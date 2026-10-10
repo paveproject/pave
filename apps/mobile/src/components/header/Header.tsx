@@ -4,7 +4,7 @@ import { Text } from '../ui/text';
 import tw from '../../lib/tw';
 import { useRouter } from 'expo-router';
 import { Button } from '../ui/Button';
-import { Icons } from '../../constants/Icons';
+import { Icons } from '../../constants/IconsOld';
 
 interface HeaderProps extends React.ComponentProps<typeof View> {
   right?: string | React.ReactNode;

@@ -1,6 +1,5 @@
 import { Assets } from '../../constants/Assets';
 import { useTheme } from '../../providers/ThemeProvider';
-import { upperFirst } from 'lodash';
 import { useTranslations } from 'use-intl';
 
 export interface OnboardingData {
@@ -18,7 +17,7 @@ const useOnboardingData = (): OnboardingData[] => {
     {
       id: 1,
       image: Assets.onboarding.tracking,
-      text: upperFirst(t('pages.onboarding.tracking.description')),
+      text: t('pages.onboarding.tracking.description'),
       textColor: colors.foreground,
       backgroundColor: colors.background,
     },

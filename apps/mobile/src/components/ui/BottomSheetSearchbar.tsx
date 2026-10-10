@@ -120,7 +120,7 @@ export function BottomSheetSearchbar({
         onChangeText={handleTextChange}
         returnKeyType={returnKeyType}
         autoCorrect={autoCorrect}
-        selectionColor={selectionColor || colors.accentYellow}
+        selectionColor={selectionColor || colors.primary}
         {...props}
       />
 

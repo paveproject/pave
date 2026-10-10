@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Pressable, StyleProp, TextInput, TextStyle, View, ViewStyle } from 'react-native';
 import { useTheme } from '../../providers/ThemeProvider';
 import tw from '../../lib/tw';
-import { Icons } from '../../constants/Icons';
+import { Icons } from '../../constants/IconsOld';
 
 export interface InputProps extends React.ComponentProps<typeof TextInput> {
   variant?: 'default' | 'outline';

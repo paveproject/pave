@@ -125,7 +125,7 @@ export function SearchBar({
         onChangeText={handleTextChange}
         returnKeyType={returnKeyType}
         autoCorrect={autoCorrect}
-        selectionColor={selectionColor || colors.accentYellow}
+        selectionColor={selectionColor || colors.primary}
         numberOfLines={numberOfLines}
         {...props}
       />

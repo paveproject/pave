@@ -77,7 +77,7 @@ export const InputOTP = forwardRef<InputOTPRef, InputOTPProps>(
     const textColor = colors.foreground;
     const muted = colors.mutedForeground;
     const borderColor = colors.border;
-    const primary = colors.accentYellow;
+    const primary = colors.primary;
     const danger = colors.destructive;
 
     // Normalize value to ensure it doesn't exceed length

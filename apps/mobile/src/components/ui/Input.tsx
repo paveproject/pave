@@ -1,9 +1,8 @@
 import { Icon } from './icon';
-import { Icons } from '../../constants/Icons';
+import { Icons } from '../../constants/IconsOld';
 import tw from '../../lib/tw';
 import { useTheme } from '../../providers/ThemeProvider';
-import { BORDER_RADIUS, FONT_SIZE, HEIGHT } from '../../theme/globals';
-import { upperFirst } from 'lodash';
+import { BORDER_RADIUS, BORDER_RADIUS_FULL, FONT_SIZE, HEIGHT } from '../../theme/globals';
 import { LucideProps } from 'lucide-react-native';
 import React, { forwardRef, ReactElement, useState } from 'react';
 import {
@@ -73,7 +72,7 @@ export const Input = forwardRef<TextInput, InputProps>(
     const textColor = colors.foreground;
     const muted = colors.mutedForeground;
     const borderColor = colors.border;
-    const primary = colors.accentYellow;
+    const primary = colors.primary;
     const danger = colors.destructive;
 
     // Default value
@@ -81,7 +80,7 @@ export const Input = forwardRef<TextInput, InputProps>(
       type === 'password'
         ? labelProp === null
           ? undefined
-          : (labelProp ?? upperFirst(t('common.form.password.label')))
+          : (labelProp ?? t('form.password.label'))
         : labelProp;
     const icon = type === 'password' ? (iconProp ?? Icons.Password) : iconProp;
     const secureTextEntry = type === 'password' ? !showPassword : secureTextEntryProp;
@@ -109,7 +108,7 @@ export const Input = forwardRef<TextInput, InputProps>(
     // Variant styles
     const getVariantStyle = (): ViewStyle => {
       const baseStyle: ViewStyle = {
-        borderRadius: BORDER_RADIUS,
+        borderRadius: type === 'textarea' ? BORDER_RADIUS : BORDER_RADIUS_FULL,
         flexDirection: type === 'textarea' ? 'column' : 'row',
         alignItems: type === 'textarea' ? 'stretch' : 'center',
         minHeight: getHeight(),
@@ -447,7 +446,7 @@ export const GroupedInputItem = forwardRef<TextInput, GroupedInputItemProps>(
     const { colors } = useTheme();
     const text = colors.foreground;
     const muted = colors.mutedForeground;
-    const primary = colors.accentYellow;
+    const primary = colors.primary;
     const danger = colors.destructive;
 
     // Default values
@@ -455,7 +454,7 @@ export const GroupedInputItem = forwardRef<TextInput, GroupedInputItemProps>(
       type === 'password'
         ? labelProp === null
           ? undefined
-          : (labelProp ?? upperFirst(t('common.form.password.label')))
+          : (labelProp ?? t('form.password.label'))
         : labelProp;
     const icon = type === 'password' ? (iconProp ?? Icons.Password) : iconProp;
     const secureTextEntry = type === 'password' ? !showPassword : secureTextEntryProp;

@@ -205,8 +205,8 @@ const SliderRange = forwardRef<SliderRangeRef, SliderRangeProps>(
         height: thumbSize,
         left: -thumbSize / 2,
         borderWidth: thumbSize * 0.1,
-        backgroundColor: colors.accentYellowForeground,
-        borderColor: colors.accentYellow,
+        backgroundColor: colors.primaryForeground,
+        borderColor: colors.primary,
       },
     ];
 
@@ -313,7 +313,7 @@ const SliderRange = forwardRef<SliderRangeRef, SliderRangeProps>(
           <Animated.View
             style={[
               tw`absolute inset-0 rounded-full`,
-              { backgroundColor: colors.accentYellow },
+              { backgroundColor: colors.primary },
               sliderStyle,
             ]}
           />

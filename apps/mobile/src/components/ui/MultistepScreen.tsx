@@ -3,7 +3,7 @@ import { StyleProp, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
-import { Icons } from '../../constants/Icons';
+import { Icons } from '../../constants/IconsOld';
 import { GAP, PADDING_HORIZONTAL, PADDING_VERTICAL } from '../../theme/globals';
 import { KeyboardAwareScrollView } from './KeyboardAwareScrollView';
 import tw from '../../lib/tw';
@@ -38,7 +38,7 @@ export const MultiStepScreen = ({
 }: MultiStepScreenProps) => {
   const insets = useSafeAreaInsets();
   const t = useTranslations();
-  const nextLabel = nextLabelProp || t('common.messages.continue');
+  const nextLabel = nextLabelProp || t('messages.continue');
 
   /* ---------------------------------- Style & Animations --------------------------------- */
   const { height: keyboardHeight } = useReanimatedKeyboardAnimation();

@@ -30,7 +30,7 @@ export const ProgressBar = ({ progress, color, trackColor, style }: ProgressBarP
       <Animated.View
         style={[
           tw`h-full`,
-          { borderRadius: BORDER_RADIUS_FULL, backgroundColor: color ?? colors.accentYellow },
+          { borderRadius: BORDER_RADIUS_FULL, backgroundColor: color ?? colors.primary },
           fillStyle,
         ]}
       />

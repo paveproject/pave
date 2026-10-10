@@ -8,7 +8,7 @@ const Switch = React.forwardRef<React.ComponentRef<typeof SwitchRN>, SwitchProps
     return (
       <SwitchRN
         ref={ref}
-        trackColor={{ true: colors.accentYellow, false: colors.mutedForeground }}
+        trackColor={{ true: colors.primary, false: colors.mutedForeground }}
         thumbColor={colors.foreground}
         {...props}
       />

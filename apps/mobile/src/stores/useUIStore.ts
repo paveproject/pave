@@ -3,6 +3,8 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { zustandStorage } from './storage';
 import { ViewType } from '@libs/api-js';
 
+export type ThemeVariant = 'light' | 'dark' | 'system';
+
 interface MapState {
   center: [number, number]; // [lng, lat]
   zoom: number;
@@ -10,6 +12,9 @@ interface MapState {
 }
 
 interface UIStore {
+  theme: ThemeVariant;
+  setTheme: (theme: ThemeVariant) => void;
+
   watchlist: { view: ViewType };
   setWatchlist: (props: Partial<{ view: ViewType }>) => void;
 
@@ -42,6 +47,9 @@ interface UIStore {
 export const useUIStore = create<UIStore>()(
   persist(
     (set) => ({
+      theme: 'system',
+      setTheme: (theme) => set({ theme }),
+
       // Watchlist
       watchlist: {
         view: 'grid',

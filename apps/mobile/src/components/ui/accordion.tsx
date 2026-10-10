@@ -14,7 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useTheme } from '../../providers/ThemeProvider';
 import { Icon } from './icon';
-import { Icons } from '../../constants/Icons';
+import { Icons } from '../../constants/IconsOld';
 
 export interface AccordionProps extends ViewProps {
   title: string | React.ReactNode;
