@@ -6,20 +6,26 @@ import { BottomSheetManager } from '../components/bottom-sheets/BottomSheetManag
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { SplashScreenProvider } from './SplashScreenProvider';
 import { LocaleProvider } from './LocaleProvider';
+import { LocationProvider } from './LocationProvider';
 import { NotificationsProvider } from './NotificationsProvider';
 import { RealtimeProvider } from './RealtimeProvider';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ReanimatedScreenProvider } from 'react-native-screens/reanimated';
-import { PropsWithChildren } from 'react';
 import { ToastProvider } from '../components/Toast';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { ApiProvider } from './ApiProvider';
-import { useQuery } from '@tanstack/react-query';
-import { uiBackgroundsOptions } from '../api/ui/uiOptions';
+import { useReportSync } from '../hooks/useReportSync';
 
 type ProvidersProps = {
   children: React.ReactNode;
+};
+
+// Renders nothing - just wires the reconnect listener that retries
+// not-yet-synced local reports (see lib/watermelon/reports.ts).
+const ReportSyncBootstrap = () => {
+  useReportSync();
+  return null;
 };
 
 const Providers = ({ children }: ProvidersProps) => {
@@ -32,22 +38,25 @@ const Providers = ({ children }: ProvidersProps) => {
               <LocaleProvider>
                 <ThemeProvider>
                   <ToastProvider>
-                    <ActionSheetProvider>
-                      <ReactQueryProvider>
-                        <AuthProvider>
-                          <ApiProvider>
-                            <BottomSheetModalProvider>
-                              <NotificationsProvider>
-                                <RealtimeProvider>
-                                  <ProvidersInner>{children}</ProvidersInner>
-                                  <BottomSheetManager />
-                                </RealtimeProvider>
-                              </NotificationsProvider>
-                            </BottomSheetModalProvider>
-                          </ApiProvider>
-                        </AuthProvider>
-                      </ReactQueryProvider>
-                    </ActionSheetProvider>
+                    <LocationProvider>
+                      <ActionSheetProvider>
+                        <ReactQueryProvider>
+                          <AuthProvider>
+                            <ApiProvider>
+                              <BottomSheetModalProvider>
+                                <NotificationsProvider>
+                                  <RealtimeProvider>
+                                    {children}
+                                    <BottomSheetManager />
+                                    <ReportSyncBootstrap />
+                                  </RealtimeProvider>
+                                </NotificationsProvider>
+                              </BottomSheetModalProvider>
+                            </ApiProvider>
+                          </AuthProvider>
+                        </ReactQueryProvider>
+                      </ActionSheetProvider>
+                    </LocationProvider>
                   </ToastProvider>
                 </ThemeProvider>
               </LocaleProvider>
@@ -57,11 +66,6 @@ const Providers = ({ children }: ProvidersProps) => {
       </ReanimatedScreenProvider>
     </GestureHandlerRootView>
   );
-};
-
-const ProvidersInner = ({ children }: PropsWithChildren) => {
-  useQuery(uiBackgroundsOptions()); // Preload UI backgrounds
-  return children;
 };
 
 export { Providers };

@@ -42,10 +42,14 @@ export const LocaleProvider = ({ children }: { children: React.ReactNode }) => {
       if (!supportedLocales.includes(newLocale as SupportedLocale)) {
         throw new Error(`Unsupported locale: ${newLocale}`);
       }
-      setLocaleHook(newLocale);
-      const { messages } = await initI18n(newLocale as SupportedLocale);
-      setLocaleState(newLocale as SupportedLocale);
-      setMessages(messages);
+      try {
+        const { messages } = await initI18n(newLocale as SupportedLocale);
+        await setLocaleHook(newLocale);
+        setLocaleState(newLocale as SupportedLocale);
+        setMessages(messages);
+      } catch (error) {
+        logger.error('Failed to switch locale', { error, locale: newLocale });
+      }
     },
     [locale],
   );

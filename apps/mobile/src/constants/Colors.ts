@@ -4,6 +4,8 @@ export type ColorTheme = {
   primary: string;
   primarySubued: string;
   primaryForeground: string;
+  secondary: string;
+  secondaryForeground: string;
   muted: string;
   mutedForeground: string;
   border: string;
@@ -14,24 +16,7 @@ export type ColorTheme = {
   success: string;
   successForeground: string;
   tint: string;
-  toast: string;
   keyboardToolbarBackground: string;
-  // Accent colors
-  accentYellow: string;
-  accentYellowForeground: string;
-  accentYellowHover: string;
-  accentBlue: string;
-  accentBlueForeground: string;
-  accentBlueHover: string;
-  accentPink: string;
-  accentPinkForeground: string;
-  accentPinkHover: string;
-  accentGreen: string;
-  accentGreenForeground: string;
-  accentGreenHover: string;
-  accentOrange: string;
-  accentOrangeForeground: string;
-  accentOrangeHover: string;
 };
 
 const sharedColors = {
@@ -55,6 +40,8 @@ const Colors: ColorPalettes = {
     primary: 'hsl(51 100% 73%)',
     primarySubued: 'hsl(0 0% 65%)',
     primaryForeground: sharedColors.black,
+    secondary: sharedColors.white,
+    secondaryForeground: sharedColors.black,
     muted: 'hsl(0 0% 8%)',
     mutedForeground: 'hsl(0 0% 57%)',
     border: 'hsl(240 3.7% 15.9%)',
@@ -65,24 +52,7 @@ const Colors: ColorPalettes = {
     success: 'hsl(144.07 100% 39%)',
     successForeground: 'hsl(0 0% 98%)',
     tint: 'hsl(0 0% 100%)',
-    toast: 'hsl(0 0% 15%)',
     keyboardToolbarBackground: 'hsl(0 0% 12%)',
-    // Accent colors
-    accentYellow: 'hsl(51 100% 73%)',
-    accentYellowForeground: sharedColors.black,
-    accentYellowHover: 'hsl(44 97% 40%)',
-    accentBlue: 'hsl(216, 100%, 58%)',
-    accentBlueForeground: sharedColors.white,
-    accentBlueHover: 'hsl(212 100% 30%)',
-    accentPink: 'hsl(320 87% 75%)',
-    accentPinkForeground: sharedColors.black,
-    accentPinkHover: 'hsl(320 89% 57%)',
-    accentGreen: 'hsl(145 63% 49%)',
-    accentGreenForeground: sharedColors.black,
-    accentGreenHover: 'hsl(145 63% 30%)',
-    accentOrange: 'hsl(28 100% 62%)',
-    accentOrangeForeground: sharedColors.white,
-    accentOrangeHover: 'hsl(24 100% 40%)',
     ...sharedColors,
   },
   light: {
@@ -91,7 +61,9 @@ const Colors: ColorPalettes = {
     primary: 'hsla(51, 100%, 50%, 1.00)',
     primarySubued: 'hsl(0 0% 65%)',
     primaryForeground: sharedColors.black,
-    muted: 'hsla(0, 0%, 80%, 1.00)',
+    secondary: sharedColors.black,
+    secondaryForeground: sharedColors.white,
+    muted: 'hsla(0, 0%, 95%, 1.00)',
     mutedForeground: 'hsla(0, 0%, 20%, 1.00)',
     border: 'hsla(240, 7%, 65%, 1.00)',
     card: 'hsla(0, 0%, 76%, 1.00)',
@@ -101,24 +73,7 @@ const Colors: ColorPalettes = {
     success: 'hsl(144.07 100% 39%)',
     successForeground: 'hsl(0 0% 98%)',
     tint: 'hsl(240 5.9% 10%)',
-    toast: 'hsl(0 0% 15%)',
     keyboardToolbarBackground: 'hsl(240 10% 8%)',
-    // Accent colors
-    accentYellow: 'hsl(51 100% 73%)',
-    accentYellowForeground: sharedColors.black,
-    accentYellowHover: 'hsl(44 97% 40%)',
-    accentBlue: 'hsl(216, 100%, 58%)',
-    accentBlueForeground: sharedColors.white,
-    accentBlueHover: 'hsl(212 100% 30%)',
-    accentPink: 'hsl(320 87% 75%)',
-    accentPinkForeground: sharedColors.black,
-    accentPinkHover: 'hsl(320 89% 57%)',
-    accentGreen: 'hsl(145 63% 49%)',
-    accentGreenForeground: sharedColors.black,
-    accentGreenHover: 'hsl(145 63% 30%)',
-    accentOrange: 'hsl(28 100% 62%)',
-    accentOrangeForeground: sharedColors.white,
-    accentOrangeHover: 'hsl(24 100% 40%)',
     ...sharedColors,
   },
 };

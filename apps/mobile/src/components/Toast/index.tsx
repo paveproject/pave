@@ -111,7 +111,7 @@ export const Toaster = ({
       duration={duration}
       styles={{
         toast: {
-          backgroundColor: colors.toast,
+          backgroundColor: colors.background,
         },
         title: {
           color: colors.foreground,

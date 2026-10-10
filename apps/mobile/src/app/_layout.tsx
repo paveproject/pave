@@ -4,18 +4,17 @@ import * as Sentry from '@sentry/react-native';
 // API
 import '../lib/api/init';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { setAndroidNavigationBar } from '../lib/android-navigation-bar';
 import { Providers } from '../providers/Providers';
 import StatusBar from '../components/StatusBar';
 import { useIsomorphicLayoutEffect } from '../hooks/useIsomorphicLayoutEffect';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { enableFreeze, enableScreens } from 'react-native-screens';
 import { useTheme } from '../providers/ThemeProvider';
 import { useAuth } from '../providers/AuthProvider';
 import { useTranslations } from 'use-intl';
-import { Platform } from 'react-native';
 
 export { ErrorBoundary } from '../providers/ErrorBoundaryProvider';
 
@@ -28,34 +27,69 @@ configureReanimatedLogger({
 });
 
 const RootLayoutNav = () => {
-  const t = useTranslations();
   const { user } = useAuth();
-  const { defaultScreenOptions } = useTheme();
+  const router = useRouter();
+  const t = useTranslations();
+  const { defaultScreenOptions, isLiquidGlassAvailable } = useTheme();
+
+  useEffect(() => {
+    // OTP sign-in creates a user with no username at all (see
+    // `libs/auth/src/otp.rs`) - force the profile-completion sheet open the
+    // instant that's seen, before the user can touch anything else.
+    // `Stack.Protected` below only handles blocking/kicking out of the
+    // route once its guard is false; getting IN still needs this push.
+    if (user && !user.username) {
+      router.push('/auth/complete');
+    }
+  }, [user, router]);
+
   return (
     <Stack initialRouteName="(tabs)" screenOptions={defaultScreenOptions}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} /> {/* AUTH */}
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="map"
+        options={{
+          animation: 'fade',
+          headerTransparent: true,
+          headerTitle: () => <></>,
+          headerStyle: { backgroundColor: 'transparent' },
+        }}
+      />
+      {/* AUTH */}
       <Stack.Protected guard={!user}>
         <Stack.Screen
-          name="auth/(main)"
+          name="auth"
           options={{
-            headerShown: false,
-            presentation: Platform.select({
-              ios: 'modal',
-              android: 'formSheet',
-              default: 'modal',
-            }),
+            title: t('messages.sign_in'),
+            presentation: 'formSheet',
+            sheetGrabberVisible: true,
+            sheetAllowedDetents: 'fitToContents',
+            sheetInitialDetentIndex: 0,
+            ...(isLiquidGlassAvailable
+              ? {
+                  contentStyle: { backgroundColor: 'transparent' },
+                  headerStyle: { backgroundColor: 'transparent' },
+                }
+              : {}),
           }}
         />
+      </Stack.Protected>
+      <Stack.Protected guard={!!user && !user.username}>
         <Stack.Screen
-          name="auth/(password)"
+          name="auth/complete"
           options={{
-            title: t('common.messages.forgot_password'),
             headerShown: false,
-            presentation: Platform.select({
-              ios: 'modal',
-              android: 'formSheet',
-              default: 'modal',
-            }),
+            presentation: 'formSheet',
+            sheetGrabberVisible: false,
+            sheetAllowedDetents: 'fitToContents',
+            sheetInitialDetentIndex: 0,
+            gestureEnabled: false,
+            ...(isLiquidGlassAvailable
+              ? {
+                  contentStyle: { backgroundColor: 'transparent' },
+                  headerStyle: { backgroundColor: 'transparent' },
+                }
+              : {}),
           }}
         />
       </Stack.Protected>

@@ -13,6 +13,7 @@ const config = defineConfig({
   // generate/migrate/push must never try to create, alter, or drop it.
   schema: [
     './libs/db/src/lib/schemas/i18n.ts',
+    './libs/db/src/lib/schemas/report.ts',
     './libs/db/src/lib/schemas/system.ts',
     './libs/db/src/lib/schemas/user.ts',
   ],

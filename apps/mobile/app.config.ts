@@ -32,8 +32,14 @@ const getGoogleServiceInfoFile = () => {
   return process.env.GOOGLE_SERVICE_INFO_PLIST || './GoogleService-Info.plist';
 };
 
+const getGoogleIosUrlScheme = () => {
+  const clientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+  if (!clientId) return undefined;
+  return `com.googleusercontent.apps.${clientId.replace('.apps.googleusercontent.com', '')}`;
+};
+
 const getProjectId = () => {
-  return 'REPLACE_WITH_YOUR_PROJECT_ID';
+  return '76ddc538-662f-49ee-9b33-db2f6a419d9b';
 };
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
@@ -98,7 +104,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         category: ['BROWSABLE', 'DEFAULT'],
       },
     ],
-    permissions: ['android.permission.RECORD_AUDIO'],
+    permissions: ['android.permission.RECORD_AUDIO', 'android.permission.INTERNET'],
     blockedPermissions: ['com.google.android.gms.permission.AD_ID'],
     googleServicesFile: process.env.GOOGLE_SERVICES_JSON || getGoogleServicesFilePath(),
   },
@@ -117,6 +123,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         ios: {
           deploymentTarget: '16.4',
           useFrameworks: 'static',
+          enableSceneSupport: true,
         },
       },
     ],
@@ -163,19 +170,23 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         enableBase64ShareAndroid: true,
       },
     ],
-    [
-      '@react-native-google-signin/google-signin',
-      {
-        iosUrlScheme: 'com.googleusercontent.apps.413826532912-vt9h8pp36bbk9akq5lshsmf3joqoapmn',
-      },
-    ],
+    ...(getGoogleIosUrlScheme()
+      ? [
+          [
+            '@react-native-google-signin/google-signin',
+            {
+              iosUrlScheme: getGoogleIosUrlScheme(),
+            },
+          ],
+        ]
+      : []),
     ['expo-apple-authentication'],
-    [
-      'expo-asset',
-      {
-        assets: ['./src/assets/images/screens/onboarding/'],
-      },
-    ],
+    // [
+    //   'expo-asset',
+    //   {
+    //     assets: ['./src/assets/images/screens/onboarding/'],
+    //   },
+    // ],
     [
       '@sentry/react-native/expo',
       {
@@ -185,6 +196,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     '@maplibre/maplibre-react-native',
+    '@lovesworking/watermelondb-expo-plugin-sdk-52-plus',
     [
       'expo-media-library',
       {
@@ -194,21 +206,23 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         granularPermissions: ['audio', 'photo'],
       },
     ],
-    [
-      'react-native-fbsdk-next',
-      {
-        appID: process.env.EXPO_PUBLIC_FACEBOOK_APP_ID,
-        clientToken: process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN,
-        displayName: getAppName(),
-        scheme: process.env.EXPO_PUBLIC_FACEBOOK_APP_ID
-          ? `fb${process.env.EXPO_PUBLIC_FACEBOOK_APP_ID}`
-          : undefined,
-        advertiserIDCollectionEnabled: false,
-        autoLogAppEventsEnabled: false,
-        isAutoInitEnabled: true,
-        iosUserTrackingPermission: false,
-      },
-    ],
+    ...(process.env.EXPO_PUBLIC_FACEBOOK_APP_ID
+      ? [
+          [
+            'react-native-fbsdk-next',
+            {
+              appID: process.env.EXPO_PUBLIC_FACEBOOK_APP_ID,
+              clientToken: process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN,
+              displayName: getAppName(),
+              scheme: `fb${process.env.EXPO_PUBLIC_FACEBOOK_APP_ID}`,
+              advertiserIDCollectionEnabled: false,
+              autoLogAppEventsEnabled: false,
+              isAutoInitEnabled: true,
+              iosUserTrackingPermission: false,
+            },
+          ],
+        ]
+      : []),
     [
       'expo-document-picker',
       {
@@ -229,5 +243,5 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       projectId: getProjectId(),
     },
   },
-  owner: 'REPLACE_WITH_YOUR_EXPO_OWNER',
+  owner: 'lxup',
 });
