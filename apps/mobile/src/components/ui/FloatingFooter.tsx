@@ -4,12 +4,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import { useTheme } from '../../providers/ThemeProvider';
 import tw from '../../lib/tw';
-import { GAP, PADDING_HORIZONTAL, PADDING_VERTICAL } from '../../theme/globals';
 
 interface FloatingFooterProps extends ViewProps {
   defaultFooterHeight?: number;
   height?: SharedValue<number>;
   keyboardAware?: boolean;
+  transparent?: boolean;
 }
 
 export const FloatingFooter = ({
@@ -18,9 +18,10 @@ export const FloatingFooter = ({
   style,
   height,
   keyboardAware = true,
+  transparent = true,
   ...props
 }: FloatingFooterProps) => {
-  const { colors } = useTheme();
+  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const { height: keyboardHeight } = useReanimatedKeyboardAnimation();
   const internalFooterHeight = useSharedValue(0);
@@ -33,30 +34,26 @@ export const FloatingFooter = ({
   const animatedFooterStyle = useAnimatedStyle(() => {
     const kbHeight = Math.abs(keyboardHeight.value);
     return {
-      paddingBottom: (kbHeight > 0 && keyboardAware ? 0 : insets.bottom) + PADDING_VERTICAL,
+      paddingBottom: (kbHeight > 0 && keyboardAware ? 0 : insets.bottom) + theme.spaces.vertical,
       bottom: keyboardAware ? kbHeight : 0,
     };
   });
 
   return (
     <>
-      <Animated.View style={animatedInsetFooterStyle} />
+      {transparent === false && <Animated.View style={animatedInsetFooterStyle} />}
       <Animated.View
         onLayout={(e) => {
           // eslint-disable-next-line react-hooks/immutability, react-compiler/react-compiler -- Reanimated shared value mutation
           footerHeight.value = e.nativeEvent.layout.height;
         }}
         style={[
-          tw`absolute bottom-0 flex-row items-center justify-center overflow-hidden left-0 right-0`,
+          tw`absolute bottom-0 flex-row items-center justify-center left-0 right-0`,
           {
-            paddingBottom: insets.bottom + PADDING_VERTICAL,
-            paddingTop: PADDING_VERTICAL,
-            paddingLeft: insets.left + PADDING_HORIZONTAL,
-            paddingRight: insets.right + PADDING_HORIZONTAL,
-            borderColor: colors.border,
-            borderTopWidth: 1,
-            backgroundColor: colors.background,
-            gap: GAP,
+            paddingBottom: insets.bottom + theme.spaces.vertical,
+            paddingLeft: insets.left + theme.spaces.horizontal,
+            paddingRight: insets.right + theme.spaces.horizontal,
+            gap: theme.spaces.md,
           },
           style,
           animatedFooterStyle,

@@ -15,7 +15,6 @@
     "tslib": "^2.3.0",
     "@hey-api/openapi-ts": "0.91.0",
     "socket.io-client": "^4.8.3",
-    "@libs/notify-types": "workspace:*",
     "@libs/realtime": "workspace:*"
   }
 }
