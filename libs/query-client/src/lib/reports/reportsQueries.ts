@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { listReports } from '@libs/api-js';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
+import { listReports, type ReportResponse } from '@libs/api-js';
 import { reportsKeys } from './reportsKeys';
 
 export interface ReportsBoundingBox {
@@ -27,5 +27,24 @@ export const useReportsQuery = (bbox: ReportsBoundingBox | undefined) => {
       return data;
     },
     enabled: !!bbox,
+  });
+};
+
+/**
+ * Merges a `ReportCreated` websocket event into the cache for the bbox it
+ * arrived for, without a refetch - a no-op if that bbox isn't cached (e.g.
+ * the map isn't currently showing it) or the report is already there (the
+ * same connection can receive a report it just created itself, or a
+ * duplicate from a retried offline-first push).
+ */
+export const applyReportCreated = (
+  queryClient: QueryClient,
+  bbox: ReportsBoundingBox,
+  report: ReportResponse,
+) => {
+  queryClient.setQueryData<ReportResponse[]>(reportsKeys.list(bbox), (current) => {
+    if (!current) return current;
+    if (current.some((existing) => existing.id === report.id)) return current;
+    return [report, ...current];
   });
 };

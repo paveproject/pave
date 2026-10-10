@@ -8,7 +8,6 @@ import { SplashScreenProvider } from './SplashScreenProvider';
 import { LocaleProvider } from './LocaleProvider';
 import { LocationProvider } from './LocationProvider';
 import { NotificationsProvider } from './NotificationsProvider';
-import { RealtimeProvider } from './RealtimeProvider';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ReanimatedScreenProvider } from 'react-native-screens/reanimated';
@@ -45,11 +44,9 @@ const Providers = ({ children }: ProvidersProps) => {
                             <ApiProvider>
                               <BottomSheetModalProvider>
                                 <NotificationsProvider>
-                                  <RealtimeProvider>
-                                    {children}
-                                    <BottomSheetManager />
-                                    <ReportSyncBootstrap />
-                                  </RealtimeProvider>
+                                  {children}
+                                  <BottomSheetManager />
+                                  <ReportSyncBootstrap />
                                 </NotificationsProvider>
                               </BottomSheetModalProvider>
                             </ApiProvider>

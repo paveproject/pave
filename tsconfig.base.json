@@ -23,8 +23,7 @@
       "@libs/db/*": ["libs/db/src/lib/*"],
       "@libs/i18n": ["libs/i18n/src/index.ts"],
       "@libs/query-client": ["libs/query-client/src/index.ts"],
-      "@libs/api-js": ["libs/api-js/src/index.ts"],
-      "@libs/realtime": ["libs/realtime/src/index.ts"]
+      "@libs/api-js": ["libs/api-js/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

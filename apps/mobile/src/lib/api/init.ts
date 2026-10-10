@@ -1,5 +1,5 @@
-import { API_ENDPOINT, API_URL } from '../../env';
-import { client, realtime } from '@libs/api-js';
+import { API_ENDPOINT } from '../../env';
+import { client } from '@libs/api-js';
 import { getSessionToken } from '../auth/session';
 
 client.setConfig({
@@ -17,11 +17,4 @@ client.interceptors.request.use(async (config) => {
     config.headers.set('Authorization', `Bearer ${token}`);
   }
   return config;
-});
-
-realtime.setConfig({
-  baseUrl: API_URL || 'https://api.pave.app',
-  getAuthCookie: async () => {
-    return getSessionToken();
-  },
 });

@@ -83,6 +83,13 @@ export const API_URL: string = process.env.EXPO_PUBLIC_API_URL!;
 // The Rust api has no /v1 prefix on any route (unlike the old NestJS template).
 export const API_ENDPOINT = API_URL;
 
+/**
+ * Websocket endpoint for live map report updates (see
+ * `apps/api/src/app/reports/hub.rs`) - same host as `API_URL`, just the
+ * `http`/`https` scheme swapped for `ws`/`wss`.
+ */
+export const REPORTS_WS_URL = `${API_URL.replace(/^http/, 'ws')}/reports/ws`;
+
 const schemeFromConfig = Constants.expoConfig?.scheme;
 export const SCHEME: string = Array.isArray(schemeFromConfig)
   ? schemeFromConfig[0]
@@ -120,6 +127,13 @@ export const NOVU_APPLICATION_IDENTIFIER = process.env.EXPO_PUBLIC_NOVU_APPLICAT
  */
 export const FIREBASE_DEBUG_TOKEN_ANDROID = process.env.EXPO_PUBLIC_FIREBASE_DEBUG_TOKEN_ANDROID!;
 export const FIREBASE_DEBUG_TOKEN_IOS = process.env.EXPO_PUBLIC_FIREBASE_DEBUG_TOKEN_IOS!;
+
+/**
+ * MapTiler - vector/satellite map styles for the map screen. Falls back to
+ * MapLibre's unstyled demo tiles (see `screens/map/MapMap.tsx`) when unset,
+ * since the free-tier key is a per-dev opt-in, not a build requirement.
+ */
+export const MAPTILER_API_KEY = process.env.EXPO_PUBLIC_MAPTILER_API_KEY;
 
 /**
  * TMDB
