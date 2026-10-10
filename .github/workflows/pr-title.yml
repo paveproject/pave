@@ -23,7 +23,6 @@ jobs:
             api
             mobile
             notify
-            worker
             deps
             repo
             auth
