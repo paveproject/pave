@@ -27,7 +27,8 @@
     "are_u_sure": "Êtes-vous sûr ?",
     "greeting_with_name": "{timeOfDay, select, night {Bonsoir, {name}} evening {Bonsoir, {name}} other {Bonjour, {name}}}",
     "greeting": "{timeOfDay, select, night {Bonsoir} evening {Bonsoir} other {Bonjour}}",
-    "location_denied": "L'accès à la position est requis"
+    "location_denied": "L'accès à la position est requis",
+    "try_again": "Réessayer"
   },
   "form": {
     "email": {

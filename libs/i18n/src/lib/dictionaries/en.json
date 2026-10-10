@@ -27,7 +27,8 @@
     "are_u_sure": "Are you sure?",
     "greeting_with_name": "{timeOfDay, select, morning {Good morning, {name}} afternoon {Good afternoon, {name}} evening {Good evening, {name}} night {Good night, {name}} other {Hello, {name}}}",
     "greeting": "{timeOfDay, select, morning {Good morning} afternoon {Good afternoon} evening {Good evening} night {Good night} other {Hello}}",
-    "location_denied": "Location access is required"
+    "location_denied": "Location access is required",
+    "try_again": "Try again"
   },
   "form": {
     "email": {

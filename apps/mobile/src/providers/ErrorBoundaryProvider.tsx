@@ -8,17 +8,19 @@ import { ErrorBoundaryProps } from 'expo-router';
 import { setStringAsync } from 'expo-clipboard';
 import { useTranslations } from 'use-intl';
 import { useCallback, useEffect } from 'react';
-import { Pressable } from 'react-native';
+import { Platform, Pressable } from 'react-native';
+import { Host, Icon, Button } from '@expo/ui';
+import { buttonStyle, controlSize, tint } from '@expo/ui/swift-ui/modifiers';
+import { background as androidBackground } from '@expo/ui/jetpack-compose/modifiers';
 import { ToastProvider, useToast } from '../components/Toast';
 import { logger } from '../logger';
 import { View } from '../components/ui/view';
 import tw from '../lib/tw';
-import { Icons } from '../constants/IconsOld';
+import { Icons } from '../constants/icons';
 import { Text } from '../components/ui/text';
-import { Button } from '../components/ui/Button';
 
 const ErrorBoundaryInner = ({ error, retry }: ErrorBoundaryProps) => {
-  const { colors } = useTheme();
+  const { colors, theme } = useTheme();
   const t = useTranslations();
   const toast = useToast();
 
@@ -33,9 +35,16 @@ const ErrorBoundaryInner = ({ error, retry }: ErrorBoundaryProps) => {
     });
   }, [error]);
 
+  const retryButtonModifiers =
+    Platform.OS === 'ios'
+      ? [buttonStyle('glassProminent'), controlSize('extraLarge'), tint(colors.destructive)]
+      : [androidBackground(colors.destructive)];
+
   return (
     <View style={tw`flex-1 justify-center items-center p-4 gap-4`}>
-      <Icons.Bug color={colors.mutedForeground} />
+      <Host matchContents>
+        <Icon name={Icons.error} size={theme.icons.sizes.lg} color={colors.destructive} />
+      </Host>
       <Text variant="title">{t('messages.an_error_occurred')}</Text>
       <Pressable
         onPress={copyError}
@@ -48,7 +57,9 @@ const ErrorBoundaryInner = ({ error, retry }: ErrorBoundaryProps) => {
       >
         <Text>{error.message}</Text>
       </Pressable>
-      <Button onPress={retry}>{t('messages.try_again')}</Button>
+      <Host matchContents>
+        <Button label={t('messages.try_again')} onPress={retry} modifiers={retryButtonModifiers} />
+      </Host>
     </View>
   );
 };
