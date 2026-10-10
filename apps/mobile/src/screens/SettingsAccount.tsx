@@ -8,8 +8,10 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { useTheme } from '../providers/ThemeProvider';
 import { View } from '../components/ui/view';
 import { FormFieldError } from '../components/ui/FormFieldError';
+import { StatusBubble } from '../components/ui/StatusBubble';
 import { FloatingFooter } from '../components/ui/FloatingFooter';
 import { Icons } from '../constants/icons';
+import { Icons as LegacyIcons } from '../constants/IconsOld';
 import { useSettingsAccountForm } from './useSettingsAccountForm';
 
 /**
@@ -24,7 +26,8 @@ import { useSettingsAccountForm } from './useSettingsAccountForm';
 const SettingsAccount = () => {
   const t = useTranslations();
   const { colors, theme } = useTheme();
-  const { form, canSave, isUsernameChecking, handleSave } = useSettingsAccountForm();
+  const { form, canSave, isUsernameChecking, isUsernameAvailable, usernameError, handleSave } =
+    useSettingsAccountForm();
 
   // See SettingsAccount.ios.tsx - `FloatingFooter` measures its own resting
   // height into this shared value instead of rendering its own spacer. A
@@ -56,10 +59,18 @@ const SettingsAccount = () => {
                   form.setValue('username', text, { shouldValidate: true, shouldDirty: true })
                 }
               />
-              {isUsernameChecking ? <ActivityIndicator /> : null}
+              {isUsernameChecking ? (
+                <ActivityIndicator />
+              ) : isUsernameAvailable === true ? (
+                <StatusBubble
+                  color={colors.success}
+                  iconColor={colors.successForeground}
+                  icon={LegacyIcons.Check}
+                />
+              ) : null}
             </Row>
           </FieldGroup.Section>
-          <FormFieldError message={form.formState.errors.username?.message} />
+          <FormFieldError message={usernameError} />
 
           <FieldGroup.Section>
             <Row spacing={theme.spaces.md} alignment="center">

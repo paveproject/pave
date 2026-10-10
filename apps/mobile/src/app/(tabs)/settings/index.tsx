@@ -55,7 +55,12 @@ const SettingsScreen = () => {
 
   const signInModifiers =
     Platform.OS === 'ios'
-      ? [buttonStyle('glassProminent'), controlSize('extraLarge'), tint(colors.secondary)]
+      ? [
+          buttonStyle('glassProminent'),
+          controlSize('extraLarge'),
+          tint(colors.secondary),
+          listRowBackground(colors.muted),
+        ]
       : [fillMaxWidth(), androidBackground(colors.secondary)];
 
   const signInLabelModifiers =

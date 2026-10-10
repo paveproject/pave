@@ -30,14 +30,9 @@ const RootLayoutNav = () => {
   const { user } = useAuth();
   const router = useRouter();
   const t = useTranslations();
-  const { defaultScreenOptions, isLiquidGlassAvailable } = useTheme();
+  const { defaultScreenOptions } = useTheme();
 
   useEffect(() => {
-    // OTP sign-in creates a user with no username at all (see
-    // `libs/auth/src/otp.rs`) - force the profile-completion sheet open the
-    // instant that's seen, before the user can touch anything else.
-    // `Stack.Protected` below only handles blocking/kicking out of the
-    // route once its guard is false; getting IN still needs this push.
     if (user && !user.username) {
       router.push('/auth/complete');
     }
@@ -65,12 +60,6 @@ const RootLayoutNav = () => {
             sheetGrabberVisible: true,
             sheetAllowedDetents: 'fitToContents',
             sheetInitialDetentIndex: 0,
-            ...(isLiquidGlassAvailable
-              ? {
-                  contentStyle: { backgroundColor: 'transparent' },
-                  headerStyle: { backgroundColor: 'transparent' },
-                }
-              : {}),
           }}
         />
       </Stack.Protected>
@@ -84,12 +73,6 @@ const RootLayoutNav = () => {
             sheetAllowedDetents: 'fitToContents',
             sheetInitialDetentIndex: 0,
             gestureEnabled: false,
-            ...(isLiquidGlassAvailable
-              ? {
-                  contentStyle: { backgroundColor: 'transparent' },
-                  headerStyle: { backgroundColor: 'transparent' },
-                }
-              : {}),
           }}
         />
       </Stack.Protected>

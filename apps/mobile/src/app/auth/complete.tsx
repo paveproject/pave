@@ -19,9 +19,11 @@ import { useTheme } from '../../providers/ThemeProvider';
 import { useToast } from '../../components/Toast';
 import { Input } from '../../components/ui/Input';
 import { FormFieldError } from '../../components/ui/FormFieldError';
+import { StatusBubble } from '../../components/ui/StatusBubble';
 import { View } from '../../components/ui/view';
 import { Text } from '../../components/ui/text';
 import { logger } from '../../logger';
+import { Icons as LegacyIcons } from '../../constants/IconsOld';
 import { usernameSchema, useUsernameAvailabilityCheck } from '../../hooks/useUsernameValidation';
 
 /**
@@ -46,10 +48,18 @@ const CompleteProfileScreen = () => {
     mode: 'onChange',
   });
 
-  const { isUsernameChecking } = useUsernameAvailabilityCheck(form, null);
+  const { isUsernameChecking, isUsernameAvailable } = useUsernameAvailabilityCheck(form, null);
   const { mutateAsync: updateMe, isPending: isSaving } = useMeUpdateMutation();
 
-  const canSave = !isSaving && !isUsernameChecking && form.formState.isValid;
+  // Same combination as `useSettingsAccountForm` - availability lives
+  // outside RHF's own error state (see `useUsernameAvailabilityCheck`),
+  // so it's merged with the format error here instead.
+  const usernameError =
+    form.formState.errors.username?.message ??
+    (isUsernameAvailable === false ? t('form.username.schema.unavailable') : undefined);
+
+  const canSave =
+    !isSaving && !isUsernameChecking && form.formState.isValid && isUsernameAvailable !== false;
 
   const handleSave = form.handleSubmit(async (values) => {
     try {
@@ -101,11 +111,21 @@ const CompleteProfileScreen = () => {
             onChangeText={onChange}
             onBlur={onBlur}
             disabled={isSaving}
-            rightComponent={isUsernameChecking ? <ActivityIndicator /> : undefined}
+            rightComponent={
+              isUsernameChecking ? (
+                <ActivityIndicator />
+              ) : isUsernameAvailable === true ? (
+                <StatusBubble
+                  color={colors.success}
+                  iconColor={colors.successForeground}
+                  icon={LegacyIcons.Check}
+                />
+              ) : undefined
+            }
           />
         )}
       />
-      <FormFieldError message={form.formState.errors.username?.message} />
+      <FormFieldError message={usernameError} />
 
       <Host style={{ width: '100%' }} matchContents={{ vertical: true }}>
         <Button disabled={!canSave || isSaving} onPress={handleSave} modifiers={saveModifiers}>

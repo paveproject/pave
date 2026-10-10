@@ -59,7 +59,17 @@ export const useSettingsAccountForm = () => {
 
   const username = form.watch('username');
   const email = form.watch('email');
-  const { isUsernameChecking } = useUsernameAvailabilityCheck(form, user?.username);
+  const { isUsernameChecking, isUsernameAvailable } = useUsernameAvailabilityCheck(
+    form,
+    user?.username,
+  );
+
+  // The availability check lives outside RHF's own error state (see
+  // `useUsernameAvailabilityCheck`), so it's combined with the format
+  // error here rather than read back off `form.formState.errors`.
+  const usernameError =
+    form.formState.errors.username?.message ??
+    (isUsernameAvailable === false ? t('form.username.schema.unavailable') : undefined);
 
   const { mutateAsync: updateMe, isPending: isSavingUsername } = useMeUpdateMutation();
   const { mutateAsync: sendChangeEmailOtp, isPending: isSendingCode } =
@@ -69,7 +79,12 @@ export const useSettingsAccountForm = () => {
   const usernameChanged = username !== (user?.username ?? '');
   const emailChanged = email !== (user?.email ?? '');
   const hasChanges = usernameChanged || emailChanged;
-  const canSave = !isSaving && !isUsernameChecking && hasChanges && form.formState.isValid;
+  const canSave =
+    !isSaving &&
+    !isUsernameChecking &&
+    hasChanges &&
+    form.formState.isValid &&
+    isUsernameAvailable !== false;
 
   const handleSave = form.handleSubmit(async (values) => {
     try {
@@ -95,6 +110,8 @@ export const useSettingsAccountForm = () => {
     canSave,
     isSaving,
     isUsernameChecking,
+    isUsernameAvailable,
+    usernameError,
     handleSave,
   };
 };
