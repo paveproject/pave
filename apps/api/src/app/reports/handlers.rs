@@ -1,12 +1,18 @@
 use super::dto::{CreateReportRequest, ListReportsQuery, ReportResponse};
+use super::geohash_util;
+use super::hub::{self, ReportsHub};
+use super::ws_dto::{ClientMessage, ServerMessage};
 use crate::entities::sea_orm_active_enums::ReportTypeEnum;
 use crate::state::AppState;
+use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Query, State};
 use axum::response::IntoResponse;
 use axum::Json;
 use chrono::Duration;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::{ActiveEnum, ConnectionTrait, DatabaseBackend, FromQueryResult, Statement};
+use std::collections::HashSet;
+use tokio::sync::mpsc;
 
 /// How long a report stays visible on the map after it happened. A fixed
 /// constant for v1 - may end up varying by `ReportType` later (e.g. an arrest
@@ -72,14 +78,25 @@ pub async fn create_report(
         .await
         .expect("failed to insert report");
 
-    Json(ReportResponse {
+    let response = ReportResponse {
         id: body.id,
         r#type: body.r#type,
         lat: body.lat,
         lng: body.lng,
         occurred_at: body.occurred_at.to_rfc3339(),
         expires_at: expires_at.to_rfc3339(),
-    })
+    };
+
+    // Fans out over Redis to every pod with a connection currently watching
+    // this area - see `hub.rs`. A repeat of the same id (see the
+    // `ON CONFLICT (id) DO NOTHING` above) still republishes; harmless,
+    // since client-side merging by id is idempotent.
+    let cells = geohash_util::cells_for_point(response.lat, response.lng);
+    state
+        .reports_hub
+        .publish(cells, ServerMessage::ReportCreated(response.clone()));
+
+    Json(response)
 }
 
 #[utoipa::path(
@@ -126,4 +143,52 @@ pub async fn list_reports(
             .map(ReportResponse::from)
             .collect::<Vec<_>>(),
     )
+}
+
+/// Live feed of newly created reports for whatever viewport the client is
+/// currently looking at. Not part of the OpenAPI `paths` (there's no REST
+/// representation for a websocket) - `ClientMessage`/`ServerMessage` are
+/// still registered as OpenAPI schemas (see `main.rs`) purely so the
+/// generated TS client stays type-safe for both ends of this socket.
+pub async fn reports_ws(State(state): State<AppState>, ws: WebSocketUpgrade) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| handle_socket(socket, state.reports_hub))
+}
+
+async fn handle_socket(socket: WebSocket, reports_hub: ReportsHub) {
+    use futures_util::{SinkExt, StreamExt};
+
+    let conn_id = hub::next_connection_id();
+    let (tx, mut rx) = mpsc::unbounded_channel::<ServerMessage>();
+    reports_hub.register(conn_id, tx);
+
+    let (mut sink, mut stream) = socket.split();
+
+    loop {
+        tokio::select! {
+            incoming = stream.next() => {
+                let Some(Ok(message)) = incoming else { break };
+                match message {
+                    Message::Text(text) => {
+                        if let Ok(ClientMessage::Subscribe(query)) =
+                            serde_json::from_str::<ClientMessage>(text.as_str())
+                        {
+                            let cells: HashSet<String> = geohash_util::cells_for_bbox(&query);
+                            reports_hub.set_interest(conn_id, cells);
+                        }
+                    }
+                    Message::Close(_) => break,
+                    _ => {}
+                }
+            }
+            outgoing = rx.recv() => {
+                let Some(outgoing) = outgoing else { break };
+                let Ok(text) = serde_json::to_string(&outgoing) else { continue };
+                if sink.send(Message::Text(text.into())).await.is_err() {
+                    break;
+                }
+            }
+        }
+    }
+
+    reports_hub.deregister(conn_id);
 }

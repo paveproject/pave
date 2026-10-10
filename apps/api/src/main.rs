@@ -53,6 +53,8 @@ use utoipa_swagger_ui::SwaggerUi;
         reports::dto::ReportType,
         reports::dto::CreateReportRequest,
         reports::dto::ReportResponse,
+        reports::ws_dto::ClientMessage,
+        reports::ws_dto::ServerMessage,
     ))
 )]
 struct ApiDoc;
@@ -151,6 +153,7 @@ async fn main() {
         s3: build_s3_client().await,
         s3_bucket,
         s3_public_endpoint,
+        reports_hub: app::reports::hub::ReportsHub::spawn(redis_url()),
     };
 
     let app = Router::new()

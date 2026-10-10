@@ -72,7 +72,9 @@ pub struct CreateReportRequest {
     pub occurred_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, ToSchema)]
+/// Also `Deserialize`: round-trips through Redis pub/sub in plain JSON
+/// between pods as part of `ws_dto::ServerMessage` (see `hub.rs`).
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ReportResponse {
     pub id: String,
@@ -84,8 +86,10 @@ pub struct ReportResponse {
 }
 
 /// Bounding box scoping the map's visible viewport - without this, every
-/// client would pull every report on earth on every refresh.
-#[derive(Debug, Clone, Deserialize, IntoParams)]
+/// client would pull every report on earth on every refresh. Also used as
+/// the websocket subscribe payload (see `ws_dto::ClientMessage`), hence
+/// `ToSchema` alongside `IntoParams`.
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ListReportsQuery {
     pub min_lat: f64,

@@ -1,3 +1,4 @@
+use crate::app::reports::hub::ReportsHub;
 use auth::AppAuthSchema;
 use aws_sdk_s3::Client as S3Client;
 use axum::extract::FromRef;
@@ -12,6 +13,7 @@ pub struct AppState {
     pub s3: S3Client,
     pub s3_bucket: String,
     pub s3_public_endpoint: String,
+    pub reports_hub: ReportsHub,
 }
 
 impl FromRef<AppState> for Arc<BetterAuth<AppAuthSchema>> {
