@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MeResponse, client } from '@libs/api-js';
 import { meKeys, meOptions } from '@libs/query-client';
 import { defaultSupportedLocale, SupportedLocale, supportedLocales } from '@libs/i18n';
+import { getPendingLanguage } from '../lib/i18n';
 import { clearSessionToken, setSessionToken } from '../lib/auth/session';
 
 type AuthContextProps = {
@@ -66,11 +67,19 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     if (!user?.language) return;
-    setLocale(
-      supportedLocales.includes(user.language as SupportedLocale)
-        ? (user.language as SupportedLocale)
-        : defaultSupportedLocale,
-    );
+    (async () => {
+      // A local pick made while offline (or that otherwise failed to push,
+      // see `useLanguageSync`) hasn't reached the account yet - `user.language`
+      // here is stale in that case, not a change made elsewhere that this
+      // device should adopt. Applying it would silently revert the user's
+      // own still-unsynced pick.
+      if (await getPendingLanguage()) return;
+      setLocale(
+        supportedLocales.includes(user.language as SupportedLocale)
+          ? (user.language as SupportedLocale)
+          : defaultSupportedLocale,
+      );
+    })();
     // Only re-run when the account's stored language actually changes - not
     // on every `setLocale` identity change, which happens on every manual
     // locale switch (its `useCallback` depends on `locale`) and would

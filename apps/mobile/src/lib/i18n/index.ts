@@ -38,6 +38,28 @@ export const setLocale = async (locale: string): Promise<void> => {
   await AsyncStorage.setItem('language', locale);
 };
 
+const PENDING_LANGUAGE_KEY = 'pendingLanguageSync';
+
+/**
+ * Tracks a locally-picked language that hasn't been confirmed pushed to the
+ * account's `language` field yet - the app is offline-first, so picking a
+ * language must work with no network at all. `null` means "nothing to
+ * sync" (either never diverged, or the last push succeeded).
+ *
+ * Deliberately a plain AsyncStorage flag, not a WatermelonDB table: there's
+ * exactly one pending value at a time (the user's single language
+ * preference), not a growing collection of offline-created records the way
+ * reports are - WatermelonDB's sync machinery would be solving a problem
+ * this doesn't have.
+ */
+export const getPendingLanguage = (): Promise<string | null> =>
+  AsyncStorage.getItem(PENDING_LANGUAGE_KEY);
+
+export const setPendingLanguage = (locale: string | null): Promise<void> =>
+  locale
+    ? AsyncStorage.setItem(PENDING_LANGUAGE_KEY, locale)
+    : AsyncStorage.removeItem(PENDING_LANGUAGE_KEY);
+
 const loadMessages = async (locale: SupportedLocale): Promise<Record<string, any>> => {
   const fallback = getFallbackLocale({ locale });
 

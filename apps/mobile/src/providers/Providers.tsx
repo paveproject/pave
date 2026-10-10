@@ -15,6 +15,7 @@ import { ToastProvider } from '../components/Toast';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { ApiProvider } from './ApiProvider';
 import { useReportSync } from '../hooks/useReportSync';
+import { useLanguageSync } from '../hooks/useLanguageSync';
 
 type ProvidersProps = {
   children: React.ReactNode;
@@ -24,6 +25,13 @@ type ProvidersProps = {
 // not-yet-synced local reports (see lib/watermelon/reports.ts).
 const ReportSyncBootstrap = () => {
   useReportSync();
+  return null;
+};
+
+// Same idea, for a locally-picked language that couldn't be pushed to the
+// account yet (see lib/i18n/index.ts's getPendingLanguage).
+const LanguageSyncBootstrap = () => {
+  useLanguageSync();
   return null;
 };
 
@@ -47,6 +55,7 @@ const Providers = ({ children }: ProvidersProps) => {
                                   {children}
                                   <BottomSheetManager />
                                   <ReportSyncBootstrap />
+                                  <LanguageSyncBootstrap />
                                 </NotificationsProvider>
                               </BottomSheetModalProvider>
                             </ApiProvider>
