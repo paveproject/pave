@@ -1,0 +1,124 @@
+import { useMemo } from 'react';
+import { ActivityIndicator, Platform } from 'react-native';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { useRouter } from 'expo-router';
+import { Host, Button, Text as NativeText } from '@expo/ui';
+import {
+  buttonStyle,
+  controlSize,
+  foregroundStyle,
+  frame,
+  tint,
+} from '@expo/ui/swift-ui/modifiers';
+import { fillMaxWidth, background as androidBackground } from '@expo/ui/jetpack-compose/modifiers';
+import { useTranslations } from 'use-intl';
+import { useMeUpdateMutation } from '@libs/query-client';
+import { useTheme } from '../../providers/ThemeProvider';
+import { useToast } from '../../components/Toast';
+import { Input } from '../../components/ui/Input';
+import { FormFieldError } from '../../components/ui/FormFieldError';
+import { View } from '../../components/ui/view';
+import { Text } from '../../components/ui/text';
+import { logger } from '../../logger';
+import { usernameSchema, useUsernameAvailabilityCheck } from '../../hooks/useUsernameValidation';
+
+/**
+ * Mandatory, non-dismissible step: OTP sign-in creates a user with no
+ * username at all (see `libs/auth/src/otp.rs`), so the root layout forces
+ * this screen open the moment it sees `user && !user.username` - no cross
+ * button, no swipe-to-dismiss (see `app/_layout.tsx`'s `gestureEnabled:
+ * false`), the only way out is successfully saving a username.
+ */
+const CompleteProfileScreen = () => {
+  const t = useTranslations();
+  const router = useRouter();
+  const { colors, theme } = useTheme();
+  const toast = useToast();
+
+  const schema = useMemo(() => z.object({ username: usernameSchema(t) }), [t]);
+  type FormValues = z.infer<typeof schema>;
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { username: '' },
+    mode: 'onChange',
+  });
+
+  const { isUsernameChecking } = useUsernameAvailabilityCheck(form, null);
+  const { mutateAsync: updateMe, isPending: isSaving } = useMeUpdateMutation();
+
+  const canSave = !isSaving && !isUsernameChecking && form.formState.isValid;
+
+  const handleSave = form.handleSubmit(async (values) => {
+    try {
+      await updateMe({ username: values.username });
+      router.back();
+    } catch (error) {
+      toast.error(t('messages.an_error_occurred'));
+      logger.error('complete profile error', { error });
+    }
+  });
+
+  const saveModifiers =
+    Platform.OS === 'ios'
+      ? [
+          buttonStyle('glassProminent'),
+          controlSize('extraLarge'),
+          tint(colors.secondary),
+          foregroundStyle(colors.secondaryForeground),
+        ]
+      : [fillMaxWidth(), androidBackground(colors.secondary)];
+  const saveLabelModifiers =
+    Platform.OS === 'ios' ? [frame({ maxWidth: Infinity })] : [fillMaxWidth()];
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        gap: theme.spaces.md,
+        paddingTop: theme.spaces.vertical,
+        paddingHorizontal: theme.spaces.horizontal,
+      }}
+    >
+      <View style={{ gap: theme.spaces.sm }}>
+        <Text variant="title">{t('pages.auth.complete.label')}</Text>
+        <Text textColor="muted">{t('pages.auth.complete.description')}</Text>
+      </View>
+
+      <Controller
+        name="username"
+        control={form.control}
+        render={({ field: { onChange, onBlur, value } }) => (
+          <Input
+            nativeID="username"
+            placeholder={t('pages.settings.account.username.label')}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="username"
+            value={value}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            disabled={isSaving}
+            rightComponent={isUsernameChecking ? <ActivityIndicator /> : undefined}
+          />
+        )}
+      />
+      <FormFieldError message={form.formState.errors.username?.message} />
+
+      <Host style={{ width: '100%' }} matchContents={{ vertical: true }}>
+        <Button disabled={!canSave || isSaving} onPress={handleSave} modifiers={saveModifiers}>
+          <NativeText
+            textStyle={{ color: colors.secondaryForeground, textAlign: 'center' }}
+            modifiers={saveLabelModifiers}
+          >
+            {t('messages.continue')}
+          </NativeText>
+        </Button>
+      </Host>
+    </View>
+  );
+};
+
+export default CompleteProfileScreen;

@@ -3,8 +3,7 @@ import { View } from './ui/view';
 import { useTranslations } from 'use-intl';
 import { useTheme } from '../providers/ThemeProvider';
 import { Text, TextProps } from './ui/text';
-import { Icons } from '../constants/Icons';
-import { upperFirst } from 'lodash';
+import { Icons } from '../constants/IconsOld';
 import { PADDING_VERTICAL } from '../theme/globals';
 import tw from '../lib/tw';
 
@@ -20,9 +19,7 @@ const ErrorMessage = forwardRef<React.ComponentRef<typeof View>, ErrorMessagePro
     return (
       <View ref={ref} style={[tw`items-center justify-center flex-1`, style]}>
         <Icons.AlertCircle color={colors.mutedForeground} />
-        <Text style={{ color: colors.mutedForeground }}>
-          {upperFirst(t('common.messages.an_error_occurred'))}
-        </Text>
+        <Text style={{ color: colors.mutedForeground }}>{t('messages.an_error_occurred')}</Text>
         {typeof message === 'string' ? (
           <Text
             style={[

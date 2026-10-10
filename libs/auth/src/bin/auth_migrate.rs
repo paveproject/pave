@@ -11,7 +11,9 @@ async fn main() {
         .await
         .expect("failed to connect to database");
 
-    create_auth_tables(&database).await.expect("failed to create auth tables");
+    create_auth_tables(&database)
+        .await
+        .expect("failed to create auth tables");
 
     println!("auth tables created in the `auth` schema");
 }

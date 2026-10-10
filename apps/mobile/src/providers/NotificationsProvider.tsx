@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { useAuth } from './AuthProvider';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useToast } from '../components/Toast';
 import { usePushTokenUpdateMutation } from '@libs/query-client';
@@ -62,7 +63,11 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
         throw new Error('Permission not granted to get push token for push notification!');
       }
       try {
-        const pushTokenString = (await Notifications.getDevicePushTokenAsync()).data;
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+        if (!projectId) {
+          throw new Error('EAS project ID not found');
+        }
+        const pushTokenString = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
         return pushTokenString;
       } catch (e) {
         throw new Error(`${e}`);
@@ -133,7 +138,7 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
       const data = (notification.request.content.data ||
         (notification.request.trigger as any).payload.data) as PushNotificationPayload | undefined;
       toast.info(
-        notification.request.content.title || t('common.messages.new_notification', { count: 1 }),
+        notification.request.content.title || t('messages.new_notification', { count: 1 }),
         {
           description: notification.request.content.body ?? undefined,
           onPress: data && data.type ? () => handleRedirect(data) : undefined,
@@ -152,11 +157,9 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
       (token) => {
         setPushToken(token);
         updatePushToken({
-          body: {
-            provider: Platform.OS === 'ios' || Platform.OS === 'macos' ? 'apns' : 'fcm',
-            token,
-            deviceType: Platform.OS === 'ios' ? 'ios' : 'android',
-          },
+          provider: 'expo',
+          token,
+          deviceType: Platform.OS === 'ios' ? 'ios' : 'android',
         });
       },
       (err) => {

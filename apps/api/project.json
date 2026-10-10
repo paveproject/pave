@@ -50,6 +50,13 @@
         }
       }
     },
+    "serve": {
+      "continuous": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cargo watch -x \"run --target-dir dist/target/api -p api\""
+      }
+    },
     "generate-openapi": {
       "executor": "nx:run-commands",
       "cache": true,

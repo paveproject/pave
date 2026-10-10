@@ -8,7 +8,7 @@ import {
   StyleState,
 } from 'react-native-enriched-markdown';
 import { LucideIcon } from 'lucide-react-native';
-import { Icons } from '../../constants/Icons';
+import { Icons } from '../../constants/IconsOld';
 import { useTheme } from '../../providers/ThemeProvider';
 import { FlashList } from '@shopify/flash-list';
 import tw from '../../lib/tw';
@@ -16,7 +16,6 @@ import { BORDER_RADIUS_FULL, GAP, GAP_XS } from '../../theme/globals';
 import { View } from 'react-native';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { upperFirst } from 'lodash';
 import { useTranslations } from 'use-intl';
 
 type Item = {
@@ -120,17 +119,17 @@ export const Toolbar = forwardRef<React.ComponentRef<typeof KeyboardToolbar>, To
                       onPress={handleCancel}
                       textStyle={{ color: colors.mutedForeground }}
                     >
-                      {upperFirst(t('common.messages.cancel'))}
+                      {t('messages.cancel')}
                     </Button>
                     <Button
                       variant="ghost"
                       size="fit"
                       textStyle={{
-                        color: colors.accentYellow,
+                        color: colors.primary,
                       }}
                       onPress={handleInsertLink}
                     >
-                      {upperFirst(t('common.messages.insert'))}
+                      {t('messages.insert')}
                     </Button>
                   </View>
                 }

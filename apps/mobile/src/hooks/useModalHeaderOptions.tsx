@@ -1,8 +1,7 @@
 import { NativeStackNavigationOptions, useNavigation, useRouter } from 'expo-router';
 import { useTranslations } from 'use-intl';
-import { upperFirst } from 'lodash';
 import { Button } from '../components/ui/Button';
-import { Icons } from '../constants/Icons';
+import { Icons } from '../constants/IconsOld';
 import { useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { useTheme } from '../providers/ThemeProvider';
@@ -36,22 +35,22 @@ export const useModalHeaderOptions = ({
       Alert.alert(
         typeof confirmExit === 'object' && confirmExit.confirmTitle
           ? confirmExit.confirmTitle
-          : upperFirst(t('common.messages.are_u_sure')),
+          : t('messages.are_u_sure'),
         typeof confirmExit === 'object' && confirmExit.confirmMessage
           ? confirmExit.confirmMessage
-          : upperFirst(t('common.messages.do_you_really_want_to_cancel_change', { count: 2 })),
+          : t('messages.do_you_really_want_to_cancel_change', { count: 2 }),
         [
           {
             text:
               typeof confirmExit === 'object' && confirmExit.continueEditingLabel
                 ? confirmExit.continueEditingLabel
-                : upperFirst(t('common.messages.continue_editing')),
+                : t('messages.continue_editing'),
           },
           {
             text:
               typeof confirmExit === 'object' && confirmExit.ignoreLabel
                 ? confirmExit.ignoreLabel
-                : upperFirst(t('common.messages.ignore')),
+                : t('messages.ignore'),
             onPress: () => router.dismiss(),
             style: 'destructive',
           },
@@ -83,7 +82,7 @@ export const useModalHeaderOptions = ({
               return [
                 {
                   type: 'button',
-                  label: upperFirst(t('common.messages.cancel')),
+                  label: t('messages.cancel'),
                   onPress: handleExit,
                   tintColor: props.tintColor,
                   disabled: isPending,

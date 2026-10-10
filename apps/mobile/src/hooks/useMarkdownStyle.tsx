@@ -10,10 +10,10 @@ export const useMarkdownStyle = (): MarkdownStyle => {
         color: colors.foreground,
       },
       link: {
-        color: colors.accentPink,
+        color: colors.secondary,
       },
       strong: {
-        color: colors.accentYellow,
+        color: colors.primary,
       },
       list: {
         color: colors.foreground,

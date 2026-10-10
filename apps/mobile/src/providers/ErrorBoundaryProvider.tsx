@@ -13,7 +13,7 @@ import { ToastProvider, useToast } from '../components/Toast';
 import { logger } from '../logger';
 import { View } from '../components/ui/view';
 import tw from '../lib/tw';
-import { Icons } from '../constants/Icons';
+import { Icons } from '../constants/IconsOld';
 import { Text } from '../components/ui/text';
 import { Button } from '../components/ui/Button';
 
@@ -24,7 +24,7 @@ const ErrorBoundaryInner = ({ error, retry }: ErrorBoundaryProps) => {
 
   const copyError = useCallback(async () => {
     await setStringAsync(error.message);
-    toast.success(t('common.messages.copied', { count: 1, gender: 'male' }));
+    toast.success(t('messages.copied', { count: 1, gender: 'male' }));
   }, [error, toast, t]);
 
   useEffect(() => {
@@ -36,7 +36,7 @@ const ErrorBoundaryInner = ({ error, retry }: ErrorBoundaryProps) => {
   return (
     <View style={tw`flex-1 justify-center items-center p-4 gap-4`}>
       <Icons.Bug color={colors.mutedForeground} />
-      <Text variant="title">{t('common.messages.an_error_occurred')}</Text>
+      <Text variant="title">{t('messages.an_error_occurred')}</Text>
       <Pressable
         onPress={copyError}
         style={[
@@ -48,7 +48,7 @@ const ErrorBoundaryInner = ({ error, retry }: ErrorBoundaryProps) => {
       >
         <Text>{error.message}</Text>
       </Pressable>
-      <Button onPress={retry}>{t('common.messages.try_again')}</Button>
+      <Button onPress={retry}>{t('messages.try_again')}</Button>
     </View>
   );
 };

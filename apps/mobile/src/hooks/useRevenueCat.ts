@@ -3,9 +3,9 @@ import { REVENUECAT_API_KEY } from '../lib/revenue-cat';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
 import Purchases, { CustomerInfo, LOG_LEVEL } from 'react-native-purchases';
-import { User } from '@libs/api-js';
+import { MeResponse } from '@libs/api-js';
 
-export const useRevenueCat = (user: User | null | undefined) => {
+export const useRevenueCat = (user: MeResponse | null | undefined) => {
   const queryClient = useQueryClient();
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | undefined>(undefined);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -23,7 +23,7 @@ export const useRevenueCat = (user: User | null | undefined) => {
     });
     setIsInitialized(true);
   }, []);
-  const login = useCallback(async (user: User) => {
+  const login = useCallback(async (user: MeResponse) => {
     const { customerInfo } = await Purchases.logIn(user.id);
     if (user.email) {
       await Purchases.setAttributes({

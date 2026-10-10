@@ -1,12 +1,10 @@
-use better_auth::AuthSchema;
 use better_auth::seaorm::sea_orm;
 use better_auth::seaorm::sea_orm::entity::prelude::*;
+use better_auth::seaorm::sea_orm::sea_query::{Alias, ForeignKey, ForeignKeyAction, Index};
 use better_auth::seaorm::sea_orm::{ConnectionTrait, Schema};
-use better_auth::seaorm::sea_orm::sea_query::{
-    Alias, ForeignKey, ForeignKeyAction, Index,
-};
 use better_auth::seaorm::AuthEntity;
-mod user {
+use better_auth::AuthSchema;
+pub mod user {
     use super::*;
     #[derive(Clone, Debug, serde::Serialize, DeriveEntityModel, AuthEntity)]
     #[auth(role = "user")]
@@ -102,12 +100,13 @@ impl AuthSchema for AppAuthSchema {
 ///
 /// Call this scaffold from the application's initial migration.
 /// Use versioned migrations to change existing tables.
-pub async fn create_auth_tables(
-    database: &impl ConnectionTrait,
-) -> Result<(), sea_orm::DbErr> {
+pub async fn create_auth_tables(database: &impl ConnectionTrait) -> Result<(), sea_orm::DbErr> {
     let schema = Schema::new(database.get_database_backend());
     for statement in [
-        schema.create_table_from_entity(user::Entity).if_not_exists().to_owned(),
+        schema
+            .create_table_from_entity(user::Entity)
+            .if_not_exists()
+            .to_owned(),
         schema
             .create_table_from_entity(session::Entity)
             .if_not_exists()
@@ -130,7 +129,10 @@ pub async fn create_auth_tables(
                     .on_delete(ForeignKeyAction::Cascade),
             )
             .to_owned(),
-        schema.create_table_from_entity(verification::Entity).if_not_exists().to_owned(),
+        schema
+            .create_table_from_entity(verification::Entity)
+            .if_not_exists()
+            .to_owned(),
     ] {
         let _ = database.execute(&statement).await?;
     }

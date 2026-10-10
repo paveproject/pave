@@ -80,7 +80,8 @@ export const DOMAIN_NAME: string = process.env.EXPO_PUBLIC_WEB_APP!;
  * API
  */
 export const API_URL: string = process.env.EXPO_PUBLIC_API_URL!;
-export const API_ENDPOINT = `${API_URL}/v1`;
+// The Rust api has no /v1 prefix on any route (unlike the old NestJS template).
+export const API_ENDPOINT = API_URL;
 
 const schemeFromConfig = Constants.expoConfig?.scheme;
 export const SCHEME: string = Array.isArray(schemeFromConfig)

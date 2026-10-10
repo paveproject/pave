@@ -1,15 +1,15 @@
 import { io, Socket } from 'socket.io-client';
 import { REALTIME_NAMESPACE, MeServerEvents } from '@libs/realtime';
-import { User } from './__generated__';
+import { MeResponse } from './__generated__';
 
 export interface MeServerToClientEvents {
-  [MeServerEvents.UPDATED]: (user: User) => void;
+  [MeServerEvents.UPDATED]: (user: MeResponse) => void;
 }
 
 export type RealtimeSocket = Socket<MeServerToClientEvents>;
 
 export interface MeCallbacks {
-  onMeUpdated?: (user: User) => void;
+  onMeUpdated?: (user: MeResponse) => void;
 }
 
 export interface RealtimeConfig {

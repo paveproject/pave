@@ -51,7 +51,7 @@ const WelcomeLayout = () => {
         <Stack.Screen
           name="index"
           options={{
-            title: t('common.messages.welcome'),
+            title: t('messages.welcome'),
           }}
         />
       </Stack>

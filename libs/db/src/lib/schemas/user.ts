@@ -20,7 +20,7 @@ export const user = pgTable('user', {
 });
 
 // Notifications
-export const pushProviderEnum = pgEnum('push_provider_enum', ['fcm', 'apns']);
+export const pushProviderEnum = pgEnum('push_provider_enum', ['expo']);
 export const deviceTypeEnum = pgEnum('device_type_enum', ['web', 'ios', 'android']);
 export const pushToken = pgTable(
   'push_token',

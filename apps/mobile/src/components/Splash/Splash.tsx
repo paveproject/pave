@@ -8,7 +8,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icons } from '../../constants/Icons';
+import { Icons } from '../../constants/IconsOld';
 import { useTheme } from '../../providers/ThemeProvider';
 import { scheduleOnRN } from 'react-native-worklets';
 import { LucideProps } from 'lucide-react-native';
@@ -20,7 +20,7 @@ import { useSplashScreen } from '../../providers/SplashScreenProvider';
 export const Logo = React.forwardRef<Svg, LucideProps>((props: LucideProps, ref) => {
   const { colors } = useTheme();
   const width = 1000;
-  return <Icons.app.icon ref={ref} color={props.fill || colors.accentYellow} width={width} />;
+  return <Icons.app.icon ref={ref} color={props.fill || colors.primary} width={width} />;
 });
 Logo.displayName = 'Logo';
 
@@ -135,7 +135,7 @@ export function Splash({ children }: React.PropsWithChildren) {
               },
             ]}
           >
-            <Icons.app.logo color={colors.accentYellow} width={clamp(screenWidth * 0.3, 90, 120)} />
+            <Icons.app.logo color={colors.primary} width={clamp(screenWidth * 0.3, 90, 120)} />
           </Animated.View>
         </View>
       )}
@@ -161,7 +161,7 @@ export function Splash({ children }: React.PropsWithChildren) {
               ]}
             >
               <Animated.View style={[logoAnimations]}>
-                <Logo fill={colors.accentYellow} />
+                <Logo fill={colors.primary} />
               </Animated.View>
             </Animated.View>
           )}
