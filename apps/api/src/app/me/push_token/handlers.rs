@@ -1,6 +1,6 @@
 use super::dto::SetPushTokenRequest;
-use crate::entities::push_token;
-use crate::entities::sea_orm_active_enums::{DeviceTypeEnum, PushProviderEnum};
+use crate::libs::entities::push_token;
+use crate::libs::entities::sea_orm_active_enums::{DeviceTypeEnum, PushProviderEnum};
 use crate::state::AppState;
 use auth::AppAuthSchema;
 use axum::extract::State;

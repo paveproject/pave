@@ -1,10 +1,9 @@
 mod app;
-mod entities;
-mod health;
-mod otp_sender;
+mod libs;
 mod state;
 
-use app::{auth_otp, me, reports};
+use app::{auth_otp, health, me, reports};
+use libs::otp_sender;
 use auth::{create_auth_tables, database_url, AppAuthSchema, OtpPlugin};
 use axum::Router;
 use better_auth::config::BearerConfig;
@@ -147,6 +146,12 @@ async fn main() {
         .or_else(|_| std::env::var("S3_ENDPOINT"))
         .expect("S3_PUBLIC_ENDPOINT or S3_ENDPOINT must be set");
 
+    let redis_client =
+        redis::Client::open(redis_url()).expect("failed to parse redis url for AppState");
+    let redis = redis::aio::ConnectionManager::new(redis_client)
+        .await
+        .expect("failed to connect to redis for AppState");
+
     let state = AppState {
         auth: auth.clone(),
         db: database,
@@ -154,6 +159,7 @@ async fn main() {
         s3_bucket,
         s3_public_endpoint,
         reports_hub: app::reports::hub::ReportsHub::spawn(redis_url()),
+        redis,
     };
 
     let app = Router::new()

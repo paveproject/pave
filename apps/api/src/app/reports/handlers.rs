@@ -1,13 +1,17 @@
 use super::dto::{CreateReportRequest, ListReportsQuery, ReportResponse};
 use super::geohash_util;
 use super::hub::{self, ReportsHub};
+use super::rate_limit;
 use super::ws_dto::{ClientMessage, ServerMessage};
-use crate::entities::sea_orm_active_enums::ReportTypeEnum;
+use crate::libs::entities::sea_orm_active_enums::ReportTypeEnum;
 use crate::state::AppState;
+use auth::AppAuthSchema;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Query, State};
+use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
+use better_auth::integrations::axum::CurrentSession;
 use chrono::Duration;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::{ActiveEnum, ConnectionTrait, DatabaseBackend, FromQueryResult, Statement};
@@ -50,9 +54,21 @@ impl From<ReportRow> for ReportResponse {
     responses((status = 200, description = "Report recorded (a repeat of the same id is a no-op)", body = ReportResponse))
 )]
 pub async fn create_report(
-    State(state): State<AppState>,
+    State(mut state): State<AppState>,
+    session: CurrentSession<AppAuthSchema>,
     Json(body): Json<CreateReportRequest>,
 ) -> impl IntoResponse {
+    if rate_limit::check_report_rate_limit(&mut state.redis, &session.user.id)
+        .await
+        .is_err()
+    {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            "too many reports created recently, try again later",
+        )
+            .into_response();
+    }
+
     let report_type: ReportTypeEnum = body.r#type.clone().into();
     let expires_at = body.occurred_at + Duration::hours(REPORT_TTL_HOURS);
 
@@ -96,7 +112,7 @@ pub async fn create_report(
         .reports_hub
         .publish(cells, ServerMessage::ReportCreated(response.clone()));
 
-    Json(response)
+    Json(response).into_response()
 }
 
 #[utoipa::path(

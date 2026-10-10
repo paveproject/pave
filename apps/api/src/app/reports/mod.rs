@@ -2,6 +2,7 @@ pub mod dto;
 pub mod geohash_util;
 pub mod handlers;
 pub mod hub;
+pub mod rate_limit;
 pub mod ws_dto;
 
 use crate::state::AppState;

@@ -14,6 +14,12 @@ pub struct AppState {
     pub s3_bucket: String,
     pub s3_public_endpoint: String,
     pub reports_hub: ReportsHub,
+    /// General-purpose Redis connection (cheap to clone, auto-reconnects) -
+    /// separate from `reports_hub`'s own dedicated pub/sub connection, which
+    /// must stay exclusively in subscribe-listening mode. Used for rate
+    /// limiting (see `app::reports::rate_limit`) and open to other
+    /// general-purpose caching/counting needs later.
+    pub redis: redis::aio::ConnectionManager,
 }
 
 impl FromRef<AppState> for Arc<BetterAuth<AppAuthSchema>> {

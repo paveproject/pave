@@ -1,5 +1,5 @@
 use super::dto::{MeResponse, UpdateMeRequest, UsernameAvailableQuery, UsernameAvailableResponse};
-use crate::entities::user as pave_user;
+use crate::libs::entities::user as pave_user;
 use crate::state::AppState;
 use auth::schema::user as auth_user;
 use auth::AppAuthSchema;
