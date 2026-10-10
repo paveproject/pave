@@ -1,4 +1,4 @@
-import { TColors } from '../constants/Colors';
+import { TColors } from '../constants/colors';
 import { useTheme } from '../providers/ThemeProvider';
 import { useMemo } from 'react';
 import { StyleSheet } from 'react-native';

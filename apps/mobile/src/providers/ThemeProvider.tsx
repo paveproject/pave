@@ -1,4 +1,4 @@
-import Colors, { TColors } from '../constants/Colors';
+import Colors, { TColors } from '../constants/colors';
 import { DarkTheme, ThemeProvider as NativeThemeProvider } from 'expo-router/react-navigation';
 import { createContext, use, useEffect, useMemo } from 'react';
 import { setBackgroundColorAsync } from 'expo-system-ui';

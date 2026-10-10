@@ -103,6 +103,13 @@
           "kettling": "Nasse",
           "other": "Autre"
         }
+      },
+      "settings": {
+        "title": "Style de carte",
+        "styles": {
+          "default": "Par défaut",
+          "satellite": "Satellite"
+        }
       }
     }
   }

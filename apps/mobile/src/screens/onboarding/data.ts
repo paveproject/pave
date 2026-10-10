@@ -1,4 +1,4 @@
-import { Assets } from '../../constants/Assets';
+import { Assets } from '../../constants/assets';
 import { useTheme } from '../../providers/ThemeProvider';
 import { useTranslations } from 'use-intl';
 

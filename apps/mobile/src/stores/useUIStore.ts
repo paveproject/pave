@@ -4,11 +4,13 @@ import { zustandStorage } from './storage';
 import { ViewType } from '@libs/api-js';
 
 export type ThemeVariant = 'light' | 'dark' | 'system';
+export type MapStyleVariant = 'default' | 'satellite';
 
 interface MapState {
   center: [number, number]; // [lng, lat]
   zoom: number;
   selectedMovieId: number | null;
+  style: MapStyleVariant;
 }
 
 interface UIStore {
@@ -42,6 +44,7 @@ interface UIStore {
   map: MapState;
   setMapCamera: (center: [number, number], zoom: number) => void;
   setSelectedMovieId: (id: number | null) => void;
+  setMapStyle: (style: MapStyleVariant) => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -90,6 +93,7 @@ export const useUIStore = create<UIStore>()(
         center: [2.5, 48.5],
         zoom: 8,
         selectedMovieId: null,
+        style: 'default',
       },
       setMapCamera: (center, zoom) =>
         set((state) => ({
@@ -98,6 +102,10 @@ export const useUIStore = create<UIStore>()(
       setSelectedMovieId: (id) =>
         set((state) => ({
           map: { ...state.map, selectedMovieId: id },
+        })),
+      setMapStyle: (style) =>
+        set((state) => ({
+          map: { ...state.map, style },
         })),
     }),
     {

@@ -114,6 +114,28 @@ export const Icons = {
     ios: 'arrow.clockwise',
     android: import('@expo/material-symbols/refresh.xml'),
   }),
+  warning: Icon.select({
+    ios: 'exclamationmark.triangle.fill',
+    android: import('@expo/material-symbols/warning.xml'),
+  }),
+
+  // Map locate button's 3 states (idle -> focused -> heading-follow).
+  locate: Icon.select({
+    ios: 'location',
+    android: import('@expo/material-symbols/location_searching.xml'),
+  }),
+  locateFocused: Icon.select({
+    ios: 'location.fill',
+    android: import('@expo/material-symbols/my_location.xml'),
+  }),
+  locateHeading: Icon.select({
+    ios: 'location.north.line.fill',
+    android: import('@expo/material-symbols/navigation.xml'),
+  }),
+  locateUnavailable: Icon.select({
+    ios: 'location.slash',
+    android: import('@expo/material-symbols/location_disabled.xml'),
+  }),
 };
 
 export type IconKey = keyof typeof Icons;

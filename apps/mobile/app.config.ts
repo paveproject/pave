@@ -181,12 +181,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         ]
       : []),
     ['expo-apple-authentication'],
-    // [
-    //   'expo-asset',
-    //   {
-    //     assets: ['./src/assets/images/screens/onboarding/'],
-    //   },
-    // ],
+    [
+      'expo-asset',
+      {
+        assets: ['./src/assets/images/map/reports/'],
+      },
+    ],
     [
       '@sentry/react-native/expo',
       {

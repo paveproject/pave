@@ -15,6 +15,8 @@ export type ColorTheme = {
   destructiveForeground: string;
   success: string;
   successForeground: string;
+  warning: string;
+  warningForeground: string;
   tint: string;
   keyboardToolbarBackground: string;
 };
@@ -51,6 +53,8 @@ const Colors: ColorPalettes = {
     destructiveForeground: 'hsl(0 0% 98%)',
     success: 'hsl(144.07 100% 39%)',
     successForeground: 'hsl(0 0% 98%)',
+    warning: 'hsl(48 100% 50%)',
+    warningForeground: sharedColors.black,
     tint: 'hsl(0 0% 100%)',
     keyboardToolbarBackground: 'hsl(0 0% 12%)',
     ...sharedColors,
@@ -72,6 +76,8 @@ const Colors: ColorPalettes = {
     destructiveForeground: 'hsl(0 0% 98%)',
     success: 'hsl(144.07 100% 39%)',
     successForeground: 'hsl(0 0% 98%)',
+    warning: 'hsl(48 100% 50%)',
+    warningForeground: sharedColors.black,
     tint: 'hsl(240 5.9% 10%)',
     keyboardToolbarBackground: 'hsl(240 10% 8%)',
     ...sharedColors,

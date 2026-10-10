@@ -103,6 +103,13 @@
           "kettling": "Kettling",
           "other": "Other"
         }
+      },
+      "settings": {
+        "title": "Map style",
+        "styles": {
+          "default": "Default",
+          "satellite": "Satellite"
+        }
       }
     }
   }
