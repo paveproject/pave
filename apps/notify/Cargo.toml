@@ -1,0 +1,18 @@
+[package]
+name = "notify"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+notify-contracts = { path = "../../libs/notify-contracts" }
+bullmq-rs = "2.2.0"
+chrono = "0.4"
+dotenvy = "0.15"
+resend-rs = "0.34"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+tokio = { version = "1.53.2", features = ["macros", "rt-multi-thread", "signal"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

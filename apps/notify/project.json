@@ -1,88 +1,62 @@
 {
   "name": "notify",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "apps/notify/src",
   "projectType": "application",
-  "tags": [],
+  "sourceRoot": "apps/notify/src",
   "targets": {
     "build": {
-      "executor": "nx:run-commands",
-      "dependsOn": ["^generate"],
-      "options": {
-        "command": "webpack-cli build",
-        "args": ["--node-env=production"],
-        "cwd": "apps/notify"
-      },
-      "configurations": {
-        "development": {
-          "args": ["--node-env=development"]
-        }
-      }
-    },
-    "generate-bun-lockfile": {
-      "dependsOn": ["build"],
       "cache": true,
-      "inputs": [
-        "default",
-        "{workspaceRoot}/bun.lock",
-        "{workspaceRoot}/tools/scripts/prune-bun-lockfile.mjs"
-      ],
-      "outputs": [
-        "{workspaceRoot}/dist/apps/notify/package.json",
-        "{workspaceRoot}/dist/apps/notify/bun.lock"
-      ],
-      "executor": "nx:run-commands",
+      "executor": "@monodon/rust:build",
+      "outputs": ["{options.target-dir}"],
       "options": {
-        "command": "node tools/scripts/prune-bun-lockfile.mjs dist/apps/notify"
-      }
-    },
-    "prune": {
-      "dependsOn": ["generate-bun-lockfile"],
-      "executor": "nx:noop"
-    },
-    "docker-build": {
-      "dependsOn": ["build", "^build", "prune"]
-    },
-    "serve": {
-      "continuous": true,
-      "executor": "nx:run-commands",
-      "defaultConfiguration": "development",
-      "dependsOn": ["build"],
-      "options": {
-        "cwd": "apps/notify",
-        "parallel": true,
-        "commands": [
-          "webpack-cli build --node-env=development --watch --no-output-clean",
-          "bun --watch --no-clear-screen ../../dist/apps/notify/main.js"
-        ]
+        "target-dir": "dist/target/notify"
       },
       "configurations": {
-        "development": {},
         "production": {
-          "commands": [
-            "webpack-cli build --node-env=production --watch --no-output-clean",
-            "bun --watch --no-clear-screen ../../dist/apps/notify/main.js"
-          ]
+          "release": true
         }
       }
     },
     "test": {
-      "executor": "nx:run-commands",
       "cache": true,
-      "inputs": ["default", "^production"],
+      "executor": "@monodon/rust:test",
+      "outputs": ["{options.target-dir}"],
       "options": {
-        "cwd": "{projectRoot}",
-        "command": "bun test --parallel --no-env-file --pass-with-no-tests"
+        "target-dir": "dist/target/notify"
+      },
+      "configurations": {
+        "production": {
+          "release": true
+        }
       }
     },
-    "typecheck": {
-      "executor": "nx:run-commands",
+    "lint": {
       "cache": true,
-      "inputs": ["default", "^production"],
+      "executor": "@monodon/rust:lint",
+      "outputs": ["{options.target-dir}"],
       "options": {
-        "cwd": "{projectRoot}",
-        "command": "tsc -p tsconfig.spec.json --noEmit"
+        "target-dir": "dist/target/notify"
+      }
+    },
+    "run": {
+      "executor": "@monodon/rust:run",
+      "outputs": ["{options.target-dir}"],
+      "options": {
+        "target-dir": "dist/target/notify"
+      },
+      "configurations": {
+        "production": {
+          "release": true
+        }
+      }
+    },
+    "serve": {
+      "continuous": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cargo watch -x \"run --target-dir dist/target/notify -p notify\""
       }
     }
-  }
+  },
+  "tags": []
 }

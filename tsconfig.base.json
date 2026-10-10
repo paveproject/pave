@@ -24,10 +24,7 @@
       "@libs/i18n": ["libs/i18n/src/index.ts"],
       "@libs/query-client": ["libs/query-client/src/index.ts"],
       "@libs/api-js": ["libs/api-js/src/index.ts"],
-      "@shared/notify": ["libs/shared/notify/src/index.ts"],
-      "@shared/worker": ["libs/shared/worker/src/index.ts"],
-      "@libs/realtime": ["libs/realtime/src/index.ts"],
-      "@libs/notify-types": ["libs/notify-types/src/index.ts"]
+      "@libs/realtime": ["libs/realtime/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

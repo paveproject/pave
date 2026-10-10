@@ -1,25 +1,36 @@
-# 1. Base stage
-FROM oven/bun:1.4.2-alpine AS base
+# Build context is the repo root (Cargo workspace), e.g.:
+#   docker build -f apps/notify/Dockerfile --tag notify:latest .
 
-# 2. Installer stage
-FROM base AS installer
+FROM rust:1-slim-bookworm AS builder
 WORKDIR /app
 
-COPY dist/apps/notify/package.json dist/apps/notify/bun.lock ./
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      pkg-config \
+      libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=cache,id=bun,target=/root/.bun/install/cache bun install --production --frozen-lockfile
+COPY Cargo.toml Cargo.lock ./
+COPY .cargo ./.cargo
+COPY apps/api/Cargo.toml apps/api/Cargo.toml
+COPY apps/api/src apps/api/src
+COPY apps/notify/Cargo.toml apps/notify/Cargo.toml
+COPY apps/notify/src apps/notify/src
+COPY libs/auth/Cargo.toml libs/auth/Cargo.toml
+COPY libs/auth/src libs/auth/src
+COPY libs/notify-contracts/Cargo.toml libs/notify-contracts/Cargo.toml
+COPY libs/notify-contracts/src libs/notify-contracts/src
 
-# 3. Runner stage
-FROM base AS runner
+RUN cargo build --release --locked --bin notify
+
+FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nestjs
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --no-create-home notify
 
-COPY --from=installer --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder /app/dist/target/release/notify /usr/local/bin/notify
 
-COPY --chown=nestjs:nodejs dist/apps/notify/ .
-
-USER nestjs
-
-CMD ["bun", "main.js"]
+USER notify
+ENTRYPOINT ["/usr/local/bin/notify"]
