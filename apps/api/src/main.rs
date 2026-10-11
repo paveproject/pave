@@ -141,7 +141,7 @@ async fn main() {
             .expect("failed to build auth"),
     );
 
-    let s3_bucket = std::env::var("S3_BUCKET_PUBLIC").unwrap_or_else(|_| "avatars".to_string());
+    let s3_bucket = std::env::var("S3_BUCKET_PUBLIC").unwrap_or_else(|_| "public".to_string());
     let s3_public_endpoint = std::env::var("S3_PUBLIC_ENDPOINT")
         .or_else(|_| std::env::var("S3_ENDPOINT"))
         .expect("S3_PUBLIC_ENDPOINT or S3_ENDPOINT must be set");
