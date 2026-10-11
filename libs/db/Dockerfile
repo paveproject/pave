@@ -16,8 +16,12 @@ COPY Cargo.toml Cargo.lock ./
 COPY .cargo ./.cargo
 COPY apps/api/Cargo.toml apps/api/Cargo.toml
 COPY apps/api/src apps/api/src
+COPY apps/notify/Cargo.toml apps/notify/Cargo.toml
+COPY apps/notify/src apps/notify/src
 COPY libs/auth/Cargo.toml libs/auth/Cargo.toml
 COPY libs/auth/src libs/auth/src
+COPY libs/notify-contracts/Cargo.toml libs/notify-contracts/Cargo.toml
+COPY libs/notify-contracts/src libs/notify-contracts/src
 
 RUN cargo build --release --locked --bin auth_migrate -p auth
 
