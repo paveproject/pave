@@ -4,6 +4,13 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      all:
+        description: 'Build & push every docker-build project, ignoring nx affected (use once to seed GHCR, or to recover after a run failed before the push step)'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   build-and-push:
@@ -62,12 +69,21 @@ jobs:
           echo "🚀 Build Version: ${VERSION}"
 
       - name: Build Docker Images (Nx Affected)
-        run: bunx nx affected -t docker-build --parallel=3
+        run: |
+          if [ "${{ inputs.all }}" = "true" ]; then
+            bunx nx run-many -t docker-build --all --parallel=3
+          else
+            bunx nx affected -t docker-build --parallel=3
+          fi
 
       - name: Retag and Push to GHCR
         id: affected
         run: |
-          AFFECTED=$(bunx nx show projects --affected --with-target=docker-build --json)
+          if [ "${{ inputs.all }}" = "true" ]; then
+            AFFECTED=$(bunx nx show projects --with-target=docker-build --json)
+          else
+            AFFECTED=$(bunx nx show projects --affected --with-target=docker-build --json)
+          fi
           echo "Affected projects (JSON): $AFFECTED"
 
           PROJECTS=$(echo $AFFECTED | jq -r '.[]')
