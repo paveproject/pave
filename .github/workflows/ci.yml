@@ -9,16 +9,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  # Nx's project graph fails to evaluate apps/mobile/app.config.ts under
-  # Node's native TypeScript-stripping loader - `expo/config` resolves to a
-  # directory import that loader's stricter ESM resolution rejects
-  # (ERR_UNSUPPORTED_DIR_IMPORT). Falls back to swc/ts-node instead. Only
-  # matters on a from-scratch install (local repeated runs reuse a graph
-  # that was already computed before this ever broke), which is every CI
-  # run - see https://nx.dev/docs/reference/environment-variables#nx-prefer-node-strip-types.
-  NX_PREFER_NODE_STRIP_TYPES: 'false'
-
 jobs:
   main:
     name: 🧪 Lint, Test & Build
