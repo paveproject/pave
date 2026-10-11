@@ -1,7 +1,6 @@
 import { createContext, use, useCallback, useEffect, useState } from 'react';
 import { useSplashScreen } from './SplashScreenProvider';
 import { useLocaleContext } from './LocaleProvider';
-import { useRevenueCat } from '../hooks/useRevenueCat';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MeResponse, client } from '@libs/api-js';
 import { meKeys, meOptions } from '@libs/query-client';
@@ -29,9 +28,6 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
   const { setLocale } = useLocaleContext();
   const [pushToken, setPushToken] = useState<string | null>(null);
   const { data: user, status: userStatus } = useQuery(meOptions());
-  // Keeps the RevenueCat SDK's identified user in sync as a side effect -
-  // nothing here currently reads its returned customerInfo.
-  useRevenueCat(user);
 
   const setSession = useCallback(
     async (token: string) => {

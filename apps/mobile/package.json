@@ -128,8 +128,6 @@
     "react-native-mmkv": "*",
     "react-native-modal-datetime-picker": "*",
     "react-native-pager-view": "*",
-    "react-native-purchases": "*",
-    "react-native-purchases-ui": "*",
     "react-native-reanimated": "*",
     "react-native-reanimated-carousel": "*",
     "react-native-safe-area-context": "*",

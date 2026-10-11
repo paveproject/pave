@@ -101,12 +101,6 @@ export const SCHEME: string = Array.isArray(schemeFromConfig)
 export const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 
 /**
- * RevenueCat
- */
-export const REVENUECAT_IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY!;
-export const REVENUECAT_ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY!;
-
-/**
  * Google
  */
 export const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID!;
