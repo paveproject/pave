@@ -34,22 +34,26 @@ jobs:
         run: |
           cat <<EOF > apps/mobile/.env
           APP_VARIANT=production
-          EXPO_PUBLIC_API_URL="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_API_URL }}"
-          EXPO_PUBLIC_WEB_APP="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_WEB_APP }}"
-          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}"
-          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}"
-          EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY }}"
-          EXPO_PUBLIC_SENTRY_DSN="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_SENTRY_DSN }}"
-          SENTRY_AUTH_TOKEN="${{ secrets.INFISICAL_MOBILE_SENTRY_AUTH_TOKEN }}"
-          SENTRY_ORG="${{ secrets.INFISICAL_MOBILE_SENTRY_ORG }}"
-          SENTRY_PROJECT="${{ secrets.INFISICAL_MOBILE_SENTRY_PROJECT }}"
-          SENTRY_DISABLE_AUTO_UPLOAD="${{ secrets.INFISICAL_MOBILE_SENTRY_DISABLE_AUTO_UPLOAD }}"
+          EXPO_PUBLIC_API_URL="${{ secrets.INFISICAL_API_URL }}"
+          EXPO_PUBLIC_WEB_APP="${{ secrets.INFISICAL_WEB_APP_URL }}"
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GOOGLE_WEB_CLIENT_ID }}"
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GOOGLE_IOS_CLIENT_ID }}"
+          EXPO_PUBLIC_MAPTILER_API_KEY="${{ secrets.INFISICAL_MAPTILER_API_KEY }}"
+          EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY="${{ secrets.INFISICAL_REVENUECAT_ANDROID_API_KEY }}"
+          EXPO_PUBLIC_REVENUECAT_IOS_API_KEY="${{ secrets.INFISICAL_REVENUECAT_IOS_API_KEY }}"
+          EXPO_PUBLIC_SENTRY_DSN="${{ secrets.INFISICAL_SENTRY_DSN }}"
+          SENTRY_AUTH_TOKEN="${{ secrets.INFISICAL_SENTRY_AUTH_TOKEN }}"
+          SENTRY_ORG="${{ secrets.INFISICAL_SENTRY_ORG }}"
+          SENTRY_PROJECT="${{ secrets.INFISICAL_SENTRY_PROJECT }}"
+          # Not a secret, not from Infisical - flip here directly if a
+          # different build target (e.g. a future web app) needs it.
+          SENTRY_DISABLE_AUTO_UPLOAD=false
           EOF
 
       - name: 🔑 Decode Google Services files
         run: |
-          echo "${{ secrets.INFISICAL_MOBILE_GOOGLE_SERVICES_ANDROID_BASE64 }}" | base64 --decode > apps/mobile/google-services.json
-          echo "${{ secrets.INFISICAL_MOBILE_GOOGLE_SERVICES_IOS_BASE64 }}" | base64 --decode > apps/mobile/GoogleService-Info.plist
+          echo "${{ secrets.INFISICAL_GOOGLE_SERVICES_ANDROID_BASE64 }}" | base64 --decode > apps/mobile/google-services.json
+          echo "${{ secrets.INFISICAL_GOOGLE_SERVICES_IOS_BASE64 }}" | base64 --decode > apps/mobile/GoogleService-Info.plist
 
       - name: 🔍 Calculate current fingerprints
         id: current
