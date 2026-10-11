@@ -206,23 +206,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         granularPermissions: ['audio', 'photo'],
       },
     ],
-    ...(process.env.EXPO_PUBLIC_FACEBOOK_APP_ID
-      ? [
-          [
-            'react-native-fbsdk-next',
-            {
-              appID: process.env.EXPO_PUBLIC_FACEBOOK_APP_ID,
-              clientToken: process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN,
-              displayName: getAppName(),
-              scheme: `fb${process.env.EXPO_PUBLIC_FACEBOOK_APP_ID}`,
-              advertiserIDCollectionEnabled: false,
-              autoLogAppEventsEnabled: false,
-              isAutoInitEnabled: true,
-              iosUserTrackingPermission: false,
-            },
-          ],
-        ]
-      : []),
     [
       'expo-document-picker',
       {

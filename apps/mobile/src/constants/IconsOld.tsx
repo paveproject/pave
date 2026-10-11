@@ -85,7 +85,7 @@ import {
   PinOffIcon,
 } from 'lucide-react-native';
 import { ActivityIndicator } from 'react-native';
-import { Apple, Facebook, Github, Google, Instagram, Messenger, WhatsApp, X } from '../lib/icons';
+import { Apple, Github, Google, Instagram, Messenger, WhatsApp, X } from '../lib/icons';
 
 export const Icons = {
   app: {
@@ -96,7 +96,6 @@ export const Icons = {
     google: Google,
     apple: Apple,
     github: Github,
-    facebook: Facebook,
     instagram: Instagram,
     whatsapp: WhatsApp,
     messenger: Messenger,

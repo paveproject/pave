@@ -101,11 +101,6 @@ export const SCHEME: string = Array.isArray(schemeFromConfig)
 export const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 
 /**
- * Facebook
- */
-export const FACEBOOK_APP_ID = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID!;
-
-/**
  * RevenueCat
  */
 export const REVENUECAT_IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY!;
@@ -118,26 +113,8 @@ export const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
 export const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID!;
 
 /**
- * Novu
- */
-export const NOVU_APPLICATION_IDENTIFIER = process.env.EXPO_PUBLIC_NOVU_APPLICATION_IDENTIFIER!;
-
-/**
- * Firebase
- */
-export const FIREBASE_DEBUG_TOKEN_ANDROID = process.env.EXPO_PUBLIC_FIREBASE_DEBUG_TOKEN_ANDROID!;
-export const FIREBASE_DEBUG_TOKEN_IOS = process.env.EXPO_PUBLIC_FIREBASE_DEBUG_TOKEN_IOS!;
-
-/**
  * MapTiler - vector/satellite map styles for the map screen. Falls back to
  * MapLibre's unstyled demo tiles (see `screens/map/MapMap.tsx`) when unset,
  * since the free-tier key is a per-dev opt-in, not a build requirement.
  */
 export const MAPTILER_API_KEY = process.env.EXPO_PUBLIC_MAPTILER_API_KEY;
-
-/**
- * TMDB
- */
-export const TMDB_IMAGE_BASE_URL = (
-  process.env.EXPO_PUBLIC_TMDB_IMAGE_BASE_URL || 'https://image.tmdb.org/t/p'
-).replace(/\/+$/, '');

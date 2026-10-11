@@ -2,7 +2,6 @@ export * from './type';
 export * from './Apple';
 export * from './Google';
 export * from './Github';
-export * from './Facebook';
 export * from './Instagram';
 export * from './WhatsApp';
 export * from './Messenger';
