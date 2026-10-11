@@ -5,7 +5,7 @@ const IS_DEV = process.env.APP_VARIANT === 'development';
 const IS_PREVIEW = process.env.APP_VARIANT === 'preview';
 
 const getUniqueIdentifier = () => {
-  return 'org.pave.app';
+  return 'org.paveproject.app';
 };
 
 const getAppName = () => {
