@@ -2,7 +2,7 @@
 
 Static assets required by the app (icons, email graphics, in-app tutorial
 illustrations, etc.) that need to live at a public, stable URL — served from
-RustFS (`S3_BUCKET`, prefix `static/` by default).
+RustFS (`S3_BUCKET_PUBLIC`, prefix `static/` by default).
 
 ## Folder structure
 
@@ -24,7 +24,7 @@ static/
     └── senscritique/            (empty for now)
 ```
 
-Resulting public URLs (`${S3_PUBLIC_ENDPOINT}/${S3_BUCKET}/static/...`):
+Resulting public URLs (`${S3_PUBLIC_ENDPOINT}/${S3_BUCKET_PUBLIC}/static/...`):
 
 - `.../static/app/icon.png`
 - `.../static/email/footer-bg.png`
@@ -50,11 +50,11 @@ Resulting public URLs (`${S3_PUBLIC_ENDPOINT}/${S3_BUCKET}/static/...`):
 
 - Drop/update/delete files anywhere under `static/`, commit, push to `main`.
 - The CD pipeline (`nx affected -t docker-build`) builds this project like any
-  other Docker-shipped app, pushes `ghcr.io/paveorg/assets:<version>`, and
+  other Docker-shipped app, pushes `ghcr.io/paveproject/pave-assets:<version>`, and
   bumps the image tag in the infra repo's `assets-sync` Job manifest.
 - On deploy, that Job runs `rc mirror --remove` (RustFS's S3 CLI, see
   `libs/assets/Dockerfile`) from the baked-in `/static` folder to
-  `s3/${S3_BUCKET}/${S3_ASSETS_PREFIX}` — uploading new/changed files and
+  `s3/${S3_BUCKET_PUBLIC}/${S3_ASSETS_PREFIX}` — uploading new/changed files and
   **deleting** remote files that were removed from `static/`.
 - The bucket is created (if missing) and set to public/download on every run,
   so this project has no hard dependency on `rustfs-setup` having run first.
