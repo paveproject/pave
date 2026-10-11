@@ -424,10 +424,8 @@
         "dotenv": "^17.2.3",
         "drizzle-kit": "^0.31.8",
         "drizzle-orm": "^0.45.1",
-        "lexorank": "^1.0.5",
         "pg": "^8.17.2",
         "tslib": "^2.3.0",
-        "zod": "^4.3.6",
       },
     },
     "libs/i18n": {
@@ -443,7 +441,6 @@
       "dependencies": {
         "@libs/api-js": "workspace:*",
         "@tanstack/react-query": "^5.90.20",
-        "react": "^19.2.0",
         "tslib": "^2.3.0",
       },
     },

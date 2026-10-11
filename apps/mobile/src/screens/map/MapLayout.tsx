@@ -36,6 +36,7 @@ const MapLayout = () => {
             reanimated: true,
             positionChangeHandler: (payload) => {
               'worklet';
+              // eslint-disable-next-line react-hooks/immutability, react-compiler/react-compiler -- Reanimated shared value mutation on the UI thread
               sheetPosition.value = payload.position;
             },
           }}

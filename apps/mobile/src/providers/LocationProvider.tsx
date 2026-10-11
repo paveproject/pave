@@ -51,13 +51,14 @@ export const LocationProvider = ({ children }: LocationProviderProps) => {
   }, [refreshPermission, toast, t]);
 
   useEffect(() => {
-    refreshPermission();
-
-    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
         refreshPermission();
       }
-    });
+    };
+    handleAppStateChange('active');
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
 
     return () => subscription.remove();
   }, [refreshPermission]);
