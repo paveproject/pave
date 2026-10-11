@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap_or_else(|_| "Pavé <hello@pave.app>".to_string()),
     };
 
-    let conn = RedisConnection::new(&redis_url());
+    let conn = RedisConnection::new(redis_url());
     let worker = WorkerBuilder::new(NOTIFY_QUEUE)
         .connection(conn)
         .concurrency(5)

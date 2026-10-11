@@ -1,1 +1,10 @@
 bunx lint-staged
+
+# lint-staged only runs `cargo fmt` per staged .rs file (formatting is the
+# only thing that works file-by-file) - clippy needs to compile the whole
+# crate to lint anything, so it can't be fed a file list. Run it once,
+# workspace-wide, but only when Rust is actually part of this commit.
+if git diff --cached --name-only --diff-filter=ACM | grep -q '\.rs$'; then
+  echo "🦀 Rust files changed - running cargo clippy..."
+  cargo clippy --workspace --all-targets --all-features -- -D warnings
+fi

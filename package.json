@@ -296,6 +296,9 @@
     ],
     "*.{json,md,yaml,yml,html,css,scss}": [
       "prettier --write"
+    ],
+    "*.rs": [
+      "cargo fmt --"
     ]
   }
 }
