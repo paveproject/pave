@@ -43,8 +43,13 @@ pub enum OtpPurpose {
 /// directly, etc. - which this crate deliberately knows nothing about.
 #[async_trait]
 pub trait OtpEmailSender: Send + Sync {
-    async fn send_otp(&self, email: &str, otp: &str, lang: &str, purpose: OtpPurpose)
-        -> AuthResult<()>;
+    async fn send_otp(
+        &self,
+        email: &str,
+        otp: &str,
+        lang: &str,
+        purpose: OtpPurpose,
+    ) -> AuthResult<()>;
 }
 
 pub struct OtpPlugin {
@@ -315,7 +320,11 @@ impl OtpPlugin {
         let new_email = body.new_email.to_lowercase();
         let lang = body.lang.unwrap_or_else(|| "en".to_string());
 
-        if user.email().map(|email| email == new_email).unwrap_or(false) {
+        if user
+            .email()
+            .map(|email| email == new_email)
+            .unwrap_or(false)
+        {
             return Err(AuthError::bad_request("Email is the same"));
         }
         if ctx.database.get_user_by_email(&new_email).await?.is_some() {

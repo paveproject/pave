@@ -60,7 +60,10 @@ pub struct VerifyChangeEmailOtpResponse {
     request_body = SendOtpRequest,
     responses((status = 200, description = "Code sent", body = SendOtpResponse))
 )]
-#[allow(dead_code, reason = "referenced by ApiDoc's paths(), never actually called")]
+#[allow(
+    dead_code,
+    reason = "referenced by ApiDoc's paths(), never actually called"
+)]
 pub async fn send_otp() -> Json<SendOtpResponse> {
     unreachable!("documentation only - routed by auth::OtpPlugin")
 }
@@ -72,7 +75,10 @@ pub async fn send_otp() -> Json<SendOtpResponse> {
     request_body = VerifyOtpRequest,
     responses((status = 200, description = "Signed in", body = VerifyOtpResponse))
 )]
-#[allow(dead_code, reason = "referenced by ApiDoc's paths(), never actually called")]
+#[allow(
+    dead_code,
+    reason = "referenced by ApiDoc's paths(), never actually called"
+)]
 pub async fn verify_otp() -> Json<VerifyOtpResponse> {
     unreachable!("documentation only - routed by auth::OtpPlugin")
 }
@@ -86,7 +92,10 @@ pub async fn verify_otp() -> Json<VerifyOtpResponse> {
     request_body = SendChangeEmailOtpRequest,
     responses((status = 200, description = "Code sent to the new address", body = SendOtpResponse))
 )]
-#[allow(dead_code, reason = "referenced by ApiDoc's paths(), never actually called")]
+#[allow(
+    dead_code,
+    reason = "referenced by ApiDoc's paths(), never actually called"
+)]
 pub async fn send_change_email_otp() -> Json<SendOtpResponse> {
     unreachable!("documentation only - routed by auth::OtpPlugin")
 }
@@ -100,7 +109,10 @@ pub async fn send_change_email_otp() -> Json<SendOtpResponse> {
     request_body = VerifyChangeEmailOtpRequest,
     responses((status = 200, description = "Email changed", body = VerifyChangeEmailOtpResponse))
 )]
-#[allow(dead_code, reason = "referenced by ApiDoc's paths(), never actually called")]
+#[allow(
+    dead_code,
+    reason = "referenced by ApiDoc's paths(), never actually called"
+)]
 pub async fn verify_change_email_otp() -> Json<VerifyChangeEmailOtpResponse> {
     unreachable!("documentation only - routed by auth::OtpPlugin")
 }

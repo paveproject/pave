@@ -12,7 +12,10 @@ use axum::Router;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(handlers::get_me).patch(handlers::update_me))
-        .route("/username-available", get(handlers::check_username_available))
+        .route(
+            "/username-available",
+            get(handlers::check_username_available),
+        )
         .nest("/avatar", avatar::router())
         .nest("/push-token", push_token::router())
 }

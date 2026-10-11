@@ -3,7 +3,6 @@ mod libs;
 mod state;
 
 use app::{auth_otp, health, me, reports};
-use libs::otp_sender;
 use auth::{create_auth_tables, database_url, AppAuthSchema, OtpPlugin};
 use axum::Router;
 use better_auth::config::BearerConfig;
@@ -11,6 +10,7 @@ use better_auth::integrations::axum::AxumIntegration;
 use better_auth::plugins::SessionManagementPlugin;
 use better_auth::seaorm::{Database, SeaOrmStore};
 use better_auth::{AuthConfig, BetterAuth};
+use libs::otp_sender;
 use state::{build_s3_client, AppState};
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;

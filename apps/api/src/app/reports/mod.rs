@@ -11,6 +11,9 @@ use axum::Router;
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/", get(handlers::list_reports).post(handlers::create_report))
+        .route(
+            "/",
+            get(handlers::list_reports).post(handlers::create_report),
+        )
         .route("/ws", get(handlers::reports_ws))
 }

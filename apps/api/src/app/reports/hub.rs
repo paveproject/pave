@@ -95,7 +95,12 @@ struct HubState {
 }
 
 impl HubState {
-    async fn set_interest(&mut self, sink: &mut PubSubSink, conn_id: ConnectionId, new_cells: HashSet<String>) {
+    async fn set_interest(
+        &mut self,
+        sink: &mut PubSubSink,
+        conn_id: ConnectionId,
+        new_cells: HashSet<String>,
+    ) {
         let Some((_, old_cells)) = self.connections.get(&conn_id) else {
             return;
         };
@@ -132,7 +137,12 @@ impl HubState {
         }
     }
 
-    async fn remove_subscriber(&mut self, sink: &mut PubSubSink, conn_id: ConnectionId, cell: &str) {
+    async fn remove_subscriber(
+        &mut self,
+        sink: &mut PubSubSink,
+        conn_id: ConnectionId,
+        cell: &str,
+    ) {
         if let Some(subscribers) = self.cell_subscribers.get_mut(cell) {
             subscribers.remove(&conn_id);
             if subscribers.is_empty() {
@@ -165,8 +175,7 @@ async fn run(redis_url: String, mut cmd_rx: mpsc::UnboundedReceiver<HubCommand>)
         }
     };
 
-    let (mut sink, mut stream): (PubSubSink, PubSubStream) = match client.get_async_pubsub().await
-    {
+    let (mut sink, mut stream): (PubSubSink, PubSubStream) = match client.get_async_pubsub().await {
         Ok(pubsub) => pubsub.split(),
         Err(err) => {
             tracing::error!(%err, "reports hub: failed to open redis pubsub connection, fan-out disabled");
