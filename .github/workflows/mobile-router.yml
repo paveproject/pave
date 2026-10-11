@@ -6,6 +6,10 @@ on:
       - 'mobile@*'
   workflow_dispatch:
 
+env:
+  # See ci.yml's env block for why this is needed on every from-scratch install.
+  NX_PREFER_NODE_STRIP_TYPES: 'false'
+
 jobs:
   check-fingerprint:
     name: 🔍 Check Fingerprint
