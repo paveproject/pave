@@ -1,6 +1,7 @@
 import { API_ENDPOINT } from '../../env';
 import { client } from '@libs/api-js';
 import { getSessionToken } from '../auth/session';
+import { MOBILE_APP_HEADERS } from './app-version';
 
 client.setConfig({
   baseUrl: API_ENDPOINT || 'https://api.pave.app',
@@ -15,6 +16,9 @@ client.interceptors.request.use(async (config) => {
   const token = await getSessionToken();
   if (token) {
     config.headers.set('Authorization', `Bearer ${token}`);
+  }
+  for (const [name, value] of Object.entries(MOBILE_APP_HEADERS)) {
+    config.headers.set(name, value);
   }
   return config;
 });

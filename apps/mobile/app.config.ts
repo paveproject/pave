@@ -1,5 +1,5 @@
-import { ExpoConfig, ConfigContext } from 'expo/config';
-import packageInfo from './package.json';
+import type { ExpoConfig, ConfigContext } from 'expo/config';
+import packageInfo from './package.json' with { type: 'json' };
 
 const IS_DEV = process.env.APP_VARIANT === 'development';
 const IS_PREVIEW = process.env.APP_VARIANT === 'preview';

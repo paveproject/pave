@@ -29,6 +29,16 @@ utoipa-swagger-ui = { version = "10.0.1", features = ["axum"] }
 geohash = "0.13.2"
 redis = { version = "1.7.1", features = ["tokio-comp", "connection-manager"] }
 futures-util = "0.3.34"
+# App Store Connect API client (apps/api/src/libs/app_store_connect.rs): ES256
+# JWT signing (same key type as Apple's Sign in with Apple) + a small HTTP
+# client to call it. rustls-tls to reuse the same TLS stack as everything
+# else here (better-auth, sea-orm) rather than pulling in openssl.
+jsonwebtoken = "11.1.0"
+reqwest = { version = "0.12.28", default-features = false, features = ["json", "rustls-tls"] }
+# Webhook signature verification (apps/api/src/app/webhooks/app_store_connect/guard.rs).
+hmac = "0.12.1"
+sha2 = "0.10.9"
+hex = "0.4.3"
 
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

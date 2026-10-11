@@ -1,4 +1,4 @@
-import { createContext, use, useCallback, useEffect, useState } from 'react';
+import { createContext, use, useCallback, useEffect, useRef, useState } from 'react';
 import { useSplashScreen } from './SplashScreenProvider';
 import { useLocaleContext } from './LocaleProvider';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -61,6 +61,17 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
     await queryClient.resetQueries();
   }, [queryClient]);
 
+  // `setLocale`'s own identity changes on every manual locale switch (its
+  // `useCallback` depends on `locale`) - read it through a ref, kept fresh
+  // here, so the effect below only needs to re-run when the account's
+  // stored language actually changes, not on every such identity change
+  // (which would otherwise immediately re-apply the account's language,
+  // undoing the user's own in-app pick).
+  const setLocaleRef = useRef(setLocale);
+  useEffect(() => {
+    setLocaleRef.current = setLocale;
+  }, [setLocale]);
+
   useEffect(() => {
     if (!user?.language) return;
     (async () => {
@@ -70,18 +81,12 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
       // device should adopt. Applying it would silently revert the user's
       // own still-unsynced pick.
       if (await getPendingLanguage()) return;
-      setLocale(
+      setLocaleRef.current(
         supportedLocales.includes(user.language as SupportedLocale)
           ? (user.language as SupportedLocale)
           : defaultSupportedLocale,
       );
     })();
-    // Only re-run when the account's stored language actually changes - not
-    // on every `setLocale` identity change, which happens on every manual
-    // locale switch (its `useCallback` depends on `locale`) and would
-    // otherwise immediately re-apply the account's language, undoing the
-    // user's own in-app pick.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.language]);
 
   useEffect(() => {

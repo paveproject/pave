@@ -1,4 +1,5 @@
 use crate::app::reports::hub::ReportsHub;
+use crate::libs::app_store_connect::AppStoreConnectClient;
 use auth::AppAuthSchema;
 use aws_sdk_s3::Client as S3Client;
 use axum::extract::FromRef;
@@ -20,6 +21,10 @@ pub struct AppState {
     /// limiting (see `app::reports::rate_limit`) and open to other
     /// general-purpose caching/counting needs later.
     pub redis: redis::aio::ConnectionManager,
+    /// Shared across requests so its JWT cache (see
+    /// `AppStoreConnectClient::token`) actually gets reused - see
+    /// `app::webhooks::app_store_connect`.
+    pub app_store_connect: Arc<AppStoreConnectClient>,
 }
 
 impl FromRef<AppState> for Arc<BetterAuth<AppAuthSchema>> {

@@ -2,7 +2,7 @@ mod app;
 mod libs;
 mod state;
 
-use app::{auth_otp, health, me, reports};
+use app::{auth_otp, health, internal, me, reports, system, webhooks};
 use auth::{create_auth_tables, database_url, AppAuthSchema, OtpPlugin};
 use axum::Router;
 use better_auth::config::BearerConfig;
@@ -21,6 +21,7 @@ use utoipa_swagger_ui::SwaggerUi;
 #[openapi(
     paths(
         health::health_check,
+        system::handlers::get_status,
         auth_otp::send_otp,
         auth_otp::verify_otp,
         auth_otp::send_change_email_otp,
@@ -36,6 +37,10 @@ use utoipa_swagger_ui::SwaggerUi;
     ),
     components(schemas(
         health::HealthResponse,
+        system::dto::AppPlatform,
+        system::dto::VersionStatus,
+        system::dto::AppVersionStatus,
+        system::dto::StatusResponse,
         auth_otp::SendOtpRequest,
         auth_otp::SendOtpResponse,
         auth_otp::VerifyOtpRequest,
@@ -160,14 +165,24 @@ async fn main() {
         s3_public_endpoint,
         reports_hub: app::reports::hub::ReportsHub::spawn(redis_url()),
         redis,
+        app_store_connect: Arc::new(libs::app_store_connect::AppStoreConnectClient::new()),
     };
 
     let app = Router::new()
         .merge(SwaggerUi::new("/docs").url("/openapi.json", ApiDoc::openapi()))
         .route("/health", axum::routing::get(health::health_check))
+        .route("/status", axum::routing::get(system::handlers::get_status))
         .nest("/auth", auth.axum_router_with_state::<AppState>())
         .nest("/me", me::router())
         .nest("/reports", reports::router())
+        .nest(
+            "/internal/version-policy",
+            internal::version_policy::router(),
+        )
+        .nest(
+            "/webhooks/app-store-connect",
+            webhooks::app_store_connect::router(),
+        )
         .with_state(state)
         .layer(CorsLayer::permissive());
 

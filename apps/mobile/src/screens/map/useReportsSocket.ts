@@ -16,7 +16,15 @@ export const useReportsSocket = (bbox: ReportsBoundingBox | undefined) => {
   const queryClient = useQueryClient();
   const socketRef = useRef<WebSocket | null>(null);
   const bboxRef = useRef(bbox);
-  bboxRef.current = bbox;
+
+  // Keeps `bboxRef` fresh without re-running the connect effect below (that
+  // one only depends on `queryClient` - tearing the socket down and
+  // reconnecting on every viewport change would defeat the point of this
+  // ref). Refs must only be written outside of render, hence the effect
+  // rather than a plain assignment here.
+  useEffect(() => {
+    bboxRef.current = bbox;
+  }, [bbox]);
 
   useEffect(() => {
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;

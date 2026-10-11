@@ -166,9 +166,14 @@ const MapMap = () => {
 
   // No position, no tracking - if it drops away mid-session (permission
   // revoked, GPS lost), fall back out of whichever mode was active.
-  useEffect(() => {
+  // Adjusted during render (React's documented pattern for resetting state
+  // when a prop/value changes), not in an effect - no extra render pass
+  // just to flip this back to idle.
+  const [hadPosition, setHadPosition] = useState(!!position);
+  if (!!position !== hadPosition) {
+    setHadPosition(!!position);
     if (!position) setLocateMode('idle');
-  }, [position]);
+  }
 
   // Cycles idle -> focused -> heading -> idle. Just flips the state;
   // `trackUserLocation` below (a native MapLibre feature, not a manual

@@ -51,11 +51,10 @@ export const useSettingsAccountForm = () => {
 
   useEffect(() => {
     form.reset(defaultValues);
-    // Only re-seed when the account's own values change, not on every
-    // `form` identity change (react-hook-form returns a stable instance, but
-    // being explicit here avoids re-running this on unrelated re-renders).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultValues]);
+    // `form` is included for exhaustive-deps correctness only - react-hook-
+    // form returns a stable instance, so this still only re-runs when the
+    // account's own values actually change.
+  }, [defaultValues, form]);
 
   const username = form.watch('username');
   const email = form.watch('email');

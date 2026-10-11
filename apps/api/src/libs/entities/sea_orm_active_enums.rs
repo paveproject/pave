@@ -21,6 +21,35 @@ pub enum PushProviderEnum {
 }
 
 // Hand-added (not sea-orm-codegen output, unlike the rest of this file):
+// mirrors Postgres `system.platform`/`system.version_release_state` (see
+// libs/db/src/lib/schemas/system.ts) the same way `ReportTypeEnum` below
+// mirrors `report_type_enum` - sea-orm-cli was never run against these
+// either, to keep every DB enum in this file hand-maintained consistently.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "Enum", db_type = "Enum", enum_name = "platform")]
+pub enum AppPlatformEnum {
+    #[sea_orm(string_value = "ios")]
+    Ios,
+    #[sea_orm(string_value = "android")]
+    Android,
+    #[sea_orm(string_value = "web")]
+    Web,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "Enum",
+    db_type = "Enum",
+    enum_name = "version_release_state"
+)]
+pub enum VersionReleaseStateEnum {
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "live")]
+    Live,
+}
+
+// Hand-added (not sea-orm-codegen output, unlike the rest of this file):
 // `sea-orm-cli generate entity` can't introspect a table containing a
 // PostGIS `geometry` column at all (it errors with "type geometry does not
 // exist" partway through discovering `report`'s other columns), so that
