@@ -61,40 +61,6 @@ jobs:
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           echo "🚀 Build Version: ${VERSION}"
 
-      - name: Prepare Environment Files
-        run: |
-          # Api
-          cat <<EOF > apps/api/.env
-          NODE_ENV=production
-          AUTH_SECRET="${{ secrets.INFISICAL_AUTH_SECRET }}"
-          API_URL="${{ secrets.INFISICAL_API_URL }}"
-          AUTH_GOOGLE_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GOOGLE_CLIENT_ID }}"
-          AUTH_GOOGLE_IOS_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GOOGLE_IOS_CLIENT_ID }}"
-          AUTH_GOOGLE_ANDROID_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GOOGLE_ANDROID_CLIENT_ID }}"
-          AUTH_GOOGLE_CLIENT_SECRET="${{ secrets.INFISICAL_AUTH_GOOGLE_CLIENT_SECRET }}"
-          AUTH_GITHUB_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GITHUB_CLIENT_ID }}"
-          AUTH_GITHUB_CLIENT_SECRET="${{ secrets.INFISICAL_AUTH_GITHUB_CLIENT_SECRET }}"
-          AUTH_FACEBOOK_CLIENT_ID="${{ secrets.INFISICAL_AUTH_FACEBOOK_CLIENT_ID }}"
-          AUTH_FACEBOOK_CLIENT_SECRET="${{ secrets.INFISICAL_AUTH_FACEBOOK_CLIENT_SECRET }}"
-          AUTH_APPLE_CLIENT_ID="${{ secrets.INFISICAL_AUTH_APPLE_CLIENT_ID }}"
-          AUTH_APPLE_TEAM_ID="${{ secrets.INFISICAL_AUTH_APPLE_TEAM_ID }}"
-          AUTH_APPLE_KEY_ID="${{ secrets.INFISICAL_AUTH_APPLE_KEY_ID }}"
-          AUTH_APPLE_PRIVATE_KEY="${{ secrets.INFISICAL_AUTH_APPLE_PRIVATE_KEY }}"
-          AUTH_APPLE_BUNDLE_ID="${{ secrets.INFISICAL_AUTH_APPLE_BUNDLE_ID }}"
-          REVENUECAT_API_KEY="${{ secrets.INFISICAL_REVENUECAT_API_KEY }}"
-          REVENUECAT_WEBHOOK_SECRET="${{ secrets.INFISICAL_REVENUECAT_WEBHOOK_SECRET }}"
-          DATABASE_URL="postgres://localhost:5432/placeholder"
-          ASSETS_BASE_URL="https://assets.example.com"
-          S3_ENDPOINT="https://s3.example.com"
-          S3_ACCESS_KEY_ID="placeholder"
-          S3_SECRET_ACCESS_KEY="placeholder"
-          TYPESENSE_HOST="localhost"
-          TYPESENSE_API_KEY="placeholder"
-          PREFECT_API_URL="https://prefect.example.com/api"
-          PREFECT_API_AUTH_STRING="placeholder"
-          API_INTERNAL_IMPORTS_SECRET="placeholder"
-          EOF
-
       - name: Build Docker Images (Nx Affected)
         run: bunx nx affected -t docker-build --parallel=3
 
@@ -122,7 +88,7 @@ jobs:
               echo "🚀 [${PROJECT}] Processing..."
               
               LOCAL_IMAGE="${PROJECT}:latest"
-              REMOTE_IMAGE="ghcr.io/${OWNER}/${PROJECT}"
+              REMOTE_IMAGE="ghcr.io/${OWNER}/pave-${PROJECT}"
               
               docker tag "${LOCAL_IMAGE}" "${REMOTE_IMAGE}:${VERSION}"
               
@@ -178,7 +144,7 @@ jobs:
           echo "Updates to apply: $SERVICES_JSON -> $VERSION"
 
           for service in $(echo "$SERVICES_JSON" | jq -r '.[]'); do
-            IMAGE_REF="ghcr.io/${OWNER}/${service}"
+            IMAGE_REF="ghcr.io/${OWNER}/pave-${service}"
 
             FILES=$(grep -rl "${IMAGE_REF}" --include="*.yaml" .)
 
@@ -209,111 +175,3 @@ jobs:
             git commit -m "deploy: update images to version ${VERSION}"
             git push origin main
           fi
-
-  # =================================================================================
-  #  JOB 3: OTA Updates for Mobile App (EAS Update)
-  # =================================================================================
-  # update-mobile:
-  #   name: 📱 Deploy OTA Update
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout Code
-  #       uses: actions/checkout@v7
-  #       with:
-  #         fetch-depth: 0
-
-  #     - name: Install Bun
-  #       uses: oven-sh/setup-bun@v2
-  #       with:
-  #         bun-version-file: package.json
-
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v7
-  #       with:
-  #         node-version: 24
-
-  #     - name: Install Dependencies
-  #       run: bun install --frozen-lockfile
-
-  #     - name: Initialize Nx SHAs
-  #       uses: nrwl/nx-set-shas@v5
-
-  #     - name: Check if Mobile is Affected
-  #       id: check-mobile
-  #       run: |
-  #         AFFECTED=$(bunx nx show projects --affected --json)
-  #         echo "Affected projects: $AFFECTED"
-  #         if echo "$AFFECTED" | grep -q '"mobile"'; then
-  #           echo "IS_AFFECTED=true" >> $GITHUB_OUTPUT
-  #         else
-  #           echo "IS_AFFECTED=false" >> $GITHUB_OUTPUT
-  #         fi
-
-  #     - name: 🔨 Setup EAS
-  #       if: steps.check-mobile.outputs.IS_AFFECTED == 'true'
-  #       uses: expo/expo-github-action@v9
-  #       with:
-  #         eas-version: latest
-  #         token: ${{ secrets.INFISICAL_EXPO_TOKEN }}
-
-  #     - name: 📝 Prepare Environment Files
-  #       if: steps.check-mobile.outputs.IS_AFFECTED == 'true'
-  #       run: |
-  #         cat <<EOF > apps/mobile/.env
-  #         APP_VARIANT=production
-  #         EXPO_PUBLIC_API_URL="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_API_URL }}"
-  #         EXPO_PUBLIC_WEB_APP="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_WEB_APP }}"
-  #         EXPO_PUBLIC_FACEBOOK_APP_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_FACEBOOK_APP_ID }}"
-  #         EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN }}"
-  #         EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}"
-  #         EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}"
-  #         EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY }}"
-  #         EXPO_PUBLIC_SENTRY_DSN="${{ secrets.INFISICAL_MOBILE_EXPO_PUBLIC_SENTRY_DSN }}"
-  #         SENTRY_AUTH_TOKEN="${{ secrets.INFISICAL_MOBILE_SENTRY_AUTH_TOKEN }}"
-  #         SENTRY_ORG="${{ secrets.INFISICAL_MOBILE_SENTRY_ORG }}"
-  #         SENTRY_PROJECT="${{ secrets.INFISICAL_MOBILE_SENTRY_PROJECT }}"
-  #         SENTRY_DISABLE_AUTO_UPLOAD="${{ secrets.INFISICAL_MOBILE_SENTRY_DISABLE_AUTO_UPLOAD }}"
-  #         TMDB_IMAGE_BASE_URL="${{ secrets.INFISICAL_MOBILE_TMDB_IMAGE_BASE_URL }}"
-  #         EOF
-
-  #     - name: 📝 Prepare API Environment Files
-  #       if: steps.check-mobile.outputs.IS_AFFECTED == 'true'
-  #       run: |
-  #         # Api
-  #         cat <<EOF > apps/api/.env
-  #         NODE_ENV=production
-  #         AUTH_SECRET="${{ secrets.INFISICAL_AUTH_SECRET }}"
-  #         API_URL="${{ secrets.INFISICAL_API_URL }}"
-  #         AUTH_GOOGLE_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GOOGLE_CLIENT_ID }}"
-  #         AUTH_GOOGLE_IOS_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GOOGLE_IOS_CLIENT_ID }}"
-  #         AUTH_GOOGLE_ANDROID_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GOOGLE_ANDROID_CLIENT_ID }}"
-  #         AUTH_GOOGLE_CLIENT_SECRET="${{ secrets.INFISICAL_AUTH_GOOGLE_CLIENT_SECRET }}"
-  #         AUTH_GITHUB_CLIENT_ID="${{ secrets.INFISICAL_AUTH_GITHUB_CLIENT_ID }}"
-  #         AUTH_GITHUB_CLIENT_SECRET="${{ secrets.INFISICAL_AUTH_GITHUB_CLIENT_SECRET }}"
-  #         AUTH_FACEBOOK_CLIENT_ID="${{ secrets.INFISICAL_AUTH_FACEBOOK_CLIENT_ID }}"
-  #         AUTH_FACEBOOK_CLIENT_SECRET="${{ secrets.INFISICAL_AUTH_FACEBOOK_CLIENT_SECRET }}"
-  #         AUTH_APPLE_CLIENT_ID="${{ secrets.INFISICAL_AUTH_APPLE_CLIENT_ID }}"
-  #         AUTH_APPLE_TEAM_ID="${{ secrets.INFISICAL_AUTH_APPLE_TEAM_ID }}"
-  #         AUTH_APPLE_KEY_ID="${{ secrets.INFISICAL_AUTH_APPLE_KEY_ID }}"
-  #         AUTH_APPLE_PRIVATE_KEY="${{ secrets.INFISICAL_AUTH_APPLE_PRIVATE_KEY }}"
-  #         AUTH_APPLE_BUNDLE_ID="${{ secrets.INFISICAL_AUTH_APPLE_BUNDLE_ID }}"
-  #         REVENUECAT_API_KEY="${{ secrets.INFISICAL_REVENUECAT_API_KEY }}"
-  #         REVENUECAT_WEBHOOK_SECRET="${{ secrets.INFISICAL_REVENUECAT_WEBHOOK_SECRET }}"
-  #         DATABASE_URL="postgres://localhost:5432/placeholder"
-  #         S3_ENDPOINT="https://s3.example.com"
-  #         S3_ACCESS_KEY_ID="placeholder"
-  #         S3_SECRET_ACCESS_KEY="placeholder"
-  #         TYPESENSE_HOST="localhost"
-  #         TYPESENSE_API_KEY="placeholder"
-  #         EOF
-
-  #     - name: 🚀 Publish EAS Update
-  #       if: steps.check-mobile.outputs.IS_AFFECTED == 'true'
-  #       run: |
-  #         bunx nx update mobile --channel production --message "CI Update: ${{ github.event.head_commit.message }}" --environment production --non-interactive
-
-  #     - name: 🧹 Cleanup
-  #       if: always()
-  #       run: |
-  #         rm -f apps/mobile/.env
-  #         rm -f apps/api/.env

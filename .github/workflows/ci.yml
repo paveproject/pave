@@ -37,6 +37,23 @@ jobs:
         with:
           node-version: 24
 
+      - name: 🦀 Setup Rust
+        if: ${{ !startsWith(github.head_ref, 'release-please--branches') }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      # pkg-config + libssl-dev: openssl-sys is a transitive dependency
+      # (see Cargo.lock) - same packages apps/api and apps/notify's
+      # Dockerfiles install for their own `cargo build`.
+      - name: 📦 Install system dependencies for Rust
+        if: ${{ !startsWith(github.head_ref, 'release-please--branches') }}
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends pkg-config libssl-dev
+
+      - name: 🗄️ Cache Cargo
+        if: ${{ !startsWith(github.head_ref, 'release-please--branches') }}
+        uses: Swatinem/rust-cache@v2
+
       - name: 🗄️ Cache Bun install
         if: ${{ !startsWith(github.head_ref, 'release-please--branches') }}
         uses: actions/cache@v6
