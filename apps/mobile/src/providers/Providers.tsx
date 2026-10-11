@@ -16,6 +16,7 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { ApiProvider } from './ApiProvider';
 import { useReportSync } from '../hooks/useReportSync';
 import { useLanguageSync } from '../hooks/useLanguageSync';
+import { useAppVersionCheck } from '../hooks/useAppVersionCheck';
 
 type ProvidersProps = {
   children: React.ReactNode;
@@ -32,6 +33,12 @@ const ReportSyncBootstrap = () => {
 // account yet (see lib/i18n/index.ts's getPendingLanguage).
 const LanguageSyncBootstrap = () => {
   useLanguageSync();
+  return null;
+};
+
+// Same idea, for the outdated-app-version check (see useAppVersionCheck).
+const AppVersionCheckBootstrap = () => {
+  useAppVersionCheck();
   return null;
 };
 
@@ -56,6 +63,7 @@ const Providers = ({ children }: ProvidersProps) => {
                                   <BottomSheetManager />
                                   <ReportSyncBootstrap />
                                   <LanguageSyncBootstrap />
+                                  <AppVersionCheckBootstrap />
                                 </NotificationsProvider>
                               </BottomSheetModalProvider>
                             </ApiProvider>

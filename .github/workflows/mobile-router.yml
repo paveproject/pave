@@ -219,6 +219,122 @@ jobs:
       skip_fingerprint_save: true
     secrets: inherit
 
+  update-version-policy:
+    name: 🔢 Update Version Policy
+    needs: [call-ios-build, call-android-build-eas, call-android-build]
+    # Native build+submit runs unconditionally on every tag (unlike ota-update, which is
+    # gated on the fingerprint), so its success is the "this version shipped" signal.
+    if: |
+      always() &&
+      (needs.call-ios-build.result == 'success' ||
+       needs.call-android-build-eas.result == 'success' ||
+       needs.call-android-build.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: 🗄️ Cache Bun install
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - run: bun install --frozen-lockfile
+
+      - name: 🔢 Extract version from tag
+        id: version
+        run: |
+          # Tag is `mobile@vX.Y.Z` (release-please-config.json's tag-separator).
+          echo "value=${GITHUB_REF_NAME#mobile@v}" >> "$GITHUB_OUTPUT"
+
+      - name: 🔎 Determine if this release is breaking
+        id: breaking
+        run: |
+          CURRENT_TAG="$GITHUB_REF_NAME"
+          PREVIOUS_TAG=$(git tag -l 'mobile@*' --sort=-v:refname | grep -v "^${CURRENT_TAG}$" | head -1)
+
+          # Signal A: mobile release-please MAJOR bump -- a `BREAKING CHANGE:` footer
+          # or `!` on the commit that triggered it. The only source that can know
+          # this is a deliberate, human-declared break.
+          SIGNAL_A=false
+          if [ -n "$PREVIOUS_TAG" ]; then
+            CURRENT_MAJOR="${{ steps.version.outputs.value }}"
+            CURRENT_MAJOR="${CURRENT_MAJOR%%.*}"
+            PREVIOUS_MAJOR="${PREVIOUS_TAG#mobile@v}"
+            PREVIOUS_MAJOR="${PREVIOUS_MAJOR%%.*}"
+            if [ "$CURRENT_MAJOR" != "$PREVIOUS_MAJOR" ]; then
+              SIGNAL_A=true
+            fi
+          fi
+          echo "Signal A (release-please MAJOR bump): $SIGNAL_A ($PREVIOUS_TAG -> $CURRENT_TAG)"
+
+          # Signal B: the API's own OpenAPI schema changed in a way that breaks
+          # existing clients (new required field, removed field, ...) since the last
+          # mobile release -- catches breaks nobody remembered to flag by hand.
+          # Nothing is stored: the previous release's schema is regenerated straight
+          # from its own git history (a worktree, so this checkout is untouched) and
+          # diffed, then thrown away.
+          SIGNAL_B=false
+          bunx nx run api:generate-openapi
+          cp apps/api/.openapi/openapi.json /tmp/current-openapi.json
+
+          if [ -n "$PREVIOUS_TAG" ]; then
+            if git worktree add /tmp/previous-worktree "$PREVIOUS_TAG" --detach &&
+               (cd /tmp/previous-worktree && bun install --frozen-lockfile && bunx nx run api:generate-openapi); then
+              curl -fsSL https://raw.githubusercontent.com/oasdiff/oasdiff/main/install.sh | sh
+              if ! oasdiff breaking --fail-on ERR /tmp/previous-worktree/apps/api/.openapi/openapi.json /tmp/current-openapi.json; then
+                SIGNAL_B=true
+              fi
+            else
+              echo "Could not regenerate $PREVIOUS_TAG's OpenAPI schema (older commit predating this check?) -- skipping"
+            fi
+            git worktree remove /tmp/previous-worktree --force 2>/dev/null || true
+          else
+            echo "No previous mobile release to compare against -- skipping"
+          fi
+          echo "Signal B (oasdiff breaking schema change): $SIGNAL_B"
+
+          IS_BREAKING=false
+          if [ "$SIGNAL_A" == "true" ] || [ "$SIGNAL_B" == "true" ]; then
+            IS_BREAKING=true
+          fi
+          echo "value=$IS_BREAKING" >> "$GITHUB_OUTPUT"
+
+      - name: 📡 Report shipped versions
+        run: |
+          VERSION="${{ steps.version.outputs.value }}"
+          IS_BREAKING="${{ steps.breaking.outputs.value }}"
+          API_URL="${{ secrets.INFISICAL_API_URL }}"
+          SECRET="${{ secrets.INFISICAL_API_INTERNAL_VERSION_POLICY_SECRET }}"
+
+          report() {
+            local platform="$1"
+            echo "Reporting $platform@$VERSION as the latest version (isBreaking=$IS_BREAKING)"
+            curl --fail --silent --show-error --max-time 15 \
+              -X POST "$API_URL/internal/version-policy" \
+              -H "Authorization: Bearer $SECRET" \
+              -H "Content-Type: application/json" \
+              -d "{\"platform\":\"$platform\",\"version\":\"$VERSION\",\"isBreaking\":$IS_BREAKING}"
+          }
+
+          if [ "${{ needs.call-ios-build.result }}" == "success" ]; then
+            report ios
+          fi
+          if [ "${{ needs.call-android-build-eas.result == 'success' || needs.call-android-build.result == 'success' }}" == "true" ]; then
+            report android
+          fi
+
   save-fingerprint:
     name: 💾 Save Fingerprint
     needs: [check-fingerprint, call-ios-build, call-android-build-eas, call-android-build]
