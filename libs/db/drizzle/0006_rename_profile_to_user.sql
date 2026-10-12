@@ -23,9 +23,9 @@ ALTER TABLE "user" ADD CONSTRAINT "user_language_supported_languages_language_fk
   ON UPDATE CASCADE ON DELETE RESTRICT;
 --> statement-breakpoint
 
-ALTER TABLE "user" ADD CONSTRAINT "user_id_users_id_fk"
-  FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
---> statement-breakpoint
+-- user_id_users_id_fk (user.id -> auth.users.id) moves to the migration
+-- that creates auth.users (0013) - that schema/table doesn't exist yet
+-- at this point in migration order.
 
 ALTER TABLE "push_token" ALTER COLUMN "user_id" TYPE text USING "user_id"::text;
 --> statement-breakpoint

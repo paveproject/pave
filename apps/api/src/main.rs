@@ -3,7 +3,7 @@ mod libs;
 mod state;
 
 use app::{auth_otp, health, internal, me, reports, system, webhooks};
-use auth::{create_auth_tables, database_url, AppAuthSchema, OtpPlugin};
+use auth::{database_url, AppAuthSchema, OtpPlugin};
 use axum::Router;
 use better_auth::config::BearerConfig;
 use better_auth::integrations::axum::AxumIntegration;
@@ -85,17 +85,6 @@ fn redis_url() -> String {
     }
 }
 
-async fn setup_db_and_exit() {
-    let database = Database::connect(database_url())
-        .await
-        .expect("failed to connect to database");
-    create_auth_tables(&database)
-        .await
-        .expect("failed to create auth tables");
-    println!("auth tables created in the `auth` schema");
-    std::process::exit(0);
-}
-
 #[tokio::main]
 async fn main() {
     // Searches the working directory and its parents for a `.env` file (the
@@ -111,10 +100,6 @@ async fn main() {
             .expect("--emit-openapi requires a path argument");
         emit_openapi_and_exit(path);
     }
-    if args.iter().any(|a| a == "--setup-db") {
-        setup_db_and_exit().await;
-    }
-
     tracing_subscriber::fmt::init();
 
     let database = Database::connect(database_url())

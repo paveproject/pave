@@ -92,6 +92,13 @@
       "when": 1791724848218,
       "tag": "0012_add-system-schema-to-search-path",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791829345417,
+      "tag": "0013_create_auth_tables",
+      "breakpoints": true
     }
   ]
 }

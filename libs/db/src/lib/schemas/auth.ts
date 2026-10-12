@@ -10,15 +10,13 @@ import {
 import { relations } from 'drizzle-orm/relations';
 
 /**
- * Read-only mirror of the `auth` Postgres schema, owned and migrated by the
- * Rust auth service (better-auth-rs - see libs/auth/src/schema.rs), not
- * Drizzle. Generated with `drizzle-kit pull --config=libs/db/drizzle-auth.config.ts`
- * (see that file) - re-run it whenever the Rust side's schema changes, never
- * hand-edit the column lists below.
- *
- * This file is NOT included in the main drizzle.config.ts's `schemaFilter`,
- * so `drizzle-kit generate`/`migrate`/`push` never try to create, alter, or
- * drop these tables - only read/write queries against them.
+ * The `auth` Postgres schema, used at runtime by the Rust auth service
+ * (better-auth-rs - see libs/auth/src/schema.rs for the matching SeaORM
+ * entities) but migrated here by Drizzle, same as every other schema in
+ * this directory. Keep column/index/FK shape in sync with libs/auth/src/
+ * schema.rs's entity definitions by hand - the two must agree, since
+ * better-auth-rs reads/writes these tables without knowing Drizzle created
+ * them.
  */
 export const authSchema = pgSchema('auth');
 

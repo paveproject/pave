@@ -1,10 +1,5 @@
 # Build context is the repo root (Cargo workspace), e.g.:
 #   docker build -f apps/api/Dockerfile --tag api:latest .
-#
-# Default command runs the server. To run the one-off auth schema setup
-# instead (creates better-auth-rs's tables in the `auth` Postgres schema),
-# override the command with the same image:
-#   docker run --rm --env-file .env api:latest --setup-db
 
 FROM rust:1-slim-bookworm AS builder
 WORKDIR /app

@@ -8,10 +8,8 @@ if (!DATABASE_URL) {
 
 const config = defineConfig({
   out: './libs/db/drizzle',
-  // Excludes schemas/auth.ts on purpose: it's a read-only mirror of the
-  // `auth` Postgres schema owned by better-auth-rs (see libs/auth), and
-  // generate/migrate/push must never try to create, alter, or drop it.
   schema: [
+    './libs/db/src/lib/schemas/auth.ts',
     './libs/db/src/lib/schemas/i18n.ts',
     './libs/db/src/lib/schemas/report.ts',
     './libs/db/src/lib/schemas/system.ts',
@@ -21,7 +19,7 @@ const config = defineConfig({
   dbCredentials: {
     url: DATABASE_URL,
   },
-  schemaFilter: ['public', 'extensions', 'i18n', 'system'],
+  schemaFilter: ['public', 'extensions', 'i18n', 'system', 'auth'],
 });
 
 export default config;
