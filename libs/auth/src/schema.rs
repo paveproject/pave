@@ -101,6 +101,17 @@ impl AuthSchema for AppAuthSchema {
 /// Call this scaffold from the application's initial migration.
 /// Use versioned migrations to change existing tables.
 pub async fn create_auth_tables(database: &impl ConnectionTrait) -> Result<(), sea_orm::DbErr> {
+    // `database_url()`'s search_path (`auth,public,extensions`) only puts
+    // the tables below into `auth` if that schema already exists -
+    // Postgres silently skips a missing schema in search_path and falls
+    // through to the next one that exists (`public`), so on a brand new
+    // database every `CREATE TABLE IF NOT EXISTS` below would otherwise
+    // land in `public` instead, with no error raised at all (confirmed:
+    // ran clean, tables ended up in `public`).
+    database
+        .execute_unprepared("CREATE SCHEMA IF NOT EXISTS auth")
+        .await?;
+
     let schema = Schema::new(database.get_database_backend());
     for statement in [
         schema
