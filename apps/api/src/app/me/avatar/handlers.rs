@@ -64,7 +64,7 @@ pub async fn set_avatar(
     state
         .s3
         .put_object()
-        .bucket(&state.s3_bucket)
+        .bucket(&state.config.s3_bucket_public)
         .key(&key)
         .body(aws_sdk_s3::primitives::ByteStream::from(bytes.to_vec()))
         .content_type(content_type)
@@ -72,7 +72,12 @@ pub async fn set_avatar(
         .await
         .expect("failed to upload avatar");
 
-    let image_url = format!("{}/{}/{}", state.s3_public_endpoint, state.s3_bucket, key);
+    let image_url = format!(
+        "{}/{}/{}",
+        state.config.s3_public_endpoint(),
+        state.config.s3_bucket_public,
+        key
+    );
 
     auth_user::Entity::update(auth_user::ActiveModel {
         id: Set(user_id.clone()),
@@ -104,7 +109,11 @@ pub async fn delete_avatar(
     session: CurrentSession<AppAuthSchema>,
 ) -> impl IntoResponse {
     let user_id = session.user.id.clone();
-    let object_prefix = format!("{}/{}/", state.s3_public_endpoint, state.s3_bucket);
+    let object_prefix = format!(
+        "{}/{}/",
+        state.config.s3_public_endpoint(),
+        state.config.s3_bucket_public
+    );
 
     if let Some(key) = session
         .user
@@ -115,7 +124,7 @@ pub async fn delete_avatar(
         let _ = state
             .s3
             .delete_object()
-            .bucket(&state.s3_bucket)
+            .bucket(&state.config.s3_bucket_public)
             .key(key)
             .send()
             .await;

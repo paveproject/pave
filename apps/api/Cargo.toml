@@ -13,6 +13,7 @@ axum = { version = "0.8.9", features = ["multipart", "ws"] }
 bullmq-rs = "2.2.0"
 chrono = "0.4"
 dotenvy = "0.15"
+env-rs = { path = "../../libs/env-rs" }
 notify-contracts = { path = "../../libs/notify-contracts" }
 better-auth = { git = "https://github.com/better-auth-rs/better-auth-rs", branch = "master", version = "1.0.0-alpha.3", default-features = false, features = ["axum", "seaorm2", "rustls"] }
 sea-orm = { version = "2.0.4", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros"] }

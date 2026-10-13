@@ -10,6 +10,7 @@ pub struct State {
     pub resend: Resend,
     pub dictionaries: Dictionaries,
     pub from_email: String,
+    pub assets_base_url: String,
 }
 
 type DynError = Box<dyn std::error::Error + Send + Sync>;
@@ -50,7 +51,12 @@ async fn send_link_email(
     let text = t("text");
     let button = t("button");
     let subject = t("subject");
-    let html = email::render(&title, &text, Some((&button, &payload.url)));
+    let html = email::render(
+        &title,
+        &text,
+        Some((&button, &payload.url)),
+        &state.assets_base_url,
+    );
 
     send(state, &payload.email, &subject, &html).await
 }
@@ -72,7 +78,7 @@ async fn send_otp_email(state: &State, payload: &OtpEmailPayload) -> Result<(), 
     let subject = t("subject");
     // The original template never passed a url for OTP emails, so no button
     // was ever rendered for this job family - keep that behavior.
-    let html = email::render(&title, &text, None);
+    let html = email::render(&title, &text, None, &state.assets_base_url);
 
     send(state, &payload.email, &subject, &html).await
 }

@@ -1,0 +1,8 @@
+[package]
+name = "env-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+envy = "0.4"
+serde = { version = "1.0.229", features = ["derive"] }

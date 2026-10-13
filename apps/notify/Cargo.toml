@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+assets = { path = "../../libs/assets-rs" }
+env-rs = { path = "../../libs/env-rs" }
 notify-contracts = { path = "../../libs/notify-contracts" }
 bullmq-rs = "2.2.0"
 chrono = "0.4"

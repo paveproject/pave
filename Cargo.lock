@@ -156,6 +156,7 @@ dependencies = [
  "bullmq-rs",
  "chrono",
  "dotenvy",
+ "env-rs",
  "futures-util",
  "geohash",
  "hex",
@@ -430,6 +431,10 @@ dependencies = [
  "quote",
  "syn 2.0.119",
 ]
+
+[[package]]
+name = "assets"
+version = "0.1.0"
 
 [[package]]
 name = "async-lock"
@@ -2168,6 +2173,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "env-rs"
+version = "0.1.0"
+dependencies = [
+ "envy",
+ "serde",
+]
+
+[[package]]
+name = "envy"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f47e0157f2cb54f5ae1bd371b30a2ae4311e1c028f575cd4e81de7353215965"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3501,9 +3523,11 @@ checksum = "38bf9645c8b145698bb0b18a4637dcacbc421ea49bef2317e4fd8065a387cf21"
 name = "notify"
 version = "0.1.0"
 dependencies = [
+ "assets",
  "bullmq-rs",
  "chrono",
  "dotenvy",
+ "env-rs",
  "notify-contracts",
  "resend-rs",
  "serde",
