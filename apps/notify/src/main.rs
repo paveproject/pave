@@ -2,22 +2,26 @@ mod config;
 mod dispatch;
 mod email;
 mod i18n;
+mod push;
 
 use bullmq_rs::{RedisConnection, WorkerBuilder};
 use config::NotifyConfig;
 use dispatch::State;
 use env_rs::RedisConfig;
 use notify_contracts::NOTIFY_QUEUE;
+use push::PushSender;
 use resend_rs::Resend;
+use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Searches the working directory and its parents for a `.env` file (the
-    // repo root's, in dev) - unlike Bun, cargo/rustc never load one on their
+    // Repo root's .env (DATABASE_URL, REDIS_*, shared across apps) then
+    // this crate's own apps/notify/.env on top (APNS_*/FIREBASE_*, specific
+    // to this app) - unlike Bun, cargo/rustc never load either on their
     // own, so every env var below would otherwise depend on the shell that
-    // launched this process having sourced it manually.
-    dotenvy::dotenv().ok();
+    // launched this process having sourced it manually. See env_rs::load_dotenv.
+    env_rs::load_dotenv(env!("CARGO_MANIFEST_DIR"));
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
@@ -32,11 +36,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         String::new()
     });
 
+    let push_sender = Arc::new(PushSender::new(
+        config.fcm_project_id.as_deref(),
+        config.fcm_client_email.as_deref(),
+        config.fcm_private_key_b64.as_deref(),
+        config.apns_key_b64.as_deref(),
+        config.apns_key_id.as_deref(),
+        config.apns_team_id.as_deref(),
+        config.apns_bundle_id.clone(),
+        config.apns_production,
+    ));
+
     let state = State {
         resend: Resend::new(&config.resend_api_key),
         dictionaries: i18n::Dictionaries::load(),
         from_email: config.resend_from_email,
         assets_base_url,
+        push_sender,
     };
 
     let conn = RedisConnection::new(redis.url());

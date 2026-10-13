@@ -50,7 +50,7 @@ pub fn render(
   </table>
 </body>
 </html>"#,
-        logo = assets::asset_url(assets::paths::app::ICON, assets_base_url),
+        logo = assets_rs::asset_url(assets_rs::paths::app::ICON, assets_base_url),
         year = Utc::now().format("%Y"),
     )
 }

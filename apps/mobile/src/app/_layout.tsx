@@ -56,6 +56,7 @@ const RootLayoutNav = () => {
           name="auth"
           options={{
             title: t('messages.sign_in'),
+            headerTransparent: true,
             presentation: 'formSheet',
             sheetGrabberVisible: true,
             sheetAllowedDetents: 'fitToContents',

@@ -11,7 +11,7 @@ const PaveIcon = forwardRef<Svg, LucideProps>((props, ref) => {
   return (
     <Svg
       ref={ref}
-      id="recomend-icon"
+      id="pave-icon"
       width={width}
       height={height}
       viewBox="0 0 541.5 541.5"

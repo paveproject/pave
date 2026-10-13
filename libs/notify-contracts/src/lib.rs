@@ -14,6 +14,7 @@ pub mod job_names {
     pub const AUTH_SIGN_IN_OTP_EMAIL: &str = "auth:sign-in-otp-email";
     pub const AUTH_VERIFICATION_OTP_EMAIL: &str = "auth:verification-otp-email";
     pub const AUTH_PASSWORD_RESET_OTP_EMAIL: &str = "auth:password-reset-otp-email";
+    pub const PUSH_NOTIFICATION: &str = "push:notification";
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -59,6 +60,37 @@ pub struct OtpEmailPayload {
     pub lang: Lang,
 }
 
+/// `fcm`/`apns` only - the one-time `expo` value this project briefly used
+/// is gone, see `apps/notify/src/push` for why (throttling, and APNs/FCM
+/// credentials were already set up elsewhere).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PushProvider {
+    Fcm,
+    Apns,
+}
+
+/// One push notification, one device token - a user with several devices
+/// means several of these, one job each (simpler than looping over tokens,
+/// and partial failure, inside a single job). The producer (`apps/api`)
+/// resolves `token`/`provider` from its own `push_token` table and
+/// pre-renders `title`/`body` - `notify` has no database access and does
+/// no i18n lookup for push, unlike the email jobs above.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PushNotificationPayload {
+    pub provider: PushProvider,
+    pub token: String,
+    pub title: String,
+    pub body: String,
+    /// Deep-link data for the mobile client's notification-response handler
+    /// (see apps/mobile's `NotificationsProvider`), e.g.
+    /// `{"type": "follow:new", "actorUsername": "..."}`. FCM only accepts
+    /// string values here (see `apps/notify/src/push/fcm.rs`), so keep this
+    /// flat - one level of string/number/bool fields, no nesting.
+    #[serde(default)]
+    pub data: serde_json::Value,
+}
+
 /// Every job that can be dequeued from [`NOTIFY_QUEUE`]. A producer builds
 /// one directly and calls [`NotifyJob::name`]/[`NotifyJob::data`] to enqueue
 /// it; the consumer rebuilds one from the raw `(name, data)` BullMQ hands it
@@ -71,6 +103,7 @@ pub enum NotifyJob {
     AuthSignInOtpEmail(OtpEmailPayload),
     AuthVerificationOtpEmail(OtpEmailPayload),
     AuthPasswordResetOtpEmail(OtpEmailPayload),
+    PushNotification(PushNotificationPayload),
 }
 
 impl NotifyJob {
@@ -83,6 +116,7 @@ impl NotifyJob {
             NotifyJob::AuthSignInOtpEmail(_) => AUTH_SIGN_IN_OTP_EMAIL,
             NotifyJob::AuthVerificationOtpEmail(_) => AUTH_VERIFICATION_OTP_EMAIL,
             NotifyJob::AuthPasswordResetOtpEmail(_) => AUTH_PASSWORD_RESET_OTP_EMAIL,
+            NotifyJob::PushNotification(_) => PUSH_NOTIFICATION,
         }
     }
 
@@ -94,6 +128,7 @@ impl NotifyJob {
             NotifyJob::AuthSignInOtpEmail(p)
             | NotifyJob::AuthVerificationOtpEmail(p)
             | NotifyJob::AuthPasswordResetOtpEmail(p) => serde_json::to_value(p),
+            NotifyJob::PushNotification(p) => serde_json::to_value(p),
         }
         .expect("NotifyJob payloads are always serializable")
     }
@@ -120,6 +155,7 @@ impl NotifyJob {
             AUTH_PASSWORD_RESET_OTP_EMAIL => {
                 NotifyJob::AuthPasswordResetOtpEmail(serde_json::from_value(data)?)
             }
+            PUSH_NOTIFICATION => NotifyJob::PushNotification(serde_json::from_value(data)?),
             _ => return Ok(None),
         }))
     }

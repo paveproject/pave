@@ -1,9 +1,11 @@
 use notify_contracts::{LinkEmailPayload, NotifyJob, OtpEmailPayload, OtpKind};
 use resend_rs::types::CreateEmailBaseOptions;
 use resend_rs::Resend;
+use std::sync::Arc;
 
 use crate::email;
 use crate::i18n::Dictionaries;
+use crate::push::PushSender;
 
 #[derive(Clone)]
 pub struct State {
@@ -11,6 +13,7 @@ pub struct State {
     pub dictionaries: Dictionaries,
     pub from_email: String,
     pub assets_base_url: String,
+    pub push_sender: Arc<PushSender>,
 }
 
 type DynError = Box<dyn std::error::Error + Send + Sync>;
@@ -33,6 +36,10 @@ pub async fn handle(state: &State, name: &str, data: serde_json::Value) -> Resul
         NotifyJob::AuthSignInOtpEmail(p) => send_otp_email(state, &p).await,
         NotifyJob::AuthVerificationOtpEmail(p) => send_otp_email(state, &p).await,
         NotifyJob::AuthPasswordResetOtpEmail(p) => send_otp_email(state, &p).await,
+        NotifyJob::PushNotification(p) => {
+            state.push_sender.send(&p).await;
+            Ok(())
+        }
     }
 }
 

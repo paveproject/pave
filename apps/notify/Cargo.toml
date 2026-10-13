@@ -2,14 +2,20 @@
 name = "notify"
 version = "0.1.0"
 edition = "2021"
+# Otherwise `cargo run -p notify` (what cargo-watch's dev loop uses) can't
+# pick a default once a second binary (src/bin/send_test_push.rs) exists.
+default-run = "notify"
 
 [dependencies]
-assets = { path = "../../libs/assets-rs" }
+a2 = "0.10.0"
+assets-rs = { path = "../../libs/assets-rs" }
+base64 = "0.22.1"
 env-rs = { path = "../../libs/env-rs" }
 notify-contracts = { path = "../../libs/notify-contracts" }
 bullmq-rs = "2.2.0"
 chrono = "0.4"
-dotenvy = "0.15"
+jsonwebtoken = "11.1.0"
+reqwest = { version = "0.12.28", default-features = false, features = ["json", "rustls-tls"] }
 resend-rs = "0.34"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"

@@ -81,11 +81,12 @@ fn emit_openapi_and_exit(path: &str) {
 
 #[tokio::main]
 async fn main() {
-    // Searches the working directory and its parents for a `.env` file (the
-    // repo root's, in dev) - unlike Bun, cargo/rustc never load one on their
+    // Repo root's .env (DATABASE_URL, REDIS_*, shared across apps) then
+    // this crate's own apps/api/.env on top (APP_STORE_CONNECT_*, specific
+    // to this app) - unlike Bun, cargo/rustc never load either on their
     // own, so every env var below would otherwise depend on the shell that
-    // launched this process having sourced it manually.
-    dotenvy::dotenv().ok();
+    // launched this process having sourced it manually. See env_rs::load_dotenv.
+    env_rs::load_dotenv(env!("CARGO_MANIFEST_DIR"));
 
     let args: Vec<String> = std::env::args().collect();
     if let Some(idx) = args.iter().position(|a| a == "--emit-openapi") {

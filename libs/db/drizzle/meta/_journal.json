@@ -99,6 +99,13 @@
       "when": 1791829345417,
       "tag": "0013_create_auth_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791912862558,
+      "tag": "0014_push_provider_fcm_apns",
+      "breakpoints": true
     }
   ]
 }
