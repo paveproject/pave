@@ -4,7 +4,9 @@ resolver = '2'
 members = [
 	'apps/api',
 	'apps/notify',
+	'libs/assets-rs',
 	'libs/auth',
+	'libs/env-rs',
 	'libs/notify-contracts',
 ]
 

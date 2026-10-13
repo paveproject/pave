@@ -12,14 +12,14 @@ const COLOR_TEXT: &str = "#18181b";
 const COLOR_MUTED: &str = "#71717a";
 const COLOR_BRAND: &str = "#0b0909";
 
-pub fn logo_url() -> String {
-    let base = std::env::var("ASSETS_BASE_URL").unwrap_or_default();
-    format!("{}/app/icon.png", base.trim_end_matches('/'))
-}
-
 /// `button` is `(label, href)`; omitted entirely when `None`, matching the
 /// original templates where an OTP email never rendered a button.
-pub fn render(title: &str, text: &str, button: Option<(&str, &str)>) -> String {
+pub fn render(
+    title: &str,
+    text: &str,
+    button: Option<(&str, &str)>,
+    assets_base_url: &str,
+) -> String {
     let button_html = match button {
         Some((label, href)) => format!(
             r#"<a href="{href}" style="background-color:{COLOR_BRAND};color:#ffffff;font-size:14px;font-weight:600;border-radius:8px;padding:12px 20px;text-decoration:none;display:inline-block;">{label}</a>"#
@@ -50,7 +50,7 @@ pub fn render(title: &str, text: &str, button: Option<(&str, &str)>) -> String {
   </table>
 </body>
 </html>"#,
-        logo = logo_url(),
+        logo = assets_rs::asset_url(assets_rs::paths::app::ICON, assets_base_url),
         year = Utc::now().format("%Y"),
     )
 }

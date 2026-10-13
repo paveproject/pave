@@ -46,10 +46,7 @@ pub async fn handle_event(db: &DatabaseConnection, apple: &AppStoreConnectClient
         return;
     };
 
-    if let (Some(app_id), Ok(expected)) = (
-        version.app_id.as_deref(),
-        std::env::var("APP_STORE_CONNECT_APP_ID"),
-    ) {
+    if let (Some(app_id), Some(expected)) = (version.app_id.as_deref(), apple.app_id()) {
         if app_id != expected {
             tracing::warn!(
                 %version_id,

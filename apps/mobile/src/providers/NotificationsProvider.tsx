@@ -3,7 +3,6 @@ import * as Notifications from 'expo-notifications';
 import { useAuth } from './AuthProvider';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
-import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useToast } from '../components/Toast';
 import { usePushTokenUpdateMutation } from '@libs/query-client';
@@ -63,11 +62,11 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
         throw new Error('Permission not granted to get push token for push notification!');
       }
       try {
-        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-        if (!projectId) {
-          throw new Error('EAS project ID not found');
-        }
-        const pushTokenString = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+        // Raw native token (FCM registration token on Android, APNs device
+        // token on iOS) - sent straight to our own API/notify, not through
+        // Expo's push service (throttled, and we already run FCM/APNs
+        // credentials elsewhere), so no EAS project id needed here.
+        const pushTokenString = (await Notifications.getDevicePushTokenAsync()).data;
         return pushTokenString;
       } catch (e) {
         throw new Error(`${e}`);
@@ -157,7 +156,7 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
       (token) => {
         setPushToken(token);
         updatePushToken({
-          provider: 'expo',
+          provider: Platform.OS === 'ios' ? 'apns' : 'fcm',
           token,
           deviceType: Platform.OS === 'ios' ? 'ios' : 'android',
         });

@@ -1,30 +1,61 @@
+mod config;
 mod dispatch;
 mod email;
 mod i18n;
+mod push;
 
 use bullmq_rs::{RedisConnection, WorkerBuilder};
+use config::NotifyConfig;
 use dispatch::State;
+use env_rs::RedisConfig;
 use notify_contracts::NOTIFY_QUEUE;
+use push::PushSender;
 use resend_rs::Resend;
+use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    dotenvy::dotenv().ok();
+    // Repo root's .env (DATABASE_URL, REDIS_*, shared across apps) then
+    // this crate's own apps/notify/.env on top (APNS_*/FIREBASE_*, specific
+    // to this app) - unlike Bun, cargo/rustc never load either on their
+    // own, so every env var below would otherwise depend on the shell that
+    // launched this process having sourced it manually. See env_rs::load_dotenv.
+    env_rs::load_dotenv(env!("CARGO_MANIFEST_DIR"));
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .init();
 
+    let config: NotifyConfig = env_rs::load();
+    let redis: RedisConfig = env_rs::load();
+
+    let assets_base_url = config.assets_base_url.clone().unwrap_or_else(|| {
+        tracing::warn!("ASSETS_BASE_URL not set - emails will go out with a broken logo image");
+        String::new()
+    });
+
+    let push_sender = Arc::new(PushSender::new(
+        config.fcm_project_id.as_deref(),
+        config.fcm_client_email.as_deref(),
+        config.fcm_private_key_b64.as_deref(),
+        config.apns_key_b64.as_deref(),
+        config.apns_key_id.as_deref(),
+        config.apns_team_id.as_deref(),
+        config.apns_bundle_id.clone(),
+        config.apns_production,
+    ));
+
     let state = State {
-        resend: Resend::new(&std::env::var("RESEND_API_KEY").expect("RESEND_API_KEY must be set")),
+        resend: Resend::new(&config.resend_api_key),
         dictionaries: i18n::Dictionaries::load(),
-        from_email: std::env::var("RESEND_FROM_EMAIL")
-            .unwrap_or_else(|_| "Pavé <hello@pave.app>".to_string()),
+        from_email: config.resend_from_email,
+        assets_base_url,
+        push_sender,
     };
 
-    let conn = RedisConnection::new(redis_url());
+    let conn = RedisConnection::new(redis.url());
     let worker = WorkerBuilder::new(NOTIFY_QUEUE)
         .connection(conn)
         .concurrency(5)
@@ -45,13 +76,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     handle.shutdown();
     handle.wait().await?;
     Ok(())
-}
-
-fn redis_url() -> String {
-    let host = std::env::var("REDIS_HOST").unwrap_or_else(|_| "localhost".to_string());
-    let port = std::env::var("REDIS_PORT").unwrap_or_else(|_| "6379".to_string());
-    match std::env::var("REDIS_PASSWORD") {
-        Ok(password) if !password.is_empty() => format!("redis://:{password}@{host}:{port}"),
-        _ => format!("redis://{host}:{port}"),
-    }
 }

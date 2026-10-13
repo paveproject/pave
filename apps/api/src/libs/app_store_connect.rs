@@ -5,11 +5,13 @@
 //! the id and the new state. Adapted from Recomend's TS equivalent
 //! (`apps/api/src/common/modules/app-store-connect`).
 //!
-//! Every credential is read from the environment lazily, at call time, not
-//! at startup - this feature can ship (and the webhook route can exist)
+//! Every credential is captured once at construction (see [`new`](AppStoreConnectClient::new)),
+//! as `Option`s - this feature can ship (and the webhook route can exist)
 //! before an actual App Store Connect API key is provisioned; it just
-//! won't resolve anything until one is.
+//! won't resolve anything until one is, same as before this read from the
+//! environment lazily at call time instead.
 
+use crate::config::ApiConfig;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -79,14 +81,29 @@ struct CachedToken {
     expires_at: u64,
 }
 
-#[derive(Default)]
 pub struct AppStoreConnectClient {
+    key_id: Option<String>,
+    issuer_id: Option<String>,
+    private_key: Option<String>,
+    /// The `appStoreVersions`'s own app id, to cross-check a webhook event
+    /// is actually about our app - see `app::webhooks::app_store_connect::service`.
+    app_id: Option<String>,
     token: Mutex<Option<CachedToken>>,
 }
 
 impl AppStoreConnectClient {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(config: &ApiConfig) -> Self {
+        Self {
+            key_id: config.app_store_connect_key_id.clone(),
+            issuer_id: config.app_store_connect_issuer_id.clone(),
+            private_key: config.app_store_connect_private_key.clone(),
+            app_id: config.app_store_connect_app_id.clone(),
+            token: Mutex::new(None),
+        }
+    }
+
+    pub fn app_id(&self) -> Option<&str> {
+        self.app_id.as_deref()
     }
 
     pub async fn get_app_store_version(&self, id: &str) -> Option<AppStoreVersionInfo> {
@@ -142,11 +159,9 @@ impl AppStoreConnectClient {
             }
         }
 
-        let private_key = std::env::var("APP_STORE_CONNECT_PRIVATE_KEY")
-            .ok()?
-            .replace("\\n", "\n");
-        let key_id = std::env::var("APP_STORE_CONNECT_KEY_ID").ok()?;
-        let issuer_id = std::env::var("APP_STORE_CONNECT_ISSUER_ID").ok()?;
+        let private_key = self.private_key.as_ref()?.replace("\\n", "\n");
+        let key_id = self.key_id.clone()?;
+        let issuer_id = self.issuer_id.clone()?;
 
         let encoding_key = EncodingKey::from_ec_pem(private_key.as_bytes())
             .inspect_err(|err| tracing::error!(%err, "invalid APP_STORE_CONNECT_PRIVATE_KEY"))

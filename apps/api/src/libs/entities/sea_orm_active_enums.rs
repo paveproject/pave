@@ -16,8 +16,10 @@ pub enum DeviceTypeEnum {
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(rs_type = "Enum", db_type = "Enum", enum_name = "push_provider_enum")]
 pub enum PushProviderEnum {
-    #[sea_orm(string_value = "expo")]
-    Expo,
+    #[sea_orm(string_value = "fcm")]
+    Fcm,
+    #[sea_orm(string_value = "apns")]
+    Apns,
 }
 
 // Hand-added (not sea-orm-codegen output, unlike the rest of this file):

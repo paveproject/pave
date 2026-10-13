@@ -28,6 +28,7 @@ import { useSendOtpMutation, useVerifyOtpMutation } from '@libs/query-client';
 import { useModalHeaderOptions } from '../../hooks/useModalHeaderOptions';
 import { useAuth } from '../../providers/AuthProvider';
 import { useLocaleContext } from '../../providers/LocaleProvider';
+import { useHeaderHeight } from 'expo-router/react-navigation';
 
 const OTP_LENGTH = 6;
 
@@ -47,6 +48,7 @@ const AuthScreen = () => {
   const modalHeaderOptions = useModalHeaderOptions({
     forceCross: true,
   });
+  const navigationHeaderHeight = useHeaderHeight();
   const [showOtp, setShowOtp] = useState(false);
   const [otp, setOtp] = useState('');
 
@@ -119,7 +121,7 @@ const AuthScreen = () => {
           tw`flex-1 justify-start items-center`,
           {
             gap: theme.spaces.md,
-            paddingTop: insets.top,
+            paddingTop: navigationHeaderHeight + theme.spaces.vertical,
             paddingLeft: insets.left + theme.spaces.horizontal,
             paddingRight: insets.right + theme.spaces.horizontal,
             // paddingBottom: insets.bottom + theme.spaces.vertical,

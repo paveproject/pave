@@ -13,13 +13,15 @@ pub struct SetPushTokenRequest {
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum PushProvider {
-    Expo,
+    Fcm,
+    Apns,
 }
 
 impl From<PushProvider> for PushProviderEnum {
     fn from(value: PushProvider) -> Self {
         match value {
-            PushProvider::Expo => PushProviderEnum::Expo,
+            PushProvider::Fcm => PushProviderEnum::Fcm,
+            PushProvider::Apns => PushProviderEnum::Apns,
         }
     }
 }

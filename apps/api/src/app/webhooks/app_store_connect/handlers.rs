@@ -19,12 +19,12 @@ pub async fn handle_webhook(
     headers: HeaderMap,
     body: Bytes,
 ) -> StatusCode {
-    let Ok(secret) = std::env::var("APP_STORE_CONNECT_WEBHOOK_SECRET") else {
+    let Some(secret) = state.config.app_store_connect_webhook_secret.as_deref() else {
         tracing::warn!("APP_STORE_CONNECT_WEBHOOK_SECRET not set, rejecting webhook delivery");
         return StatusCode::UNAUTHORIZED;
     };
 
-    if !verify_signature(&headers, &body, &secret) {
+    if !verify_signature(&headers, &body, secret) {
         return StatusCode::UNAUTHORIZED;
     }
 

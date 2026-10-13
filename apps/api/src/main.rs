@@ -1,4 +1,5 @@
 mod app;
+mod config;
 mod libs;
 mod state;
 
@@ -10,6 +11,8 @@ use better_auth::integrations::axum::AxumIntegration;
 use better_auth::plugins::SessionManagementPlugin;
 use better_auth::seaorm::{Database, SeaOrmStore};
 use better_auth::{AuthConfig, BetterAuth};
+use config::ApiConfig;
+use env_rs::RedisConfig;
 use libs::otp_sender;
 use state::{build_s3_client, AppState};
 use std::sync::Arc;
@@ -76,22 +79,14 @@ fn emit_openapi_and_exit(path: &str) {
     std::process::exit(0);
 }
 
-fn redis_url() -> String {
-    let host = std::env::var("REDIS_HOST").unwrap_or_else(|_| "localhost".to_string());
-    let port = std::env::var("REDIS_PORT").unwrap_or_else(|_| "6379".to_string());
-    match std::env::var("REDIS_PASSWORD") {
-        Ok(password) if !password.is_empty() => format!("redis://:{password}@{host}:{port}"),
-        _ => format!("redis://{host}:{port}"),
-    }
-}
-
 #[tokio::main]
 async fn main() {
-    // Searches the working directory and its parents for a `.env` file (the
-    // repo root's, in dev) - unlike Bun, cargo/rustc never load one on their
+    // Repo root's .env (DATABASE_URL, REDIS_*, shared across apps) then
+    // this crate's own apps/api/.env on top (APP_STORE_CONNECT_*, specific
+    // to this app) - unlike Bun, cargo/rustc never load either on their
     // own, so every env var below would otherwise depend on the shell that
-    // launched this process having sourced it manually.
-    dotenvy::dotenv().ok();
+    // launched this process having sourced it manually. See env_rs::load_dotenv.
+    env_rs::load_dotenv(env!("CARGO_MANIFEST_DIR"));
 
     let args: Vec<String> = std::env::args().collect();
     if let Some(idx) = args.iter().position(|a| a == "--emit-openapi") {
@@ -102,17 +97,19 @@ async fn main() {
     }
     tracing_subscriber::fmt::init();
 
+    let api_config: ApiConfig = env_rs::load();
+    let redis_config: RedisConfig = env_rs::load();
+
     let database = Database::connect(database_url())
         .await
         .expect("failed to connect to database");
 
-    let auth_secret = std::env::var("AUTH_SECRET").unwrap_or_else(|_| {
+    let auth_secret = api_config.auth_secret.clone().unwrap_or_else(|| {
         tracing::warn!("AUTH_SECRET not set, falling back to an insecure dev-only default");
         "dev-only-secret-change-me-32-characters-minimum".to_string()
     });
-    let base_url = std::env::var("API_URL").unwrap_or_else(|_| "http://localhost:3002".to_string());
 
-    let mut config = AuthConfig::new(auth_secret).base_url(base_url);
+    let mut config = AuthConfig::new(auth_secret).base_url(api_config.api_url.clone());
     // The mobile app has no browser cookie jar - it authenticates with
     // `Authorization: Bearer <token>` using the raw token returned by
     // `/auth/otp/verify`, so every session-checking route (this plugin's
@@ -120,7 +117,7 @@ async fn main() {
     // accept it too.
     config.session.bearer = Some(BearerConfig::default());
     let store = SeaOrmStore::<AppAuthSchema>::new(config.clone(), database.clone());
-    let otp_sender = Arc::new(otp_sender::BullmqOtpSender::connect(&redis_url()).await);
+    let otp_sender = Arc::new(otp_sender::BullmqOtpSender::connect(&redis_config.url()).await);
     let auth = Arc::new(
         BetterAuth::<AppAuthSchema>::new(config)
             .store(store)
@@ -131,26 +128,26 @@ async fn main() {
             .expect("failed to build auth"),
     );
 
-    let s3_bucket = std::env::var("S3_BUCKET_PUBLIC").unwrap_or_else(|_| "public".to_string());
-    let s3_public_endpoint = std::env::var("S3_PUBLIC_ENDPOINT")
-        .or_else(|_| std::env::var("S3_ENDPOINT"))
-        .expect("S3_PUBLIC_ENDPOINT or S3_ENDPOINT must be set");
-
     let redis_client =
-        redis::Client::open(redis_url()).expect("failed to parse redis url for AppState");
+        redis::Client::open(redis_config.url()).expect("failed to parse redis url for AppState");
     let redis = redis::aio::ConnectionManager::new(redis_client)
         .await
         .expect("failed to connect to redis for AppState");
 
+    let s3 = build_s3_client(&api_config).await;
+    let app_store_connect = Arc::new(libs::app_store_connect::AppStoreConnectClient::new(
+        &api_config,
+    ));
+    let reports_hub = app::reports::hub::ReportsHub::spawn(redis_config.url());
+
     let state = AppState {
+        config: Arc::new(api_config),
         auth: auth.clone(),
         db: database,
-        s3: build_s3_client().await,
-        s3_bucket,
-        s3_public_endpoint,
-        reports_hub: app::reports::hub::ReportsHub::spawn(redis_url()),
+        s3,
+        reports_hub,
         redis,
-        app_store_connect: Arc::new(libs::app_store_connect::AppStoreConnectClient::new()),
+        app_store_connect,
     };
 
     let app = Router::new()
