@@ -2,9 +2,6 @@
 name = "notify"
 version = "0.1.0"
 edition = "2021"
-# Otherwise `cargo run -p notify` (what cargo-watch's dev loop uses) can't
-# pick a default once a second binary (src/bin/send_test_push.rs) exists.
-default-run = "notify"
 
 [dependencies]
 a2 = "0.10.0"
