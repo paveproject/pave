@@ -302,5 +302,8 @@
     "*.rs": [
       "cargo fmt --"
     ]
+  },
+  "patchedDependencies": {
+    "@nozbe/watermelondb@0.28.0": "patches/@nozbe%2Fwatermelondb@0.28.0.patch"
   }
 }

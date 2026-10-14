@@ -463,6 +463,9 @@
     "dtrace-provider",
     "@nestjs/core",
   ],
+  "patchedDependencies": {
+    "@nozbe/watermelondb@0.28.0": "patches/@nozbe%2Fwatermelondb@0.28.0.patch",
+  },
   "packages": {
     "@0no-co/graphql.web": ["@0no-co/graphql.web@1.3.4", "", { "peerDependencies": { "graphql": "^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0" }, "optionalPeers": ["graphql"] }, "sha512-imSwulOeDQodRy/olQmVEo2PiY6ntjkZ9eiGdw6lMYylh/tay9b7MusyJBmEnkL8GiKRKr6ltr+D42mY5bd8Bg=="],
 
