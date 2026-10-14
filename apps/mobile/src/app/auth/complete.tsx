@@ -4,7 +4,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'expo-router';
-import { Host, Button, Text as NativeText } from '@expo/ui';
+import { Host, Text as NativeText } from '@expo/ui';
 import {
   buttonStyle,
   controlSize,
@@ -12,7 +12,7 @@ import {
   frame,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
-import { fillMaxWidth, background as androidBackground } from '@expo/ui/jetpack-compose/modifiers';
+import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { useTranslations } from 'use-intl';
 import { useMeUpdateMutation } from '@libs/query-client';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -20,6 +20,7 @@ import { useToast } from '../../components/Toast';
 import { Input } from '../../components/ui/Input';
 import { FormFieldError } from '../../components/ui/FormFieldError';
 import { StatusBubble } from '../../components/ui/StatusBubble';
+import { NativeButton } from '../../components/ui/NativeButton';
 import { View } from '../../components/ui/view';
 import { Text } from '../../components/ui/text';
 import { logger } from '../../logger';
@@ -71,15 +72,12 @@ const CompleteProfileScreen = () => {
     }
   });
 
-  const saveModifiers =
-    Platform.OS === 'ios'
-      ? [
-          buttonStyle('glassProminent'),
-          controlSize('extraLarge'),
-          tint(colors.secondary),
-          foregroundStyle(colors.secondaryForeground),
-        ]
-      : [fillMaxWidth(), androidBackground(colors.secondary)];
+  const saveIosModifiers = [
+    buttonStyle('glassProminent'),
+    controlSize('extraLarge'),
+    tint(colors.secondary),
+    foregroundStyle(colors.secondaryForeground),
+  ];
   const saveLabelModifiers =
     Platform.OS === 'ios' ? [frame({ maxWidth: Infinity })] : [fillMaxWidth()];
 
@@ -128,14 +126,23 @@ const CompleteProfileScreen = () => {
       <FormFieldError message={usernameError} />
 
       <Host style={{ width: '100%' }} matchContents={{ vertical: true }}>
-        <Button disabled={!canSave || isSaving} onPress={handleSave} modifiers={saveModifiers}>
+        <NativeButton
+          disabled={!canSave || isSaving}
+          onPress={handleSave}
+          colors={{
+            containerColor: colors.secondary,
+            contentColor: colors.secondaryForeground,
+          }}
+          iosModifiers={saveIosModifiers}
+          androidModifiers={[fillMaxWidth()]}
+        >
           <NativeText
             textStyle={{ color: colors.secondaryForeground, textAlign: 'center' }}
             modifiers={saveLabelModifiers}
           >
             {t('messages.continue')}
           </NativeText>
-        </Button>
+        </NativeButton>
       </Host>
     </View>
   );

@@ -89,10 +89,10 @@ const TrustedContactRow = ({
             flexDirection: 'row',
             alignItems: 'center',
             gap: theme.spaces.sm,
-            paddingVertical: theme.spaces.sm,
+            height: theme.cards.heights.md,
           }}
         >
-          <Avatar uri={contact.contact?.image} size={theme.spaces['4xl']} />
+          <Avatar uri={contact.contact?.image} size={theme.icons.sizes.xl} />
           <Text style={{ flex: 1, fontWeight: '600' }}>
             {contact.contact?.username ?? t('messages.no_username')}
           </Text>

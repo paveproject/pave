@@ -20,7 +20,7 @@ import { Icons } from '../../../../constants/icons';
  */
 const DebugScreen = () => {
   const router = useRouter();
-  const { colors, theme } = useTheme();
+  const { colors, theme, mode } = useTheme();
 
   const handleRecoveryKeys = useCallback(() => {
     router.push('/settings/debug/recovery-keys');
@@ -28,7 +28,14 @@ const DebugScreen = () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <Host style={{ flex: 1, width: '100%' }} seedColor={colors.foreground}>
+      <Host
+        style={{ flex: 1, width: '100%' }}
+        seedColor={colors.foreground}
+        // Without this, Compose derives light/dark from the device setting
+        // (`isSystemInDarkTheme()`), so a theme forced in-app renders the
+        // Material palette of the opposite scheme.
+        colorScheme={mode}
+      >
         <FieldGroup
           style={{ backgroundColor: colors.background }}
           modifiers={

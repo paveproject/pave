@@ -72,8 +72,8 @@ const theme = {
       lg: spaceScale(200),
     },
     heights: {
-      sm: spaceScale(60),
-      md: spaceScale(80),
+      sm: spaceScale(40),
+      md: spaceScale(60),
       lg: spaceScale(200),
     },
   },

@@ -8,11 +8,12 @@ import {
   frame,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
-import { fillMaxWidth, background as androidBackground } from '@expo/ui/jetpack-compose/modifiers';
+import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { useTheme } from '../../providers/ThemeProvider';
 import { Stack, useRouter } from 'expo-router';
 import tw from '../../lib/tw';
 import { Input } from '../../components/ui/Input';
+import { NativeButton } from '../../components/ui/NativeButton';
 import { Icons as LegacyIcons } from '../../constants/IconsOld';
 import { useTranslations } from 'use-intl';
 import * as z from 'zod';
@@ -105,15 +106,16 @@ const AuthScreen = () => {
     toast.info(t('messages.coming_soon'));
   }, [toast, t]);
 
-  const socialButtonModifiers =
-    Platform.OS === 'ios'
-      ? [
-          buttonStyle('glassProminent'),
-          controlSize('extraLarge'),
-          tint(colors.muted),
-          foregroundStyle(colors.foreground),
-        ]
-      : [fillMaxWidth(), androidBackground(colors.muted)];
+  const socialButtonIosModifiers = [
+    buttonStyle('glassProminent'),
+    controlSize('extraLarge'),
+    tint(colors.muted),
+    foregroundStyle(colors.foreground),
+  ];
+  const socialButtonColors = {
+    containerColor: colors.muted,
+    contentColor: colors.foreground,
+  };
 
   return (
     <>
@@ -151,20 +153,20 @@ const AuthScreen = () => {
               )}
             />
             <Host style={{ width: '100%' }} matchContents={{ vertical: true }}>
-              <Button
-                variant="filled"
+              <NativeButton
                 disabled={isLoading}
                 onPress={form.handleSubmit(handleSendOtp)}
-                modifiers={
-                  Platform.OS === 'ios'
-                    ? [
-                        buttonStyle('glassProminent'),
-                        controlSize('extraLarge'),
-                        tint(colors.secondary),
-                        foregroundStyle(colors.secondaryForeground),
-                      ]
-                    : [fillMaxWidth(), androidBackground(colors.secondary)]
-                }
+                colors={{
+                  containerColor: colors.secondary,
+                  contentColor: colors.secondaryForeground,
+                }}
+                iosModifiers={[
+                  buttonStyle('glassProminent'),
+                  controlSize('extraLarge'),
+                  tint(colors.secondary),
+                  foregroundStyle(colors.secondaryForeground),
+                ]}
+                androidModifiers={[fillMaxWidth()]}
               >
                 <NativeText
                   textStyle={{ color: colors.secondaryForeground, textAlign: 'center' }}
@@ -177,7 +179,7 @@ const AuthScreen = () => {
                 >
                   {t('messages.continue')}
                 </NativeText>
-              </Button>
+              </NativeButton>
             </Host>
 
             <View style={tw`flex-row items-center gap-3`}>
@@ -190,10 +192,11 @@ const AuthScreen = () => {
 
             <View style={{ gap: theme.spaces.md, width: '100%' }}>
               <Host style={{ width: '100%' }} matchContents={{ vertical: true }}>
-                <Button
-                  variant="filled"
+                <NativeButton
                   onPress={handleSocialPlaceholder}
-                  modifiers={socialButtonModifiers}
+                  colors={socialButtonColors}
+                  iosModifiers={socialButtonIosModifiers}
+                  androidModifiers={[fillMaxWidth()]}
                 >
                   <Row
                     alignment="center"
@@ -217,13 +220,14 @@ const AuthScreen = () => {
                       <NativeText textStyle={{ color: colors.foreground }}>Google</NativeText>
                     </Row>
                   </Row>
-                </Button>
+                </NativeButton>
               </Host>
               <Host style={{ width: '100%' }} matchContents={{ vertical: true }}>
-                <Button
-                  variant="filled"
+                <NativeButton
                   onPress={handleSocialPlaceholder}
-                  modifiers={socialButtonModifiers}
+                  colors={socialButtonColors}
+                  iosModifiers={socialButtonIosModifiers}
+                  androidModifiers={[fillMaxWidth()]}
                 >
                   <Row
                     alignment="center"
@@ -253,7 +257,7 @@ const AuthScreen = () => {
                       <NativeText textStyle={{ color: colors.foreground }}>Apple</NativeText>
                     </Row>
                   </Row>
-                </Button>
+                </NativeButton>
               </Host>
             </View>
           </View>

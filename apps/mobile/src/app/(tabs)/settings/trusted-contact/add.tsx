@@ -1,16 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, Platform, ScrollView, StyleSheet } from 'react-native';
+import { Linking, ScrollView, StyleSheet } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Host,
-  Icon as NativeIcon,
-  Button as NativeButton,
-  Text as NativeText,
-  Row,
-} from '@expo/ui';
+import { Host, Icon as NativeIcon, Text as NativeText, Row } from '@expo/ui';
 import { buttonStyle, controlSize, foregroundStyle, tint } from '@expo/ui/swift-ui/modifiers';
-import { background as androidBackground } from '@expo/ui/jetpack-compose/modifiers';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import QRCode from 'react-native-qrcode-svg';
 import { Stack, useRouter } from 'expo-router';
@@ -23,6 +16,7 @@ import { logger } from '../../../../logger';
 import { View } from '../../../../components/ui/view';
 import { Text } from '../../../../components/ui/text';
 import { Input } from '../../../../components/ui/Input';
+import { NativeButton } from '../../../../components/ui/NativeButton';
 import { SegmentedControl } from '../../../../components/ui/SegmentedControl';
 import { Skeleton } from '../../../../components/ui/Skeleton';
 import Empty from '../../../../components/ui/empty';
@@ -114,22 +108,28 @@ const AddTrustedContactScreen = () => {
   }, [invite, toast, t]);
 
   // `style={{ backgroundColor }}` on a native Button is a no-op - the
-  // background has to come from `tint` (iOS) / `background` (Android)
-  // modifiers instead (see `app/auth/index.tsx`'s own social buttons).
-  const mutedButtonModifiers =
-    Platform.OS === 'ios'
-      ? [buttonStyle('glassProminent'), tint(colors.muted), foregroundStyle(colors.foreground)]
-      : [androidBackground(colors.muted)];
+  // background has to come from `tint` (iOS) modifiers / the Material3
+  // `colors` prop (Android), which is what `NativeButton` wraps.
+  const mutedButtonIosModifiers = [
+    buttonStyle('glassProminent'),
+    tint(colors.muted),
+    foregroundStyle(colors.foreground),
+  ];
+  const mutedButtonColors = {
+    containerColor: colors.muted,
+    contentColor: colors.foreground,
+  };
 
-  const submitButtonModifiers =
-    Platform.OS === 'ios'
-      ? [
-          buttonStyle('glassProminent'),
-          controlSize('extraLarge'),
-          tint(colors.secondary),
-          foregroundStyle(colors.secondaryForeground),
-        ]
-      : [androidBackground(colors.secondary)];
+  const submitButtonIosModifiers = [
+    buttonStyle('glassProminent'),
+    controlSize('extraLarge'),
+    tint(colors.secondary),
+    foregroundStyle(colors.secondaryForeground),
+  ];
+  const submitButtonColors = {
+    containerColor: colors.secondary,
+    contentColor: colors.secondaryForeground,
+  };
 
   return (
     <>
@@ -191,9 +191,9 @@ const AddTrustedContactScreen = () => {
                 {!isGeneratingInvite && invite ? (
                   <Host matchContents>
                     <NativeButton
-                      variant="filled"
                       onPress={handleCopyCode}
-                      modifiers={mutedButtonModifiers}
+                      colors={mutedButtonColors}
+                      iosModifiers={mutedButtonIosModifiers}
                     >
                       <Row spacing={theme.spaces.sm} alignment="center">
                         <NativeText textStyle={{ letterSpacing: 2, color: colors.foreground }}>
@@ -217,10 +217,10 @@ const AddTrustedContactScreen = () => {
                 {!isGeneratingInvite ? (
                   <Host matchContents>
                     <NativeButton
-                      variant="filled"
                       disabled={isRefreshingInvite}
                       onPress={() => refetchInvite()}
-                      modifiers={mutedButtonModifiers}
+                      colors={mutedButtonColors}
+                      iosModifiers={mutedButtonIosModifiers}
                     >
                       <Row spacing={theme.spaces.sm} alignment="center">
                         <NativeIcon
@@ -269,9 +269,9 @@ const AddTrustedContactScreen = () => {
                 {permission?.canAskAgain ? (
                   <Host matchContents>
                     <NativeButton
-                      variant="filled"
                       onPress={requestPermission}
-                      modifiers={mutedButtonModifiers}
+                      colors={mutedButtonColors}
+                      iosModifiers={mutedButtonIosModifiers}
                     >
                       <NativeText textStyle={{ color: colors.foreground }}>
                         {t('messages.grant_camera_access')}
@@ -281,9 +281,9 @@ const AddTrustedContactScreen = () => {
                 ) : (
                   <Host matchContents>
                     <NativeButton
-                      variant="filled"
                       onPress={() => Linking.openSettings()}
-                      modifiers={mutedButtonModifiers}
+                      colors={mutedButtonColors}
+                      iosModifiers={mutedButtonIosModifiers}
                     >
                       <NativeText textStyle={{ color: colors.foreground }}>
                         {t('messages.open_settings')}
@@ -305,10 +305,10 @@ const AddTrustedContactScreen = () => {
             />
             <Host matchContents>
               <NativeButton
-                variant="filled"
                 disabled={!manualCode.trim() || redeemInvite.isPending}
                 onPress={() => handleRedeem(manualCode)}
-                modifiers={submitButtonModifiers}
+                colors={submitButtonColors}
+                iosModifiers={submitButtonIosModifiers}
               >
                 <NativeText textStyle={{ color: colors.secondaryForeground }}>
                   {t('messages.redeem')}
