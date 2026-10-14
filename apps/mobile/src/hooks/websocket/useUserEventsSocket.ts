@@ -2,14 +2,15 @@ import { useEffect, useRef } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  devicesOptions,
   trustedByOptions,
   trustedContactInviteOptions,
   trustedContactsOptions,
 } from '@libs/query-client';
 import type { TrustedByResponse, TrustedContactResponse, UserEvent } from '@libs/api-js';
-import { getSessionToken } from '../lib/auth/session';
-import { ME_WS_URL } from '../env/common';
-import { clearReceivedShare, receiveShare } from '../lib/recoveryKey';
+import { getSessionToken } from '../../lib/auth/session';
+import { ME_WS_URL } from '../../env/common';
+import { clearReceivedShare, getDeviceId, receiveDek, receiveShare } from '../../lib/recoveryKey';
 
 // React Native's WebSocket accepts a third `headers` option at runtime
 // (unlike the strict browser spec its TS types are modeled on) - this
@@ -48,9 +49,10 @@ const upsertTrustedContact = (
 
 const upsertTrustedBy = (
   queryClient: ReturnType<typeof useQueryClient>,
+  deviceId: string | null,
   row: TrustedByResponse,
 ) => {
-  queryClient.setQueryData(trustedByOptions().queryKey, (old) => {
+  queryClient.setQueryData(trustedByOptions(deviceId ?? undefined).queryKey, (old) => {
     if (!old) return old;
     const index = old.findIndex((r) => r.id === row.id);
     if (index === -1) return [row, ...old];
@@ -67,8 +69,14 @@ const upsertTrustedBy = (
  * `ReactQueryProvider.tsx`) until some unrelated refetch happens to
  * notice it's gone.
  */
-const removeTrustedBy = (queryClient: ReturnType<typeof useQueryClient>, id: string) => {
-  queryClient.setQueryData(trustedByOptions().queryKey, (old) => old?.filter((r) => r.id !== id));
+const removeTrustedBy = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  deviceId: string | null,
+  id: string,
+) => {
+  queryClient.setQueryData(trustedByOptions(deviceId ?? undefined).queryKey, (old) =>
+    old?.filter((r) => r.id !== id),
+  );
 };
 
 /**
@@ -89,6 +97,13 @@ export const useUserEventsSocket = (enabled: boolean) => {
     let cancelled = false;
 
     const connect = async () => {
+      // Read once per connection, not per message - this device's id
+      // doesn't change mid-session, and every handler below needs it to
+      // target the right per-device "as-contact" cache entry (see
+      // `trustedContactsKeys.asContact`'s own doc comment) or to tell a
+      // `device_dek_updated` event meant for a sibling apart from one
+      // meant for this device.
+      const deviceId = await getDeviceId();
       const token = await getSessionToken();
       if (!token || cancelled) return;
 
@@ -114,13 +129,24 @@ export const useUserEventsSocket = (enabled: boolean) => {
             // a fresh code for free, no manual regenerate logic needed.
             queryClient.invalidateQueries({ queryKey: trustedContactInviteOptions().queryKey });
           } else if (message.event === 'trusted_contact_share_updated') {
-            upsertTrustedBy(queryClient, message);
+            upsertTrustedBy(queryClient, deviceId, message);
             if (message.encryptedShare) {
               receiveShare(message.owner.id, message.encryptedShare);
             }
           } else if (message.event === 'trusted_contact_revoked') {
-            removeTrustedBy(queryClient, message.id);
+            removeTrustedBy(queryClient, deviceId, message.id);
             clearReceivedShare(message.owner.id);
+          } else if (message.event === 'device_registered') {
+            // A sibling device just registered (or refreshed its own
+            // registration) - invalidate rather than upsert, since this
+            // device doesn't know the full "my devices" list shape well
+            // enough to merge a single row in blind the way the
+            // trusted-contact rows above can.
+            queryClient.invalidateQueries({ queryKey: devicesOptions().queryKey });
+          } else if (message.event === 'device_dek_updated') {
+            if (message.id === deviceId && message.encryptedDek) {
+              receiveDek(message.encryptedDek);
+            }
           }
         } catch {
           // Malformed frame - ignore rather than crash the socket loop.

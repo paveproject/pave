@@ -13,6 +13,7 @@
     "appearance": "Apparence",
     "account": "Mon compte",
     "trusted_contacts": "Contacts de confiance",
+    "devices": "Appareils",
     "language": "Langue",
     "theme": "Thème",
     "system": "Système",
@@ -41,6 +42,7 @@
     "redeem": "Valider",
     "open_settings": "Ouvrir les réglages",
     "code_copied": "Code copié",
+    "copied": "{gender, select, female {{count, plural, one {Copiée} other {Copiées}}} other {{count, plural, one {Copié} other {Copiés}}}}",
     "no_username": "Pas de nom d'utilisateur",
     "pending": "En attente",
     "active": "Actif",
@@ -96,6 +98,12 @@
           },
           "success": "Contact de confiance ajouté"
         }
+      },
+      "devices": {
+        "empty": "Aucun appareil enregistré pour l'instant",
+        "this_device": "Cet appareil",
+        "revoke_confirm_title": "Retirer cet appareil ?",
+        "revoke_confirm_message": "Il cessera de recevoir les mises à jour de votre clé de récupération."
       }
     },
     "map": {

@@ -13,6 +13,7 @@ import { Avatar } from '../../../../components/ui/Avatar';
 import Empty from '../../../../components/ui/empty';
 import { Icons as NativeIcons } from '../../../../constants/icons';
 import { useTheme } from '../../../../providers/ThemeProvider';
+import { useDeviceId } from '../../../../hooks/useDeviceId';
 import tw from '../../../../lib/tw';
 
 const TrustedByRowItem = ({ item }: { item: TrustedByResponse }) => {
@@ -27,12 +28,12 @@ const TrustedByRowItem = ({ item }: { item: TrustedByResponse }) => {
         flexDirection: 'row',
         alignItems: 'center',
         gap: theme.spaces.sm,
-        paddingVertical: theme.spaces.sm,
+        height: theme.cards.heights.md,
         paddingLeft: insets.left + theme.spaces.horizontal,
         paddingRight: insets.right + theme.spaces.horizontal,
       }}
     >
-      <Avatar uri={item.owner.image} size={theme.spaces['4xl']} />
+      <Avatar uri={item.owner.image} size={theme.icons.sizes.xl} />
       <Text style={{ flex: 1, fontWeight: '600' }}>
         {item.owner.username ?? t('messages.no_username')}
       </Text>
@@ -48,7 +49,10 @@ const TrustedByScreen = () => {
   const { theme, colors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const { data, isPending, isRefetching, refetch } = useQuery(trustedByOptions());
+  const deviceId = useDeviceId();
+  const { data, isPending, isRefetching, refetch } = useQuery(
+    trustedByOptions(deviceId ?? undefined),
+  );
 
   const contacts = useMemo(() => data ?? [], [data]);
 

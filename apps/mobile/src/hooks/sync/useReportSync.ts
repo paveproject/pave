@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import NetInfo from '@react-native-community/netinfo';
-import { pushPendingReports } from '../lib/watermelon/reports';
+import { pushPendingReports } from '../../lib/watermelon/reports';
 
 /**
  * Retries every not-yet-synced local report as soon as connectivity comes

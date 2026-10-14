@@ -46,24 +46,41 @@ pub struct RedeemInviteRequest {
     pub code: String,
 }
 
-/// One contact's new sealed share, as part of a `SetSharesRequest` batch.
+/// One contact device's new sealed share, as part of a `SetSharesRequest`
+/// batch - a contact with N devices needs N of these (the same share
+/// value, sealed once per device), since each only gets resolved back
+/// out to the device that asks for it (see `AsContactQuery`).
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ShareUpdate {
     /// The `trusted_contact` relationship this share belongs to - must be
     /// one the caller owns.
-    pub id: String,
+    pub trusted_contact_id: String,
+    /// Which of that contact's registered devices this copy is sealed
+    /// for.
+    pub device_id: String,
     pub encrypted_share: String,
 }
 
-/// Uploads every contact's share in one request - the mobile app always
-/// recomputes the full set together (see `trustedContact.encryptedShare`'s
-/// own doc comment on why a rotation touches everyone's share at once),
-/// so one batch call beats N round trips.
+/// Uploads every contact device's share in one request - the mobile app
+/// always recomputes the full set together (see
+/// `trustedContactShare`'s own doc comment on why a rotation touches
+/// everyone's shares at once), so one batch call beats N round trips.
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SetSharesRequest {
     pub shares: Vec<ShareUpdate>,
+}
+
+/// `GET /me/trusted-contacts/as-contact` needs to know which of the
+/// caller's own devices is asking, to resolve each row's one relevant
+/// `trusted_contact_share` out of potentially several (one per device
+/// they have registered). `Option` so an old, not-yet-upgraded client
+/// doesn't 400 - it just gets rows with no `encrypted_share` resolved.
+#[derive(Debug, Clone, Deserialize, utoipa::IntoParams)]
+#[serde(rename_all = "camelCase")]
+pub struct AsContactQuery {
+    pub device_id: Option<String>,
 }
 
 /// A contact the caller has designated (as owner).
@@ -99,9 +116,10 @@ pub struct TrustedByResponse {
     pub owner: Profile,
     pub created_at: String,
     /// The caller's current Shamir share of the owner's recovery key,
-    /// sealed (hex) to the caller's own public key - the server
-    /// stores and serves this but can't read it. `None` until the owner
-    /// has generated a recovery key and split it across their accepted
-    /// contacts.
+    /// sealed (hex) to the *requesting device's* public key (see
+    /// `AsContactQuery`) - the server stores and serves this but can't
+    /// read it. `None` until the owner has generated a recovery key and
+    /// split it across their accepted contacts, or if the request didn't
+    /// name a `device_id`.
     pub encrypted_share: Option<String>,
 }

@@ -30,11 +30,18 @@ export const trustedContactInviteOptions = () => {
   });
 };
 
-export const trustedByOptions = () => {
+/**
+ * `deviceId` tells the server which of the caller's own devices is asking,
+ * so it can resolve each row's one relevant `encryptedShare` out of
+ * potentially several (one per device the caller has registered). Omit it
+ * to get every row with `encryptedShare: null` (e.g. before this device
+ * has registered itself yet).
+ */
+export const trustedByOptions = (deviceId?: string) => {
   return queryOptions({
-    queryKey: trustedContactsKeys.asContact(),
+    queryKey: trustedContactsKeys.asContact(deviceId),
     queryFn: async () => {
-      const { data, error } = await listAsContact();
+      const { data, error } = await listAsContact({ query: { deviceId } });
       if (error) throw error;
       return data;
     },

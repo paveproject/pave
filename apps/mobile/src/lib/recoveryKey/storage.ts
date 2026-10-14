@@ -25,6 +25,21 @@ export const setIdentityKeypair = async (keypair: IdentityKeypair): Promise<void
   ]);
 };
 
+// This device's server-assigned `device` row id (see `PUT /me/devices`) -
+// the server keys that table on `(userId, publicKey)`, not the session, so
+// this is the one durable way for this device to know "which row is me"
+// (e.g. to filter itself out of its own "other devices" list, or to match
+// an incoming `device_dek_updated` event against itself).
+const DEVICE_ID = 'pave_recovery_device_id';
+
+export const getDeviceId = async (): Promise<string | null> => {
+  return SecureStore.getItemAsync(DEVICE_ID);
+};
+
+export const setDeviceId = async (deviceId: string): Promise<void> => {
+  await SecureStore.setItemAsync(DEVICE_ID, deviceId);
+};
+
 // This user's own recovery key (the DEK), as an owner - never leaves the
 // device in plaintext, only its Shamir shares (sealed per contact) do.
 const RECOVERY_DEK = 'pave_recovery_dek';
@@ -38,16 +53,24 @@ export const setDek = async (dek: Uint8Array): Promise<void> => {
   await SecureStore.setItemAsync(RECOVERY_DEK, bytesToHex(dek));
 };
 
-// What the last split was for - lets reconciliation tell "a contact was
-// added" from "a contact was removed" against the *current* accepted list,
-// without re-deriving it from scratch (and without the server ever seeing
-// this, since `threshold`/`generation` live only in the sealed envelope).
+// What the last split was for - lets reconciliation tell "a contact (or
+// own device) was added" from "...was removed" against the *current*
+// eligible sets, without re-deriving it from scratch (and without the
+// server ever seeing this, since `threshold`/`generation` live only in the
+// sealed envelope). One shared generation across both groups, since both
+// protect the same DEK - either group shrinking rotates it for both.
 export interface RecoveryKeySyncState {
   contactIds: string[];
+  ownDeviceIds: string[];
   generation: number;
 }
 
-const SYNCED_STATE = 'pave_recovery_synced_state';
+// `_v2`: the previous single-device-only scheme (`user.publicKey`,
+// `trustedContact.encryptedShare`) was dropped server-side rather than
+// migrated (nothing downstream consumed the DEK yet) - a new key name
+// makes any pre-upgrade local state read as "no prior sync" instead of
+// matching the old, narrower shape.
+const SYNCED_STATE = 'pave_recovery_synced_state_v2';
 
 export const getSyncedState = async (): Promise<RecoveryKeySyncState | null> => {
   const value = await SecureStore.getItemAsync(SYNCED_STATE);
@@ -89,4 +112,22 @@ export const setReceivedShare = async (ownerId: string, share: ReceivedShare): P
  * to keep it around for. */
 export const clearReceivedShare = async (ownerId: string): Promise<void> => {
   await SecureStore.deleteItemAsync(receivedShareKey(ownerId));
+};
+
+/**
+ * `__DEV__`-only: wipes this device's own identity/DEK/sync state, so it
+ * behaves like a brand-new device on next launch - the only way to
+ * re-test "I lost every device" repeatedly without a full reinstall.
+ * Deliberately doesn't touch cached received shares (this device's role
+ * *as a contact* for others) - simulating losing your own recovery setup
+ * doesn't require also forgetting what you're holding for other people.
+ */
+export const wipeOwnRecoveryState = async (): Promise<void> => {
+  await Promise.all([
+    SecureStore.deleteItemAsync(IDENTITY_PRIVATE_KEY),
+    SecureStore.deleteItemAsync(IDENTITY_PUBLIC_KEY),
+    SecureStore.deleteItemAsync(DEVICE_ID),
+    SecureStore.deleteItemAsync(RECOVERY_DEK),
+    SecureStore.deleteItemAsync(SYNCED_STATE),
+  ]);
 };

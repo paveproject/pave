@@ -1,5 +1,5 @@
 use crate::libs::entities::sea_orm_active_enums::{DeviceTypeEnum, PushProviderEnum};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
@@ -26,7 +26,7 @@ impl From<PushProvider> for PushProviderEnum {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum DeviceType {
     Web,
@@ -40,6 +40,16 @@ impl From<DeviceType> for DeviceTypeEnum {
             DeviceType::Web => DeviceTypeEnum::Web,
             DeviceType::Ios => DeviceTypeEnum::Ios,
             DeviceType::Android => DeviceTypeEnum::Android,
+        }
+    }
+}
+
+impl From<DeviceTypeEnum> for DeviceType {
+    fn from(value: DeviceTypeEnum) -> Self {
+        match value {
+            DeviceTypeEnum::Web => DeviceType::Web,
+            DeviceTypeEnum::Ios => DeviceType::Ios,
+            DeviceTypeEnum::Android => DeviceType::Android,
         }
     }
 }

@@ -1,3 +1,4 @@
+use crate::app::me::devices::dto::DeviceResponse;
 use crate::app::me::trusted_contacts::dto::{TrustedByResponse, TrustedContactResponse};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -45,4 +46,16 @@ pub enum UserEvent {
     /// stale row until their next unrelated refetch happens to drop it.
     /// Same "no push job" reasoning as `TrustedContactShareUpdated`.
     TrustedContactRevoked(TrustedByResponse),
+    /// Pushed to a user's *other* devices when a new one registers (see
+    /// `devices::handlers::set_device`) - prompts an immediate
+    /// reconciliation pass instead of waiting for their next launch to
+    /// notice the sibling and seal it a copy of the recovery key.
+    DeviceRegistered(DeviceResponse),
+    /// Pushed to a user's own device(s) when any of them deposits a
+    /// sealed recovery-key copy for one of them (see
+    /// `devices::handlers::set_device_dek`) - the target device checks
+    /// `message.id` against its own locally-cached device id before
+    /// acting, same filter-by-id pattern `useReceiveShares` already uses
+    /// for `TrustedContactShareUpdated`.
+    DeviceDekUpdated(DeviceResponse),
 }

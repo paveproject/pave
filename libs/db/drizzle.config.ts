@@ -10,6 +10,7 @@ const config = defineConfig({
   out: './libs/db/drizzle',
   schema: [
     './libs/db/src/lib/schemas/auth.ts',
+    './libs/db/src/lib/schemas/device.ts',
     './libs/db/src/lib/schemas/i18n.ts',
     './libs/db/src/lib/schemas/report.ts',
     './libs/db/src/lib/schemas/system.ts',

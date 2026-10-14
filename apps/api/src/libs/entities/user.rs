@@ -12,19 +12,25 @@ pub struct Model {
     #[sea_orm(column_type = "Text")]
     pub language: String,
     pub username_updated_at: Option<DateTimeWithTimeZone>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub public_key: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(has_many = "super::push_token::Entity")]
     PushToken,
+    #[sea_orm(has_many = "super::device::Entity")]
+    Device,
 }
 
 impl Related<super::push_token::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::PushToken.def()
+    }
+}
+
+impl Related<super::device::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Device.def()
     }
 }
 

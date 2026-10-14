@@ -1,7 +1,8 @@
 import { redeemInvite, revokeTrustedContact, setShares } from '@libs/api-js';
-import type { ShareUpdate, TrustedContactResponse } from '@libs/api-js';
+import type { ShareUpdate } from '@libs/api-js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { trustedContactsKeys } from './trustedContactsKeys';
+import { trustedContactsOptions } from './trustedContactsOptions';
 
 export const useRedeemInviteMutation = () => {
   const queryClient = useQueryClient();
@@ -28,7 +29,7 @@ export const useRevokeTrustedContactMutation = () => {
     // invalidation would refetch the whole list, which flashes/reloads the
     // row's exit animation instead of letting it play cleanly.
     onSuccess: (id) => {
-      queryClient.setQueryData<TrustedContactResponse[]>(trustedContactsKeys.mine(), (previous) =>
+      queryClient.setQueryData(trustedContactsOptions().queryKey, (previous) =>
         previous?.filter((contact) => contact.id !== id),
       );
     },

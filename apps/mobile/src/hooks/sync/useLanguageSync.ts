@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { useMeUpdateMutation } from '@libs/query-client';
-import { getPendingLanguage, setPendingLanguage } from '../lib/i18n';
-import { useAuth } from '../providers/AuthProvider';
+import { getPendingLanguage, setPendingLanguage } from '../../lib/i18n';
+import { useAuth } from '../../providers/AuthProvider';
 
 /**
  * Retries a locally-picked language that couldn't be pushed to the account

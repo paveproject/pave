@@ -2,8 +2,10 @@
 
 pub mod prelude;
 
+pub mod device;
 pub mod push_token;
 pub mod sea_orm_active_enums;
 pub mod trusted_contact;
+pub mod trusted_contact_share;
 pub mod user;
 pub mod version_policy;

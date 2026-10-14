@@ -13,6 +13,7 @@
     "appearance": "Appearance",
     "account": "My account",
     "trusted_contacts": "Trusted contacts",
+    "devices": "Devices",
     "language": "Language",
     "theme": "Theme",
     "system": "System",
@@ -41,6 +42,7 @@
     "redeem": "Redeem",
     "open_settings": "Open settings",
     "code_copied": "Code copied",
+    "copied": "Copied",
     "no_username": "No username",
     "pending": "Pending",
     "active": "Active",
@@ -96,6 +98,12 @@
           },
           "success": "Trusted contact added"
         }
+      },
+      "devices": {
+        "empty": "No devices registered yet",
+        "this_device": "This device",
+        "revoke_confirm_title": "Remove this device?",
+        "revoke_confirm_message": "It will stop receiving updates to your recovery key."
       }
     },
     "map": {

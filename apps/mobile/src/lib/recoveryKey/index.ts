@@ -1,14 +1,18 @@
 // Keeps a user's recovery key (the DEK that will eventually protect their
 // manif-mode data - see the project's own "manif mode" plan) continuously
 // split (Shamir's Secret Sharing) across their *current* accepted trusted
-// contacts, so a quorum of them can reconstruct it if this device is ever
-// lost. The DEK itself never leaves this device in plaintext - only
-// per-contact sealed shares (see `seal.ts`) do, and the server stores and
-// serves those blind to their contents.
+// contacts, so a quorum of them can reconstruct it if every one of this
+// user's own devices is ever lost. The DEK itself never leaves a device
+// in plaintext - only per-contact-device sealed shares (see `seal.ts`) do,
+// and the server stores and serves those blind to their contents.
+//
+// Separately, it keeps a full (non-Shamir) copy of the DEK synced across
+// this *same* user's own other devices - "you, trusting yourself", not a
+// quorum problem, so no splitting involved, just a direct seal per
+// sibling device.
 //
 // Nothing downstream consumes the DEK yet (that's a later phase) - this
-// module's whole job is generating it and keeping its split in sync with
-// the trusted-contact list.
+// module's whole job is generating it and keeping both of those in sync.
 import * as ShamirSecretSharing from 'shamir-secret-sharing';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
@@ -25,7 +29,7 @@ import {
   type RecoveryKeySyncState,
 } from './storage';
 
-export { clearReceivedShare } from './storage';
+export { clearReceivedShare, getDeviceId, setDeviceId, wipeOwnRecoveryState } from './storage';
 
 const DEK_LENGTH = 32;
 
@@ -33,19 +37,40 @@ export interface AcceptedContact {
   /** The `trusted_contact` relationship id - what `PUT /me/trusted-contacts/shares` keys on. */
   relationshipId: string;
   contactUserId: string;
-  /** `null` until that contact's own device has uploaded one - not yet
-   * eligible to receive a share (see `planReconciliation`). */
-  contactPublicKey: string | null;
+  /** Every device that contact has registered - empty until their first
+   * device has uploaded one, in which case this contact isn't eligible
+   * yet (see `planReconciliation`). A contact with N devices needs a
+   * sealed copy of their share for each. */
+  contactDevices: { deviceId: string; publicKey: string }[];
+}
+
+/** One of this same user's devices - pass the *complete* list (including
+ * the calling device itself) into `planReconciliation`, which picks out
+ * and excludes "self" using its own `thisDeviceId` parameter. */
+export interface OwnDevice {
+  deviceId: string;
+  publicKey: string;
 }
 
 export interface ShareUpload {
-  id: string;
+  trustedContactId: string;
+  deviceId: string;
   encryptedShare: string;
+}
+
+export interface DeviceDekUpload {
+  deviceId: string;
+  encryptedDek: string;
 }
 
 export type ReconciliationPlan =
   | { kind: 'noop' }
-  | { kind: 'rotate'; uploads: ShareUpload[]; nextState: RecoveryKeySyncState };
+  | {
+      kind: 'rotate';
+      shareUploads: ShareUpload[];
+      deviceDekUploads: DeviceDekUpload[];
+      nextState: RecoveryKeySyncState;
+    };
 
 /** Generates this device's identity keypair if it doesn't have one yet.
  * Returns the public key (hex) to upload, or `null` if one already exists
@@ -59,49 +84,85 @@ export async function ensureIdentityKeypair(): Promise<string | null> {
   return bytesToHex(keypair.publicKey);
 }
 
-function sameContactSet(a: string[], b: string[]): boolean {
+/** The current identity public key (hex), whether just generated or
+ * already existing - not secret, safe to upload/display in full. `null`
+ * only if `ensureIdentityKeypair` hasn't run yet. */
+export async function getIdentityPublicKeyHex(): Promise<string | null> {
+  const identity = await getIdentityKeypair();
+  return identity ? bytesToHex(identity.publicKey) : null;
+}
+
+function sameSet(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   const sorted = [...b].sort();
   return [...a].sort().every((id, i) => id === sorted[i]);
 }
 
 /**
- * Decides whether the recovery key needs (re-)splitting for the given
- * accepted contacts, and if so, produces the new sealed shares to upload.
+ * Decides whether the recovery key needs (re-)splitting/resyncing for the
+ * given accepted contacts and own other devices, and if so, produces the
+ * new sealed uploads for both.
  *
- * - No eligible contacts: nothing to do yet.
- * - Exactly one: Shamir needs at least 2 shares to mean anything, so this
- *   seals the DEK directly to that one contact (same envelope shape,
- *   `threshold: 1` - equivalent to a 1-of-1 scheme, which is all a single
- *   trusted contact can ever be).
+ * - No eligible contacts and no other devices: nothing to do yet.
+ * - Exactly one eligible contact: Shamir needs at least 2 shares to mean
+ *   anything, so this seals the DEK directly to that one contact's
+ *   device(s) (same envelope shape, `threshold: 1` - equivalent to a
+ *   1-of-1 scheme, which is all a single trusted contact can ever be).
  * - Two or more: a real Shamir split, threshold defaulting to a majority.
- * - Set unchanged since the last split: no-op.
- * - A contact was removed: the DEK itself rotates (a new one is generated)
- *   - re-splitting the *same* DEK wouldn't revoke anything, since the
- *     removed contact's old share still reconstructs it in collusion with
- *     enough others.
- * - Only additions: the *existing* DEK is re-split across the new, larger
- *   set (Shamir doesn't support adding a share to an existing split
- *   in-place - every contact gets a fresh share, including ones that
- *   already had one).
+ *   A contact with N devices gets N sealed copies of the *same* share
+ *   value (redundant copies, not additional shares).
+ * - Neither set changed since the last sync: no-op.
+ * - A contact or an own device was removed: the DEK itself rotates (a new
+ *   one is generated) - re-splitting/re-sealing the *same* DEK wouldn't
+ *   revoke anything, since the removed party's old copy still works.
+ * - Only additions: the *existing* DEK is re-split/re-sealed across the
+ *   new, larger sets (Shamir doesn't support adding a share to an
+ *   existing split in-place - every contact gets a fresh share, including
+ *   ones that already had one).
+ * - Own devices always get a *full* direct seal of the DEK (no
+ *   splitting), together with the resulting `contactIds`/`ownDeviceIds`
+ *   so a sibling that receives it (see `receiveDek`) ends up with the
+ *   exact same synced state as the device that performed this split,
+ *   instead of mistakenly treating itself as never-synced on its own
+ *   next reconciliation pass.
+ *
+ * `allOwnDevices` must be the user's *complete* device list, including
+ * this one (`thisDeviceId` picks it out) - not pre-filtered to "the
+ * others". The stored/transmitted `ownDeviceIds` needs to be this same
+ * canonical, perspective-independent set on every device: if each device
+ * instead excluded only *itself* before computing it, two different
+ * devices would persist two different "other devices" lists for the same
+ * rotation, and each would see a spurious mismatch (and re-rotate) the
+ * next time it recomputes its own. Self-exclusion is applied only when
+ * deciding who actually needs an envelope sealed to them, not to this
+ * tracked set.
  */
-export async function planReconciliation(accepted: AcceptedContact[]): Promise<ReconciliationPlan> {
-  const eligible = accepted.filter(
-    (contact): contact is AcceptedContact & { contactPublicKey: string } =>
-      contact.contactPublicKey !== null,
-  );
+export async function planReconciliation(
+  accepted: AcceptedContact[],
+  allOwnDevices: OwnDevice[],
+  thisDeviceId: string,
+): Promise<ReconciliationPlan> {
+  const eligible = accepted.filter((contact) => contact.contactDevices.length > 0);
   const eligibleIds = eligible.map((contact) => contact.contactUserId);
+  const ownDeviceIds = allOwnDevices.map((device) => device.deviceId);
+  const siblingDevices = allOwnDevices.filter((device) => device.deviceId !== thisDeviceId);
 
   const synced = await getSyncedState();
-  if (synced && sameContactSet(eligibleIds, synced.contactIds)) {
+  const unchanged =
+    synced !== null &&
+    sameSet(eligibleIds, synced.contactIds) &&
+    sameSet(ownDeviceIds, synced.ownDeviceIds);
+  if (unchanged) {
     return { kind: 'noop' };
   }
-  if (eligible.length === 0) {
+  if (eligible.length === 0 && siblingDevices.length === 0) {
     return { kind: 'noop' };
   }
 
   const removedSomeone =
-    synced !== null && synced.contactIds.some((id) => !eligibleIds.includes(id));
+    synced !== null &&
+    (synced.contactIds.some((id) => !eligibleIds.includes(id)) ||
+      synced.ownDeviceIds.some((id) => !ownDeviceIds.includes(id)));
   const generation = synced && !removedSomeone ? synced.generation : (synced?.generation ?? 0) + 1;
 
   let dek = removedSomeone || !synced ? null : await getDek();
@@ -112,29 +173,43 @@ export async function planReconciliation(accepted: AcceptedContact[]): Promise<R
 
   const threshold = eligible.length === 1 ? 1 : Math.max(2, Math.ceil(eligible.length / 2));
   const shares =
-    eligible.length === 1
-      ? [dek]
-      : await ShamirSecretSharing.split(dek, eligible.length, threshold);
+    eligible.length === 0
+      ? []
+      : eligible.length === 1
+        ? [dek]
+        : await ShamirSecretSharing.split(dek, eligible.length, threshold);
 
-  const uploads: ShareUpload[] = eligible.map((contact, index) => {
+  const shareUploads: ShareUpload[] = eligible.flatMap((contact, index) => {
     const envelope = JSON.stringify({
       generation,
       threshold,
       share: bytesToHex(shares[index]),
     });
+    return contact.contactDevices.map((device) => ({
+      trustedContactId: contact.relationshipId,
+      deviceId: device.deviceId,
+      encryptedShare: seal(new TextEncoder().encode(envelope), hexToBytes(device.publicKey)),
+    }));
+  });
+
+  const deviceDekUploads: DeviceDekUpload[] = siblingDevices.map((device) => {
+    const envelope = JSON.stringify({
+      generation,
+      contactIds: eligibleIds,
+      ownDeviceIds,
+      dek: bytesToHex(dek),
+    });
     return {
-      id: contact.relationshipId,
-      encryptedShare: seal(
-        new TextEncoder().encode(envelope),
-        hexToBytes(contact.contactPublicKey),
-      ),
+      deviceId: device.deviceId,
+      encryptedDek: seal(new TextEncoder().encode(envelope), hexToBytes(device.publicKey)),
     };
   });
 
   return {
     kind: 'rotate',
-    uploads,
-    nextState: { contactIds: eligibleIds, generation },
+    shareUploads,
+    deviceDekUploads,
+    nextState: { contactIds: eligibleIds, ownDeviceIds, generation },
   };
 }
 
@@ -175,6 +250,38 @@ export async function receiveShare(ownerId: string, sealedHex: string): Promise<
   }
 }
 
+/**
+ * The own-device counterpart of `receiveShare`: opens a full DEK copy a
+ * sibling device has sealed for this one and adopts it directly, no
+ * quorum involved. Also adopts the sender's synced state verbatim (same
+ * `generation`/`contactIds`/`ownDeviceIds`), so this device's own next
+ * reconciliation pass sees itself as already caught up instead of
+ * mistaking a fresh sync for a change that needs rotating again.
+ */
+export async function receiveDek(sealedHex: string): Promise<boolean> {
+  const identity = await getIdentityKeypair();
+  if (!identity) return false;
+
+  try {
+    const plaintext = unseal(sealedHex, identity.privateKey);
+    const envelope = JSON.parse(new TextDecoder().decode(plaintext)) as {
+      generation: number;
+      contactIds: string[];
+      ownDeviceIds: string[];
+      dek: string;
+    };
+    await setDek(hexToBytes(envelope.dek));
+    await setSyncedState({
+      contactIds: envelope.contactIds,
+      ownDeviceIds: envelope.ownDeviceIds,
+      generation: envelope.generation,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface RecoveryKeyDebugSnapshot {
   hasIdentityKeypair: boolean;
   /** Not secret - the public half, safe to display in full. */
@@ -187,7 +294,7 @@ export interface RecoveryKeyDebugSnapshot {
 
 /**
  * Non-secret summary of this device's local recovery-key state, for the
- * `__DEV__`-only debug screen (`settings/recovery-key-debug.tsx`) - the
+ * `__DEV__`-only debug screen (`settings/debug/recovery-keys.tsx`) - the
  * only way to see that `useRecoveryKeySync`/`useReceiveShares` actually
  * ran without digging through Metro logs or the database by hand. Never
  * returns the DEK or private key themselves.

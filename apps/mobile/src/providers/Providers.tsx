@@ -14,12 +14,12 @@ import { ReanimatedScreenProvider } from 'react-native-screens/reanimated';
 import { ToastProvider } from '../components/Toast';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { ApiProvider } from './ApiProvider';
-import { useReportSync } from '../hooks/useReportSync';
-import { useLanguageSync } from '../hooks/useLanguageSync';
+import { useReportSync } from '../hooks/sync/useReportSync';
+import { useLanguageSync } from '../hooks/sync/useLanguageSync';
 import { useAppVersionCheck } from '../hooks/useAppVersionCheck';
-import { useUserEventsSocket } from '../hooks/useUserEventsSocket';
-import { useRecoveryKeySync } from '../hooks/useRecoveryKeySync';
-import { useReceiveShares } from '../hooks/useReceiveShares';
+import { useUserEventsSocket } from '../hooks/websocket/useUserEventsSocket';
+import { useRecoveryKeySync } from '../hooks/sync/useRecoveryKeySync';
+import { useReceiveShares } from '../hooks/sync/useReceiveShares';
 import { useAuth } from './AuthProvider';
 
 type ProvidersProps = {

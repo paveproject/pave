@@ -1,19 +1,25 @@
 import { SupportedLocale, supportedLocales } from '@libs/i18n';
-import getUnicodeFlagIcon from 'country-flag-icons/unicode';
 import { capitalize } from 'lodash';
 
-const useLocalizedLanguageName = (locale: SupportedLocale) => {
-  const iso6391 = new Intl.DisplayNames([locale], { type: 'language' });
-  const iso31661 = new Intl.DisplayNames([locale], { type: 'region' });
-  return supportedLocales.map((locale) => {
-    const [iso_639_1, iso_3166_1] = locale.split('-');
-    return {
-      language: locale,
-      iso_639_1: capitalize(iso6391.of(iso_639_1)),
-      iso_3166_1: iso31661.of(iso_3166_1),
-      flag: getUnicodeFlagIcon(iso_3166_1),
-    };
-  });
+/**
+ * Each supported locale's own name, in its own language (the standard
+ * convention for a language picker - so you can find yours even if the app
+ * is currently stuck in one you don't read). Resolved via `Intl.DisplayNames`
+ * instead of a hand-maintained label map, by passing each locale as its own
+ * display locale (the "of itself" trick that yields the endonym, e.g.
+ * `Intl.DisplayNames(['fr']).of('fr')` -> "français", not a translation into
+ * whatever locale happens to be currently selected).
+ */
+const useLocalizedLanguageName = () => {
+  return supportedLocales.map((locale) => ({
+    locale,
+    name: capitalize(new Intl.DisplayNames([locale], { type: 'language' }).of(locale)),
+  }));
 };
 
 export default useLocalizedLanguageName;
+
+export type LocalizedLanguageName = {
+  locale: SupportedLocale;
+  name: string;
+};

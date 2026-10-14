@@ -70,18 +70,35 @@ pub enum PushProvider {
     Apns,
 }
 
+/// One notification kind per push-sending call site, carrying just the
+/// variables its template needs - never pre-rendered text. `notify` owns
+/// the actual copy (title/body, in every language), same as it already
+/// does for the email jobs above; add a variant here, and a matching
+/// dictionary entry under `apps/notify/src/assets/i18n`, the next time a
+/// new call site needs to send a push.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum PushContent {
+    /// `actor_username` is `None` for a contact with no username set -
+    /// `notify` substitutes its own translated "Someone" fallback, not a
+    /// hardcoded-language one baked in by the producer.
+    TrustedContactAccepted { actor_username: Option<String> },
+}
+
 /// One push notification, one device token - a user with several devices
 /// means several of these, one job each (simpler than looping over tokens,
 /// and partial failure, inside a single job). The producer (`apps/api`)
-/// resolves `token`/`provider` from its own `push_token` table and
-/// pre-renders `title`/`body` - `notify` has no database access and does
-/// no i18n lookup for push, unlike the email jobs above.
+/// resolves `token`/`provider` from its own `push_token` table and the
+/// recipient's `lang` from its own `user` table - `notify` has no database
+/// access, but does do the i18n lookup/rendering itself from `content`,
+/// same as the email jobs above.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PushNotificationPayload {
     pub provider: PushProvider,
     pub token: String,
-    pub title: String,
-    pub body: String,
+    #[serde(default)]
+    pub lang: Lang,
+    pub content: PushContent,
     /// Deep-link data for the mobile client's notification-response handler
     /// (see apps/mobile's `NotificationsProvider`), e.g.
     /// `{"type": "follow:new", "actorUsername": "..."}`. FCM only accepts

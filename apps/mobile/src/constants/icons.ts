@@ -69,6 +69,10 @@ export const Icons = {
     ios: 'circle.lefthalf.filled',
     android: import('@expo/material-symbols/contrast.xml'),
   }),
+  device: Icon.select({
+    ios: 'iphone',
+    android: import('@expo/material-symbols/devices.xml'),
+  }),
   language: Icon.select({
     ios: 'globe',
     android: import('@expo/material-symbols/language.xml'),

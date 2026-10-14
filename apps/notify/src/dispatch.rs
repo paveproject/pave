@@ -1,4 +1,6 @@
-use notify_contracts::{LinkEmailPayload, NotifyJob, OtpEmailPayload, OtpKind};
+use notify_contracts::{
+    LinkEmailPayload, NotifyJob, OtpEmailPayload, OtpKind, PushContent, PushNotificationPayload,
+};
 use resend_rs::types::CreateEmailBaseOptions;
 use resend_rs::Resend;
 use std::sync::Arc;
@@ -36,11 +38,39 @@ pub async fn handle(state: &State, name: &str, data: serde_json::Value) -> Resul
         NotifyJob::AuthSignInOtpEmail(p) => send_otp_email(state, &p).await,
         NotifyJob::AuthVerificationOtpEmail(p) => send_otp_email(state, &p).await,
         NotifyJob::AuthPasswordResetOtpEmail(p) => send_otp_email(state, &p).await,
-        NotifyJob::PushNotification(p) => {
-            state.push_sender.send(&p).await;
-            Ok(())
-        }
+        NotifyJob::PushNotification(p) => send_push_notification(state, &p).await,
     }
+}
+
+async fn send_push_notification(
+    state: &State,
+    payload: &PushNotificationPayload,
+) -> Result<(), DynError> {
+    let t = |key: &str| state.dictionaries.t(payload.lang, key);
+
+    let (title, body) = match &payload.content {
+        PushContent::TrustedContactAccepted { actor_username } => {
+            let actor_name = actor_username
+                .clone()
+                .unwrap_or_else(|| t("trusted_contact.someone"));
+            (
+                t("trusted_contact.accepted.title"),
+                t("trusted_contact.accepted.body").replace("{actorName}", &actor_name),
+            )
+        }
+    };
+
+    state
+        .push_sender
+        .send(
+            payload.provider,
+            &payload.token,
+            &title,
+            &body,
+            &payload.data,
+        )
+        .await;
+    Ok(())
 }
 
 async fn send_link_email(

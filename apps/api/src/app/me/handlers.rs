@@ -1,7 +1,4 @@
-use super::dto::{
-    MeResponse, SetPublicKeyRequest, UpdateMeRequest, UsernameAvailableQuery,
-    UsernameAvailableResponse,
-};
+use super::dto::{MeResponse, UpdateMeRequest, UsernameAvailableQuery, UsernameAvailableResponse};
 use crate::config::ApiConfig;
 use crate::libs::entities::user as pave_user;
 use crate::libs::media;
@@ -9,7 +6,6 @@ use crate::state::AppState;
 use auth::schema::user as auth_user;
 use auth::AppAuthSchema;
 use axum::extract::{Query, State};
-use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use better_auth::integrations::axum::{CurrentSession, OptionalSession};
@@ -43,7 +39,6 @@ pub(crate) async fn ensure_pave_user_row(
         language: Set("en".to_string()),
         welcomed_at: Set(None),
         username_updated_at: Set(None),
-        public_key: Set(None),
     }
     .insert(db)
     .await
@@ -162,34 +157,6 @@ pub async fn update_me(
 
     let auth_user_row = find_auth_user(&state.db, &user_id).await;
     Json(to_me_response(auth_user_row, pave_user_row, &state.config))
-}
-
-/// A full replace (`PUT`), not folded into `update_me`'s `PATCH` - this is
-/// its own one-shot "upload the identity keypair's public half" action
-/// the mobile app calls once when it generates a keypair, not a field a
-/// user edits alongside their name/username.
-#[utoipa::path(
-    put,
-    path = "/me/public-key",
-    tag = "Me",
-    request_body = SetPublicKeyRequest,
-    responses((status = 200, description = "Public key stored"))
-)]
-pub async fn set_public_key(
-    State(state): State<AppState>,
-    session: CurrentSession<AppAuthSchema>,
-    Json(body): Json<SetPublicKeyRequest>,
-) -> impl IntoResponse {
-    let user_id = session.user.id.clone();
-    let pave_user_row = ensure_pave_user_row(&state.db, &user_id).await;
-    let mut active = pave_user_row.into_active_model();
-    active.public_key = Set(Some(body.public_key));
-    active
-        .update(&state.db)
-        .await
-        .expect("failed to set public key");
-
-    StatusCode::OK.into_response()
 }
 
 #[utoipa::path(

@@ -15,6 +15,7 @@ const SettingsLayout = () => {
       <Stack.Screen name="appearance" options={{ title: t('messages.appearance') }} />
       <Stack.Screen name="account" options={{ title: t('messages.account') }} />
       <Stack.Screen name="trusted-contacts" options={{ title: t('messages.trusted_contacts') }} />
+      <Stack.Screen name="devices" options={{ title: t('messages.devices') }} />
       <Stack.Protected guard={__DEV__}>
         <Stack.Screen name="debug" options={{ title: 'Debug' }} />
         <Stack.Screen name="debug/recovery-keys" options={{ title: 'Recovery keys' }} />

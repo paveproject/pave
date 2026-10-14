@@ -28,12 +28,16 @@ pub struct UpdateMeRequest {
     pub welcomed: Option<bool>,
 }
 
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+/// Just enough about one of a user's registered devices for ANOTHER user
+/// to seal something to it - the `id` is required (not just the public
+/// key) so a sealed Shamir share can be attached to the right
+/// `trusted_contact_share` row (see `trusted_contacts::dto::ShareUpdate`).
+/// Deliberately smaller than `devices::dto::DeviceResponse` (no
+/// `encryptedDek`/timestamps - none of another user's business).
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct SetPublicKeyRequest {
-    /// The caller's X25519 identity public key (hex), generated and
-    /// held on-device - lets another user seal a Shamir share so only
-    /// this user's own device can ever decrypt it.
+pub struct DeviceSummary {
+    pub id: String,
     pub public_key: String,
 }
 
@@ -54,12 +58,12 @@ pub struct Profile {
     pub id: String,
     pub username: Option<String>,
     pub image: Option<String>,
-    /// `None` until this user's device has generated a recovery-key
-    /// identity keypair and uploaded the public half (see
-    /// `SetPublicKeyRequest`). Exposed here (not just on `MeResponse`) so
-    /// a trusted-contact relationship's other party can seal a Shamir
-    /// share to it without a separate lookup.
-    pub public_key: Option<String>,
+    /// One entry per device this user has registered - empty until their
+    /// first device has generated a recovery-key identity keypair and
+    /// registered it. Exposed here (not just via `/me/devices`) so a
+    /// trusted-contact relationship's other party can seal a Shamir share
+    /// to *every* one of their devices without a separate lookup.
+    pub devices: Vec<DeviceSummary>,
 }
 
 #[derive(Debug, Clone, Deserialize, utoipa::IntoParams)]

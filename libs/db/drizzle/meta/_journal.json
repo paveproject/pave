@@ -120,6 +120,13 @@
       "when": 1791972034670,
       "tag": "0016_red_squirrel_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791983814319,
+      "tag": "0017_yellow_supreme_intelligence",
+      "breakpoints": true
     }
   ]
 }
