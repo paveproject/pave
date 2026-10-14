@@ -13,6 +13,7 @@ const config = defineConfig({
     './libs/db/src/lib/schemas/i18n.ts',
     './libs/db/src/lib/schemas/report.ts',
     './libs/db/src/lib/schemas/system.ts',
+    './libs/db/src/lib/schemas/trustedContact.ts',
     './libs/db/src/lib/schemas/user.ts',
   ],
   dialect: 'postgresql',

@@ -52,7 +52,7 @@ const SettingsAccount = () => {
                 style={{ width: '100%' }}
                 textStyle={{ color: colors.foreground }}
                 defaultValue={form.getValues('username')}
-                placeholder={t('pages.settings.account.username.label')}
+                placeholder={t('messages.username')}
                 autoCapitalize="none"
                 autoCorrect={false}
                 onChangeText={(text) =>
@@ -79,7 +79,7 @@ const SettingsAccount = () => {
                 style={{ width: '100%' }}
                 textStyle={{ color: colors.foreground }}
                 defaultValue={form.getValues('email')}
-                placeholder={t('pages.settings.account.email.label')}
+                placeholder={t('messages.email')}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"

@@ -29,6 +29,7 @@ import { useModalHeaderOptions } from '../../hooks/useModalHeaderOptions';
 import { useAuth } from '../../providers/AuthProvider';
 import { useLocaleContext } from '../../providers/LocaleProvider';
 import { useHeaderHeight } from 'expo-router/react-navigation';
+import { isIpad } from '../../platform/detection';
 
 const OTP_LENGTH = 6;
 
@@ -51,6 +52,7 @@ const AuthScreen = () => {
   const navigationHeaderHeight = useHeaderHeight();
   const [showOtp, setShowOtp] = useState(false);
   const [otp, setOtp] = useState('');
+  const bottomInset = isIpad ? insets.bottom : 0;
 
   const { mutateAsync: sendOtp, isPending: isSending } = useSendOtpMutation();
   const { mutateAsync: verifyOtp, isPending: isVerifying } = useVerifyOtpMutation();
@@ -66,7 +68,7 @@ const AuthScreen = () => {
     async (data: EmailFormValues) => {
       try {
         await sendOtp({ email: data.email, lang: locale });
-        toast.success(t('form.code_sent'));
+        toast.success(t('messages.code_sent'));
         setShowOtp(true);
       } catch (error) {
         toast.error(t('messages.an_error_occurred'));
@@ -82,14 +84,14 @@ const AuthScreen = () => {
         const { token } = await verifyOtp({ email: formGetValues('email'), code });
         await setSession(token);
         logger.metric('account:loggedIn', { logContext: 'AuthScreen' });
-        toast.success(t('form.code_verified'));
+        toast.success(t('messages.code_verified'));
         if (router.canGoBack()) {
           router.back();
         } else {
           router.replace({ pathname: '/(tabs)/(home)' });
         }
       } catch (error) {
-        toast.error(t('form.error.invalid_code'));
+        toast.error(t('messages.invalid_or_expired_code'));
         logger.metric('account:loginFailed', { logContext: 'AuthScreen', reason: String(error) });
       } finally {
         setOtp('');
@@ -124,7 +126,7 @@ const AuthScreen = () => {
             paddingTop: navigationHeaderHeight + theme.spaces.vertical,
             paddingLeft: insets.left + theme.spaces.horizontal,
             paddingRight: insets.right + theme.spaces.horizontal,
-            // paddingBottom: insets.bottom + theme.spaces.vertical,
+            paddingBottom: bottomInset,
           },
         ]}
       >
@@ -136,7 +138,7 @@ const AuthScreen = () => {
               render={({ field: { onChange, onBlur, value } }) => (
                 <Input
                   nativeID="email"
-                  placeholder={t('form.email.label')}
+                  placeholder={t('messages.email')}
                   autoComplete="email"
                   autoCapitalize="none"
                   value={value}
@@ -173,7 +175,7 @@ const AuthScreen = () => {
                     Platform.OS === 'ios' ? [frame({ maxWidth: Infinity })] : [fillMaxWidth()]
                   }
                 >
-                  {t('pages.auth.otp.form.submit')}
+                  {t('messages.continue')}
                 </NativeText>
               </Button>
             </Host>
@@ -258,9 +260,9 @@ const AuthScreen = () => {
         ) : (
           <>
             <View style={tw`gap-2 items-center`}>
-              <Text variant="title">{t('pages.auth.otp.confirm_form.label')}</Text>
+              <Text variant="title">{t('messages.check_your_email')}</Text>
               <Text textColor="muted">
-                {t('pages.auth.otp.confirm_form.description', {
+                {t('messages.enter_code_sent_to_email', {
                   email: formGetValues('email'),
                 })}
               </Text>
@@ -272,11 +274,11 @@ const AuthScreen = () => {
               onComplete={handleVerifyOtp}
             />
             <View style={tw`items-center`}>
-              <Text textColor="muted">{t('form.error.not_received_code')} </Text>
+              <Text textColor="muted">{t('messages.not_received_code')} </Text>
               <Host matchContents>
                 <Button
                   variant="text"
-                  label={t('form.resend_code')}
+                  label={t('messages.resend_code')}
                   disabled={isLoading}
                   onPress={form.handleSubmit(handleSendOtp)}
                 />

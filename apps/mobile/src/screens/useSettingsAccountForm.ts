@@ -29,7 +29,7 @@ export const useSettingsAccountForm = () => {
     () =>
       z.object({
         username: usernameSchema(t),
-        email: z.email({ message: t('form.email.error.invalid') }),
+        email: z.email({ message: t('messages.invalid_email') }),
       }),
     [t],
   );
@@ -68,7 +68,7 @@ export const useSettingsAccountForm = () => {
   // error here rather than read back off `form.formState.errors`.
   const usernameError =
     form.formState.errors.username?.message ??
-    (isUsernameAvailable === false ? t('form.username.schema.unavailable') : undefined);
+    (isUsernameAvailable === false ? t('messages.username_unavailable') : undefined);
 
   const { mutateAsync: updateMe, isPending: isSavingUsername } = useMeUpdateMutation();
   const { mutateAsync: sendChangeEmailOtp, isPending: isSendingCode } =
@@ -89,7 +89,7 @@ export const useSettingsAccountForm = () => {
     try {
       if (usernameChanged) {
         await updateMe({ username: values.username });
-        toast.success(t('pages.settings.account.username.updated'));
+        toast.success(t('messages.username_updated'));
       }
       if (emailChanged) {
         await sendChangeEmailOtp({ newEmail: values.email, lang: locale });

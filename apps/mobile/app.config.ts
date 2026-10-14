@@ -77,7 +77,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       NSLocationWhenInUseUsageDescription:
         'Your location is used to show relevant content based on where you are.',
       NSCameraUsageDescription:
-        'The camera is used to upload profile pictures, playlist covers, and story background images.',
+        'The camera is used to upload profile pictures, playlist covers, story background images, and to scan trusted-contact codes.',
       NSPhotoLibraryUsageDescription:
         'Photos are used to select profile images, playlist covers, and shared story backgrounds.',
     },
@@ -132,6 +132,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         photosPermission:
           'Select images to upload profile pictures, playlist covers, and story backgrounds.',
+      },
+    ],
+    [
+      'expo-camera',
+      {
+        cameraPermission:
+          'The camera is used to upload profile pictures, playlist covers, story background images, and to scan trusted-contact codes.',
+        microphonePermission: false,
+        recordAudioAndroid: false,
       },
     ],
     'expo-secure-store',

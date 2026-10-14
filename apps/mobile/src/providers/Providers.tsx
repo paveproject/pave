@@ -17,6 +17,8 @@ import { ApiProvider } from './ApiProvider';
 import { useReportSync } from '../hooks/useReportSync';
 import { useLanguageSync } from '../hooks/useLanguageSync';
 import { useAppVersionCheck } from '../hooks/useAppVersionCheck';
+import { useUserEventsSocket } from '../hooks/useUserEventsSocket';
+import { useAuth } from './AuthProvider';
 
 type ProvidersProps = {
   children: React.ReactNode;
@@ -42,6 +44,15 @@ const AppVersionCheckBootstrap = () => {
   return null;
 };
 
+// Same idea, for the personal realtime channel (see
+// apps/api/src/app/me/events) - connects once logged in, for the app's
+// lifetime, regardless of which screen is open.
+const UserEventsBootstrap = () => {
+  const { user } = useAuth();
+  useUserEventsSocket(!!user);
+  return null;
+};
+
 const Providers = ({ children }: ProvidersProps) => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -64,6 +75,7 @@ const Providers = ({ children }: ProvidersProps) => {
                                   <ReportSyncBootstrap />
                                   <LanguageSyncBootstrap />
                                   <AppVersionCheckBootstrap />
+                                  <UserEventsBootstrap />
                                 </NotificationsProvider>
                               </BottomSheetModalProvider>
                             </ApiProvider>

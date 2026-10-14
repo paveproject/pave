@@ -22,6 +22,26 @@ pub enum PushProviderEnum {
     Apns,
 }
 
+// Hand-added (not sea-orm-codegen output, same reasoning as the enums
+// below it): mirrors Postgres `trusted_contact_status_enum` (see
+// libs/db/src/lib/schemas/trustedContact.ts).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "Enum",
+    db_type = "Enum",
+    enum_name = "trusted_contact_status_enum"
+)]
+pub enum TrustedContactStatusEnum {
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "accepted")]
+    Accepted,
+    #[sea_orm(string_value = "declined")]
+    Declined,
+    #[sea_orm(string_value = "revoked")]
+    Revoked,
+}
+
 // Hand-added (not sea-orm-codegen output, unlike the rest of this file):
 // mirrors Postgres `system.platform`/`system.version_release_state` (see
 // libs/db/src/lib/schemas/system.ts) the same way `ReportTypeEnum` below

@@ -1,40 +1,34 @@
-import { forwardRef } from 'react';
-import { View } from 'react-native';
-import { Card, CardHeader, CardTitle } from './card';
+import type { IconName } from '@expo/ui';
+import { Host, Icon as NativeIcon } from '@expo/ui';
 import { useTranslations } from 'use-intl';
-import { Icons } from '../../constants/IconsOld';
+import { View } from './view';
+import { Text } from './text';
 import { useTheme } from '../../providers/ThemeProvider';
-import tw from '../../lib/tw';
 
 interface EmptyProps extends React.ComponentProps<typeof View> {
+  /** Platform-native icon (SF Symbol / Material Symbol) - see `constants/icons.ts`. */
+  icon: IconName;
   title?: string;
-  description?: string;
+  iconSize?: number;
+  iconColor?: string;
 }
 
-const Empty = forwardRef<View, EmptyProps>(({ title, description, children, ...props }, ref) => {
-  const { colors } = useTheme();
+const Empty = ({ icon, title, iconSize, iconColor, style, ...props }: EmptyProps) => {
+  const { theme, colors } = useTheme();
   const t = useTranslations();
+
+  const size = iconSize ?? theme.icons.sizes.xl;
+
   return (
-    <Card>
-      <CardHeader style={tw`items-center`}>
-        <Icons.Empty color={colors.foreground} />
-        <CardTitle>{title || t('messages.is_empty')}</CardTitle>
-      </CardHeader>
-      <View
-        style={[
-          {
-            borderColor: colors.mutedForeground,
-            borderWidth: 1,
-            borderStyle: 'dashed',
-          },
-          tw`p-4 rounded-md`,
-        ]}
-      >
-        {children}
-      </View>
-    </Card>
+    <View style={[{ alignItems: 'center', gap: theme.spaces.md }, style]} {...props}>
+      <Host style={{ width: size, height: size }}>
+        <NativeIcon name={icon} size={size} color={iconColor ?? colors.mutedForeground} />
+      </Host>
+      <Text textColor="muted" style={{ textAlign: 'center', maxWidth: 220 }}>
+        {title || t('messages.is_empty')}
+      </Text>
+    </View>
   );
-});
-Empty.displayName = 'Empty';
+};
 
 export default Empty;

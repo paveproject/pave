@@ -1,5 +1,6 @@
 use crate::app::me::dto::MeResponse;
 use crate::app::me::handlers::{ensure_pave_user_row, to_me_response};
+use crate::libs::media;
 use auth::schema::user as auth_user;
 use auth::AppAuthSchema;
 use axum::extract::{Multipart, State};
@@ -55,11 +56,12 @@ pub async fn set_avatar(
     }
 
     let bytes = field.bytes().await.expect("failed to read uploaded file");
-    let key = format!(
-        "avatars/{}.{}",
-        Uuid::new_v4(),
-        extension_for(&content_type)
-    );
+    // Only the bare filename is stored (see `media::resolve_media_url`) -
+    // the folder is still needed to build the actual S3 object key, but
+    // never persisted, so a future bucket/endpoint/CDN change is an env
+    // var change, not a data migration.
+    let filename = format!("{}.{}", Uuid::new_v4(), extension_for(&content_type));
+    let key = format!("{}/{}", media::AVATARS_FOLDER, filename);
 
     state
         .s3
@@ -72,16 +74,9 @@ pub async fn set_avatar(
         .await
         .expect("failed to upload avatar");
 
-    let image_url = format!(
-        "{}/{}/{}",
-        state.config.s3_public_endpoint(),
-        state.config.s3_bucket_public,
-        key
-    );
-
     auth_user::Entity::update(auth_user::ActiveModel {
         id: Set(user_id.clone()),
-        image: Set(Some(image_url)),
+        image: Set(Some(filename)),
         ..Default::default()
     })
     .exec(&state.db)
@@ -95,7 +90,7 @@ pub async fn set_avatar(
         .expect("user not found");
     let pave_user_row = ensure_pave_user_row(&state.db, &user_id).await;
 
-    Json(to_me_response(auth_user_row, pave_user_row)).into_response()
+    Json(to_me_response(auth_user_row, pave_user_row, &state.config)).into_response()
 }
 
 #[utoipa::path(
@@ -109,25 +104,21 @@ pub async fn delete_avatar(
     session: CurrentSession<AppAuthSchema>,
 ) -> impl IntoResponse {
     let user_id = session.user.id.clone();
-    let object_prefix = format!(
-        "{}/{}/",
-        state.config.s3_public_endpoint(),
-        state.config.s3_bucket_public
-    );
 
-    if let Some(key) = session
-        .user
-        .image
-        .as_deref()
-        .and_then(|url| url.strip_prefix(&object_prefix))
-    {
-        let _ = state
-            .s3
-            .delete_object()
-            .bucket(&state.config.s3_bucket_public)
-            .key(key)
-            .send()
-            .await;
+    // Only delete from our own bucket when the stored value is actually
+    // one of our filenames - an OAuth-provided avatar (Google/Apple) is a
+    // full external URL, nothing of ours to delete.
+    if let Some(filename) = session.user.image.as_deref() {
+        if !filename.starts_with("http://") && !filename.starts_with("https://") {
+            let key = format!("{}/{}", media::AVATARS_FOLDER, filename);
+            let _ = state
+                .s3
+                .delete_object()
+                .bucket(&state.config.s3_bucket_public)
+                .key(&key)
+                .send()
+                .await;
+        }
     }
 
     auth_user::Entity::update(auth_user::ActiveModel {
@@ -146,5 +137,5 @@ pub async fn delete_avatar(
         .expect("user not found");
     let pave_user_row = ensure_pave_user_row(&state.db, &user_id).await;
 
-    Json(to_me_response(auth_user_row, pave_user_row))
+    Json(to_me_response(auth_user_row, pave_user_row, &state.config))
 }

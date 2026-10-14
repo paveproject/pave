@@ -1,7 +1,6 @@
 import { Image } from 'react-native';
-import { Icon } from '@expo/ui';
 import { useTheme } from '../../providers/ThemeProvider';
-import { Icons } from '../../constants/icons';
+import { Icons } from '../../constants/IconsOld';
 import { View } from './view';
 
 interface AvatarProps {
@@ -9,10 +8,9 @@ interface AvatarProps {
   size: number;
 }
 
-// A plain RN component (Image) can be nested inside a plain RN View, but a
-// native @expo/ui component (Icon) can't - once inside a plain subtree there
-// is no way back into the native view tree, so the fallback renders the Icon
-// directly (sized/clipped via its own `style`, not a wrapping View).
+// Both branches render plain RN components on purpose - unlike `@expo/ui`'s
+// native Icon, this never needs a `<Host>` ancestor, so Avatar is safe to
+// drop into any tree (a native-UI screen or a plain list row alike).
 export const Avatar = ({ uri, size }: AvatarProps) => {
   const { colors } = useTheme();
 
@@ -33,11 +31,17 @@ export const Avatar = ({ uri, size }: AvatarProps) => {
   }
 
   return (
-    <Icon
-      name={Icons.user}
-      size={size * 0.6}
-      color={colors.mutedForeground}
-      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.muted }}
-    />
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: colors.muted,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Icons.User size={size * 0.6} color={colors.mutedForeground} />
+    </View>
   );
 };

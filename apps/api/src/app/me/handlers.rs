@@ -1,5 +1,7 @@
 use super::dto::{MeResponse, UpdateMeRequest, UsernameAvailableQuery, UsernameAvailableResponse};
+use crate::config::ApiConfig;
 use crate::libs::entities::user as pave_user;
+use crate::libs::media;
 use crate::state::AppState;
 use auth::schema::user as auth_user;
 use auth::AppAuthSchema;
@@ -46,6 +48,7 @@ pub(crate) async fn ensure_pave_user_row(
 pub(crate) fn to_me_response(
     auth_user: auth_user::Model,
     pave_user: pave_user::Model,
+    config: &ApiConfig,
 ) -> MeResponse {
     MeResponse {
         id: auth_user.id,
@@ -53,7 +56,7 @@ pub(crate) fn to_me_response(
         email_verified: auth_user.email_verified,
         name: auth_user.name,
         username: auth_user.username,
-        image: auth_user.image,
+        image: media::resolve_media_url(auth_user.image.as_deref(), media::AVATARS_FOLDER, config),
         language: pave_user.language,
         welcomed_at: pave_user.welcomed_at.map(|d| d.to_rfc3339()),
         username_updated_at: pave_user.username_updated_at.map(|d| d.to_rfc3339()),
@@ -83,7 +86,11 @@ pub async fn get_me(
     };
 
     let pave_user_row = ensure_pave_user_row(&state.db, &session.user.id).await;
-    Json(Some(to_me_response(session.user, pave_user_row)))
+    Json(Some(to_me_response(
+        session.user,
+        pave_user_row,
+        &state.config,
+    )))
 }
 
 #[utoipa::path(
@@ -149,7 +156,7 @@ pub async fn update_me(
     };
 
     let auth_user_row = find_auth_user(&state.db, &user_id).await;
-    Json(to_me_response(auth_user_row, pave_user_row))
+    Json(to_me_response(auth_user_row, pave_user_row, &state.config))
 }
 
 #[utoipa::path(

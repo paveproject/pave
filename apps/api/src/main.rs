@@ -11,9 +11,11 @@ use better_auth::integrations::axum::AxumIntegration;
 use better_auth::plugins::SessionManagementPlugin;
 use better_auth::seaorm::{Database, SeaOrmStore};
 use better_auth::{AuthConfig, BetterAuth};
+use bullmq_rs::{QueueBuilder, RedisConnection};
 use config::ApiConfig;
 use env_rs::RedisConfig;
 use libs::otp_sender;
+use notify_contracts::NOTIFY_QUEUE;
 use state::{build_s3_client, AppState};
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
@@ -35,6 +37,11 @@ use utoipa_swagger_ui::SwaggerUi;
         me::avatar::handlers::set_avatar,
         me::avatar::handlers::delete_avatar,
         me::push_token::handlers::set_push_token,
+        me::trusted_contacts::handlers::generate_invite,
+        me::trusted_contacts::handlers::redeem_invite,
+        me::trusted_contacts::handlers::list_trusted_contacts,
+        me::trusted_contacts::handlers::list_as_contact,
+        me::trusted_contacts::handlers::revoke_trusted_contact,
         reports::handlers::create_report,
         reports::handlers::list_reports,
     ),
@@ -54,9 +61,16 @@ use utoipa_swagger_ui::SwaggerUi;
         me::dto::MeResponse,
         me::dto::UpdateMeRequest,
         me::dto::UsernameAvailableResponse,
+        me::dto::Profile,
         me::push_token::dto::SetPushTokenRequest,
         me::push_token::dto::PushProvider,
         me::push_token::dto::DeviceType,
+        me::trusted_contacts::dto::TrustedContactStatus,
+        me::trusted_contacts::dto::GenerateInviteResponse,
+        me::trusted_contacts::dto::RedeemInviteRequest,
+        me::trusted_contacts::dto::TrustedContactResponse,
+        me::trusted_contacts::dto::TrustedByResponse,
+        me::events::ws_dto::UserEvent,
         reports::dto::ReportType,
         reports::dto::CreateReportRequest,
         reports::dto::ReportResponse,
@@ -139,6 +153,15 @@ async fn main() {
         &api_config,
     ));
     let reports_hub = app::reports::hub::ReportsHub::spawn(redis_config.url());
+    let user_events_hub = me::events::hub::UserEventsHub::spawn(redis_config.url());
+
+    let notify_queue = Arc::new(
+        QueueBuilder::new(NOTIFY_QUEUE)
+            .connection(RedisConnection::new(redis_config.url()))
+            .build::<serde_json::Value>()
+            .await
+            .expect("failed to build notify queue producer"),
+    );
 
     let state = AppState {
         config: Arc::new(api_config),
@@ -146,6 +169,8 @@ async fn main() {
         db: database,
         s3,
         reports_hub,
+        user_events_hub,
+        notify_queue,
         redis,
         app_store_connect,
     };

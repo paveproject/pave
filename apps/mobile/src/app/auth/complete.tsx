@@ -56,7 +56,7 @@ const CompleteProfileScreen = () => {
   // so it's merged with the format error here instead.
   const usernameError =
     form.formState.errors.username?.message ??
-    (isUsernameAvailable === false ? t('form.username.schema.unavailable') : undefined);
+    (isUsernameAvailable === false ? t('messages.username_unavailable') : undefined);
 
   const canSave =
     !isSaving && !isUsernameChecking && form.formState.isValid && isUsernameAvailable !== false;
@@ -93,7 +93,7 @@ const CompleteProfileScreen = () => {
       }}
     >
       <View style={{ gap: theme.spaces.sm }}>
-        <Text variant="title">{t('pages.auth.complete.label')}</Text>
+        <Text variant="title">{t('messages.choose_a_username')}</Text>
         <Text textColor="muted">{t('pages.auth.complete.description')}</Text>
       </View>
 
@@ -103,7 +103,7 @@ const CompleteProfileScreen = () => {
         render={({ field: { onChange, onBlur, value } }) => (
           <Input
             nativeID="username"
-            placeholder={t('pages.settings.account.username.label')}
+            placeholder={t('messages.username')}
             autoCapitalize="none"
             autoCorrect={false}
             autoComplete="username"

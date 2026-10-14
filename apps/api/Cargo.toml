@@ -24,7 +24,7 @@ tower-http = { version = "0.7.1", features = ["cors"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 uuid = { version = "1", features = ["v4"] }
-utoipa = { version = "6.0.0", features = ["axum_extras"] }
+utoipa = { version = "6.0.0", features = ["axum_extras", "uuid"] }
 utoipa-swagger-ui = { version = "10.0.1", features = ["axum"] }
 geohash = "0.13.2"
 redis = { version = "1.7.1", features = ["tokio-comp", "connection-manager"] }

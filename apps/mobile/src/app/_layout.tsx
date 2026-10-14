@@ -30,7 +30,7 @@ const RootLayoutNav = () => {
   const { user } = useAuth();
   const router = useRouter();
   const t = useTranslations();
-  const { defaultScreenOptions } = useTheme();
+  const { defaultScreenOptions, isLiquidGlassAvailable } = useTheme();
 
   useEffect(() => {
     if (user && !user.username) {
@@ -61,6 +61,12 @@ const RootLayoutNav = () => {
             sheetGrabberVisible: true,
             sheetAllowedDetents: 'fitToContents',
             sheetInitialDetentIndex: 0,
+            ...(isLiquidGlassAvailable
+              ? {
+                  contentStyle: { backgroundColor: 'transparent' },
+                  headerStyle: { backgroundColor: 'transparent' },
+                }
+              : {}),
           }}
         />
       </Stack.Protected>
@@ -74,6 +80,12 @@ const RootLayoutNav = () => {
             sheetAllowedDetents: 'fitToContents',
             sheetInitialDetentIndex: 0,
             gestureEnabled: false,
+            ...(isLiquidGlassAvailable
+              ? {
+                  contentStyle: { backgroundColor: 'transparent' },
+                  headerStyle: { backgroundColor: 'transparent' },
+                }
+              : {}),
           }}
         />
       </Stack.Protected>

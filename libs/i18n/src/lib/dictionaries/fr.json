@@ -12,11 +12,13 @@
     "settings": "Réglages",
     "appearance": "Apparence",
     "account": "Mon compte",
+    "trusted_contacts": "Contacts de confiance",
     "language": "Langue",
     "theme": "Thème",
     "system": "Système",
     "light": "Clair",
     "dark": "Sombre",
+    "add": "Ajouter",
     "cancel": "Annuler",
     "continue": "Continuer",
     "back": "Retour",
@@ -33,63 +35,66 @@
     "greeting_with_name": "{timeOfDay, select, night {Bonsoir, {name}} evening {Bonsoir, {name}} other {Bonjour, {name}}}",
     "greeting": "{timeOfDay, select, night {Bonsoir} evening {Bonsoir} other {Bonjour}}",
     "location_denied": "L'accès à la position est requis",
-    "try_again": "Réessayer"
-  },
-  "form": {
-    "email": {
-      "label": "Email",
-      "error": {
-        "invalid": "Adresse email invalide"
-      }
-    },
-    "username": {
-      "schema": {
-        "min": "Doit contenir au moins {count} caractères",
-        "max": "Doit contenir au maximum {count} caractères",
-        "format": "Seules les lettres, chiffres, underscores et points sont autorisés",
-        "unavailable": "Ce nom d'utilisateur est déjà pris"
-      }
-    },
+    "try_again": "Réessayer",
+    "remove": "Retirer",
+    "refresh": "Actualiser",
+    "redeem": "Valider",
+    "open_settings": "Ouvrir les réglages",
+    "code_copied": "Code copié",
+    "no_username": "Pas de nom d'utilisateur",
+    "pending": "En attente",
+    "active": "Actif",
+    "declined": "Refusé",
+    "revoked": "Révoqué",
+    "expires_in_value_hours": "Expire dans {value} heures",
+    "value_character_code": "Code à {count} caractère{count, plural, one {} other {s}}",
+    "username": "Nom d'utilisateur",
+    "username_updated": "Nom d'utilisateur mis à jour",
+    "email": "Email",
+    "change_email": "Changer l'email",
+    "email_updated": "Email mis à jour",
+    "invalid_email": "Adresse email invalide",
+    "min_count_characters": "Doit contenir au moins {count} caractères",
+    "max_count_characters": "Doit contenir au maximum {count} caractères",
+    "username_format": "Seules les lettres, chiffres, underscores et points sont autorisés",
+    "username_unavailable": "Ce nom d'utilisateur est déjà pris",
     "code_sent": "Code envoyé",
     "code_verified": "Code vérifié",
     "resend_code": "Renvoyer le code",
-    "error": {
-      "invalid_code": "Code invalide ou expiré",
-      "not_received_code": "Vous n'avez pas reçu de code ?"
-    }
+    "invalid_or_expired_code": "Code invalide ou expiré",
+    "not_received_code": "Vous n'avez pas reçu de code ?",
+    "check_your_email": "Vérifiez vos emails",
+    "enter_code_sent_to_email": "Entrez le code envoyé à {email}",
+    "choose_a_username": "Choisissez un nom d'utilisateur",
+    "share_my_code": "Partager mon code",
+    "scan_my_code": "Scanner un code",
+    "scan_code_or_enter_code_manually": "Scannez leur QR code, ou entrez leur code manuellement.",
+    "or_enter_manually": "Ou entrez-le manuellement :",
+    "camera_access_needed_to_scan_code": "L'accès à la caméra est nécessaire pour scanner un code.",
+    "grant_camera_access": "Autoriser la caméra",
+    "my_contacts": "Mes contacts",
+    "trusts_me": "Me font confiance"
   },
   "pages": {
-    "home": {
-      "title": "Accueil"
-    },
     "auth": {
-      "otp": {
-        "form": {
-          "submit": "Continuer"
-        },
-        "confirm_form": {
-          "label": "Vérifiez vos emails",
-          "description": "Entrez le code envoyé à {email}"
-        }
-      },
       "complete": {
-        "label": "Choisissez un nom d'utilisateur",
         "description": "Choisissez un nom d'utilisateur pour finaliser la création de votre compte."
       }
     },
     "settings": {
-      "account": {
-        "title": "Compte",
-        "username": {
-          "label": "Nom d'utilisateur",
-          "updated": "Nom d'utilisateur mis à jour"
+      "trusted_contacts": {
+        "empty": {
+          "mine": "Aucun contact de confiance pour l'instant",
+          "trusted_by": "Personne ne vous a encore ajouté"
         },
-        "email": {
-          "label": "Email",
-          "change": "Changer l'email",
-          "new_label": "Nouvel email",
-          "send_code": "Envoyer le code",
-          "updated": "Email mis à jour"
+        "revoke_confirm_title": "Retirer ce contact ?",
+        "revoke_confirm_message": "Il ne fera plus partie de vos contacts de confiance.",
+        "add": {
+          "title": "Ajouter un contact de confiance",
+          "share": {
+            "description": "Montrez ce QR code, ou partagez le code ci-dessous à voix haute ou par message."
+          },
+          "success": "Contact de confiance ajouté"
         }
       }
     },

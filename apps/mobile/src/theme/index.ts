@@ -82,6 +82,17 @@ const theme = {
       sm: spaceScale(16),
       md: spaceScale(24),
       lg: spaceScale(32),
+      xl: spaceScale(48),
+      '2xl': spaceScale(64),
+    },
+  },
+  animations: {
+    durations: {
+      xs: 100,
+      sm: 150,
+      md: 200,
+      lg: 250,
+      xl: 300,
     },
   },
 } as const;

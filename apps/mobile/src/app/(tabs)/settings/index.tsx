@@ -41,6 +41,10 @@ const SettingsScreen = () => {
     router.push('/settings/account');
   }, [router]);
 
+  const handleTrustedContacts = useCallback(() => {
+    router.push('/settings/trusted-contacts');
+  }, [router]);
+
   const handleSignOut = useCallback(() => {
     Alert.alert(
       t('messages.are_u_sure'),
@@ -117,6 +121,23 @@ const SettingsScreen = () => {
                   <Icon name={Icons.user} size={theme.icons.sizes.md} color={colors.foreground} />
                   <NativeText textStyle={{ color: colors.foreground }}>
                     {t('messages.account')}
+                  </NativeText>
+                  <Spacer flexible />
+                  <Icon
+                    name={Icons.chevronRight}
+                    size={theme.icons.sizes.sm}
+                    color={colors.mutedForeground}
+                  />
+                </Row>
+                <Row
+                  spacing={theme.spaces.md}
+                  alignment="center"
+                  onPress={handleTrustedContacts}
+                  modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+                >
+                  <Icon name={Icons.user} size={theme.icons.sizes.md} color={colors.foreground} />
+                  <NativeText textStyle={{ color: colors.foreground }}>
+                    {t('messages.trusted_contacts')}
                   </NativeText>
                   <Spacer flexible />
                   <Icon

@@ -31,6 +31,10 @@ export const Icons = {
     android: import('@expo/material-symbols/visibility_off.xml'),
   }),
   user: Icon.select({ ios: 'person', android: import('@expo/material-symbols/person.xml') }),
+  peopleOff: Icon.select({
+    ios: 'person.2.slash',
+    android: import('@expo/material-symbols/group_off.xml'),
+  }),
 
   chevronLeft: Icon.select({
     ios: 'chevron.left',
@@ -105,6 +109,14 @@ export const Icons = {
   share: Icon.select({
     ios: 'square.and.arrow.up',
     android: import('@expo/material-symbols/share.xml'),
+  }),
+  copy: Icon.select({
+    ios: 'doc.on.doc',
+    android: import('@expo/material-symbols/content_copy.xml'),
+  }),
+  camera: Icon.select({
+    ios: 'camera',
+    android: import('@expo/material-symbols/photo_camera.xml'),
   }),
   download: Icon.select({
     ios: 'arrow.down.to.line',
