@@ -1,6 +1,7 @@
 import {
   deleteAvatar,
   setAvatar,
+  setPublicKey,
   setPushToken,
   updateMe,
   SetPushTokenRequest,
@@ -42,6 +43,15 @@ export const usePushTokenUpdateMutation = () => {
   return useMutation({
     mutationFn: async (body: SetPushTokenRequest) => {
       const { error } = await setPushToken({ body });
+      if (error) throw error;
+    },
+  });
+};
+
+export const useSetPublicKeyMutation = () => {
+  return useMutation({
+    mutationFn: async (publicKey: string) => {
+      const { error } = await setPublicKey({ body: { publicKey } });
       if (error) throw error;
     },
   });

@@ -14,11 +14,11 @@ const SettingsLayout = () => {
       />
       <Stack.Screen name="appearance" options={{ title: t('messages.appearance') }} />
       <Stack.Screen name="account" options={{ title: t('messages.account') }} />
-      {/* The "+" button and the selection-aware "remove" button are owned
-          by trusted-contacts/index.tsx itself (via navigation.getParent()
-          .setOptions(...)), not set statically here, since they depend on
-          that screen's own selection state. */}
       <Stack.Screen name="trusted-contacts" options={{ title: t('messages.trusted_contacts') }} />
+      <Stack.Protected guard={__DEV__}>
+        <Stack.Screen name="debug" options={{ title: 'Debug' }} />
+        <Stack.Screen name="debug/recovery-keys" options={{ title: 'Recovery keys' }} />
+      </Stack.Protected>
       <Stack.Screen
         name="account/change-email"
         options={{

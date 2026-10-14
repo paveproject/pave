@@ -1,4 +1,4 @@
-use crate::app::me::trusted_contacts::dto::TrustedContactResponse;
+use crate::app::me::trusted_contacts::dto::{TrustedByResponse, TrustedContactResponse};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -21,8 +21,28 @@ use utoipa::ToSchema;
 /// Also `Deserialize`: round-trips through Redis pub/sub in plain JSON
 /// between pods (see `hub.rs`), same reasoning as
 /// `reports::ws_dto::ServerMessage`.
+// The shared `TrustedContact*` prefix is deliberate, not an oversight -
+// each variant's name is also its wire-format `event` tag (snake_case),
+// read on its own by the mobile client with no enclosing `UserEvent::`
+// path in sight, so it needs to stay self-describing rather than leaning
+// on a shortened name real glob-import ergonomics would reward.
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum UserEvent {
     TrustedContactAccepted(TrustedContactResponse),
+    /// Pushed to a *contact* (not the owner) when the owner rotates their
+    /// recovery key and this contact's share changes as a result. Silent
+    /// background sync, not a user-facing notification - no push job is
+    /// enqueued alongside this one (unlike `TrustedContactAccepted`), or
+    /// every rotation would spam every remaining contact.
+    TrustedContactShareUpdated(TrustedByResponse),
+    /// Pushed to a *contact* (not the owner) when the owner revokes them -
+    /// carries the now-`revoked` row so the contact's "as-contact" list
+    /// (and its locally decrypted share, see `useUserEventsSocket`) can be
+    /// cleared live. `list_as_contact` only ever returns `accepted` rows,
+    /// so without this the contact's cache would just silently keep the
+    /// stale row until their next unrelated refetch happens to drop it.
+    /// Same "no push job" reasoning as `TrustedContactShareUpdated`.
+    TrustedContactRevoked(TrustedByResponse),
 }

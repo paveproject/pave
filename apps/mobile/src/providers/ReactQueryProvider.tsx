@@ -7,7 +7,7 @@ import {
   PersistQueryClientProviderProps,
 } from '@tanstack/react-query-persist-client';
 import { persistKey } from '../api';
-import { meKeys } from '@libs/query-client';
+import { meKeys, trustedContactsKeys } from '@libs/query-client';
 // import { useReactQueryDevTools } from "@dev-plugins/react-query";
 
 const queryStorage = createMMKV({
@@ -40,7 +40,11 @@ const createMMKVPersister = (key: string) => ({
   },
 });
 
-const PERSISTED_QUERY_KEYS = [meKeys.base, persistKey];
+// `trustedContactsKeys.base` is here so the "mine"/"as-contact" lists
+// survive a cold start, same reasoning as `meKeys.base` - the recovery-key
+// bootstrap (see `Providers.tsx`'s `RecoveryKeyBootstrap`) and its debug
+// screen both read off these on launch, before the first refetch lands.
+const PERSISTED_QUERY_KEYS = [meKeys.base, trustedContactsKeys.base, persistKey];
 
 const createQueryClient = () =>
   new QueryClient({

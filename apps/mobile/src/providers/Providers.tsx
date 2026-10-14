@@ -18,6 +18,8 @@ import { useReportSync } from '../hooks/useReportSync';
 import { useLanguageSync } from '../hooks/useLanguageSync';
 import { useAppVersionCheck } from '../hooks/useAppVersionCheck';
 import { useUserEventsSocket } from '../hooks/useUserEventsSocket';
+import { useRecoveryKeySync } from '../hooks/useRecoveryKeySync';
+import { useReceiveShares } from '../hooks/useReceiveShares';
 import { useAuth } from './AuthProvider';
 
 type ProvidersProps = {
@@ -53,6 +55,19 @@ const UserEventsBootstrap = () => {
   return null;
 };
 
+// Same idea, for the recovery-key machinery (see lib/recoveryKey) - keeps
+// this user's own key split across their trusted contacts and decrypts
+// shares entrusted to this device, app-wide regardless of which screen
+// is open. Both hooks gate on auth themselves. Catches up a rotation
+// missed by the realtime event (app was closed when it fired) on next
+// launch, instead of only when the user happens to revisit those
+// specific settings screens.
+const RecoveryKeyBootstrap = () => {
+  useRecoveryKeySync();
+  useReceiveShares();
+  return null;
+};
+
 const Providers = ({ children }: ProvidersProps) => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -76,6 +91,7 @@ const Providers = ({ children }: ProvidersProps) => {
                                   <LanguageSyncBootstrap />
                                   <AppVersionCheckBootstrap />
                                   <UserEventsBootstrap />
+                                  <RecoveryKeyBootstrap />
                                 </NotificationsProvider>
                               </BottomSheetModalProvider>
                             </ApiProvider>

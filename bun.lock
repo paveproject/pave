@@ -41,6 +41,9 @@
         "@nestjs/schedule": "^6.1.1",
         "@nestjs/swagger": "^11.2.5",
         "@nestjs/websockets": "^11.1.16",
+        "@noble/ciphers": "^2.4.0",
+        "@noble/curves": "^2.4.0",
+        "@noble/hashes": "^2.4.0",
         "@normy/react-query": "^0.18.0",
         "@novu/react": "^3.5.0",
         "@novu/react-native": "^3.11.1",
@@ -129,6 +132,7 @@
         "react-native-draggable-flatlist": "^4.0.3",
         "react-native-enriched-markdown": "^1.0.2",
         "react-native-gesture-handler": "^2.32.0",
+        "react-native-get-random-values": "^2.0.0",
         "react-native-image-colors": "^2.5.1",
         "react-native-keyboard-controller": "^1.21.9",
         "react-native-mmkv": "^4.2.0",
@@ -160,6 +164,7 @@
         "rxjs": "^7.8.0",
         "schema-dts": "^1.1.5",
         "sf-symbols-typescript": "^2.2.0",
+        "shamir-secret-sharing": "^0.0.4",
         "socket.io": "^4.8.3",
         "socket.io-client": "^4.8.3",
         "sonner-native": "^0.22.2",
@@ -283,6 +288,9 @@
         "@lodev09/react-native-true-sheet": "4.0.0-beta.24",
         "@lovesworking/watermelondb-expo-plugin-sdk-52-plus": "*",
         "@maplibre/maplibre-react-native": "*",
+        "@noble/ciphers": "*",
+        "@noble/curves": "*",
+        "@noble/hashes": "*",
         "@novu/react-native": "*",
         "@nozbe/watermelondb": "*",
         "@nx/detox": "*",
@@ -373,6 +381,7 @@
         "react-native-draggable-flatlist": "*",
         "react-native-enriched-markdown": "*",
         "react-native-gesture-handler": "*",
+        "react-native-get-random-values": "*",
         "react-native-image-colors": "*",
         "react-native-keyboard-controller": "*",
         "react-native-mmkv": "*",
@@ -395,6 +404,7 @@
         "react-native-youtube-iframe": "*",
         "semver": "*",
         "sf-symbols-typescript": "*",
+        "shamir-secret-sharing": "*",
         "sonner-native": "*",
         "standard-navigation": "*",
         "tsconfig-paths": "*",
@@ -1508,6 +1518,8 @@
     "@nestjs/websockets": ["@nestjs/websockets@11.2.7", "", { "dependencies": { "iterare": "1.2.1", "object-hash": "3.0.0", "tslib": "2.8.1" }, "peerDependencies": { "@nestjs/common": "^11.0.0", "@nestjs/core": "^11.0.0", "@nestjs/platform-socket.io": "^11.0.0", "reflect-metadata": "^0.1.12 || ^0.2.0", "rxjs": "^7.1.0" }, "optionalPeers": ["@nestjs/platform-socket.io"] }, "sha512-iKZoAL7ZX/s1I0io6ECAGHnf6dxdF8UCCNjYYGLgB4tZd3XUoC/y3PU+dKP2w8Ksy6e/6GJm4qEf3twvVselpg=="],
 
     "@noble/ciphers": ["@noble/ciphers@2.4.0", "", {}, "sha512-AnjFn0Jv92laAkvMrghlFZq4qQCIN/4DxFV/eooqtC2YTjB7kBeLMS2T9KJX4Dn+ZVXLOwK0lSgqDtx9gvxtiw=="],
+
+    "@noble/curves": ["@noble/curves@2.4.0", "", { "dependencies": { "@noble/hashes": "2.4.0" } }, "sha512-P4/62zrgfH33CneE3Dn4WhJVA22YUU0eR51wKIan4NVRvwsA0YnPTwWGpNbpuacSujmSFLvyzpyuR30+fbq2Ew=="],
 
     "@noble/hashes": ["@noble/hashes@2.4.0", "", {}, "sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA=="],
 
@@ -3337,6 +3349,8 @@
 
     "extsprintf": ["extsprintf@1.3.0", "", {}, "sha512-11Ndz7Nv+mvAC1j0ktTa7fAb0vLyGGX+rMHNBYQviQDGU0Hw7lhctJANqbPhu9nV9/izT/IntTgZ7Im/9LJs9g=="],
 
+    "fast-base64-decode": ["fast-base64-decode@1.0.0", "", {}, "sha512-qwaScUgUGBYeDNRnbc/KyllVU88Jk1pRHPStuF/lO7B0/RTRLj7U0lkdTAutlBblY08rwZDff6tNU9cjv6j//Q=="],
+
     "fast-content-type-parse": ["fast-content-type-parse@4.0.0", "", {}, "sha512-rvu3AY9s3EsDXSDUWzFU5M9/fDpjAUwyIkDR9VrwZA3H9J5f4ymkT0J4iWw9iLaMvFVwsYTGFClUgy9VIvnabA=="],
 
     "fast-decode-uri-component": ["fast-decode-uri-component@1.0.1", "", {}, "sha512-WKgKWg5eUxvRZGwW8FvfbaH7AXSh2cL+3j5fMGzUMCxWBJ3dV3a7Wz8y2f/uQ0e3B6WmodD3oS54jTQ9HVTIIg=="],
@@ -4633,6 +4647,8 @@
 
     "react-native-gesture-handler": ["react-native-gesture-handler@2.33.0", "", { "dependencies": { "@egjs/hammerjs": "^2.0.17", "@types/react-test-renderer": "^19.1.0", "hoist-non-react-statics": "^3.3.0", "invariant": "^2.2.4" }, "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-aFMjweXGrsDKwxjAiH7Kl+nc7qAudl0MF6Bqlxf9QQEUNDWBpsQ5WXA7sF6eLFaeRQGEq4ERKr6iuD+GfmunFA=="],
 
+    "react-native-get-random-values": ["react-native-get-random-values@2.0.0", "", { "dependencies": { "fast-base64-decode": "^1.0.0" }, "peerDependencies": { "react-native": ">=0.81" } }, "sha512-wx7/aPqsUIiWsG35D+MsUJd8ij96e3JKddklSdrdZUrheTx89gPtz3Q2yl9knBArj5u26Cl23T88ai+Q0vypdQ=="],
+
     "react-native-image-colors": ["react-native-image-colors@2.6.0", "", { "dependencies": { "node-vibrant": "^4.0.3" }, "peerDependencies": { "expo": "*", "react": "*", "react-native": "*" } }, "sha512-MbBPmRpp2yy8h5W7KUreByP96pey0J9habHaRSN/67O0hlR/5Izpt370BNHQVQogfHrRXfV4d8n6ZLn/2ga7Bg=="],
 
     "react-native-is-edge-to-edge": ["react-native-is-edge-to-edge@1.3.1", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-NIXU/iT5+ORyCc7p0z2nnlkouYKX425vuU1OEm6bMMtWWR9yvb+Xg5AZmImTKoF9abxCPqrKC3rOZsKzUYgYZA=="],
@@ -4926,6 +4942,8 @@
     "shallow-equal": ["shallow-equal@3.1.0", "", {}, "sha512-pfVOw8QZIXpMbhBWvzBISicvToTiM5WBF1EeAUZDDSb5Dt29yl4AYbyywbJFSEsRUMr7gJaxqCdr4L3tQf9wVg=="],
 
     "shallowequal": ["shallowequal@1.1.0", "", {}, "sha512-y0m1JoUZSlPAjXVtPPW70aZWfIL/dSP7AFkRnniLCrK/8MDKog3TySTBmckD+RObVxH0v4Tox67+F14PdED2oQ=="],
+
+    "shamir-secret-sharing": ["shamir-secret-sharing@0.0.4", "", {}, "sha512-ui8u/cIg2j16b9on/LH3V/glL6wHdwiTo/Iajzqx0STniBvuOzl6VYUxhrow3waF0dggovJfYiBZSWfTAN4XLQ=="],
 
     "shebang-command": ["shebang-command@2.0.0", "", { "dependencies": { "shebang-regex": "^3.0.0" } }, "sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA=="],
 

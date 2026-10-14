@@ -1,10 +1,15 @@
 import { useEffect, useRef } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { useQueryClient } from '@tanstack/react-query';
-import { trustedContactsKeys } from '@libs/query-client';
-import type { TrustedContactResponse, UserEvent } from '@libs/api-js';
+import {
+  trustedByOptions,
+  trustedContactInviteOptions,
+  trustedContactsOptions,
+} from '@libs/query-client';
+import type { TrustedByResponse, TrustedContactResponse, UserEvent } from '@libs/api-js';
 import { getSessionToken } from '../lib/auth/session';
 import { ME_WS_URL } from '../env/common';
+import { clearReceivedShare, receiveShare } from '../lib/recoveryKey';
 
 // React Native's WebSocket accepts a third `headers` option at runtime
 // (unlike the strict browser spec its TS types are modeled on) - this
@@ -31,7 +36,7 @@ const upsertTrustedContact = (
   queryClient: ReturnType<typeof useQueryClient>,
   contact: TrustedContactResponse,
 ) => {
-  queryClient.setQueryData<TrustedContactResponse[]>(trustedContactsKeys.mine(), (old) => {
+  queryClient.setQueryData(trustedContactsOptions().queryKey, (old) => {
     if (!old) return old;
     const index = old.findIndex((c) => c.id === contact.id);
     if (index === -1) return [contact, ...old];
@@ -39,6 +44,31 @@ const upsertTrustedContact = (
     next[index] = contact;
     return next;
   });
+};
+
+const upsertTrustedBy = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  row: TrustedByResponse,
+) => {
+  queryClient.setQueryData(trustedByOptions().queryKey, (old) => {
+    if (!old) return old;
+    const index = old.findIndex((r) => r.id === row.id);
+    if (index === -1) return [row, ...old];
+    const next = [...old];
+    next[index] = row;
+    return next;
+  });
+};
+
+/**
+ * Drops a row entirely rather than upserting it - `list_as_contact` only
+ * ever returns `accepted` rows, so a revoked one has no business staying
+ * in this cache (now persisted across cold starts too, see
+ * `ReactQueryProvider.tsx`) until some unrelated refetch happens to
+ * notice it's gone.
+ */
+const removeTrustedBy = (queryClient: ReturnType<typeof useQueryClient>, id: string) => {
+  queryClient.setQueryData(trustedByOptions().queryKey, (old) => old?.filter((r) => r.id !== id));
 };
 
 /**
@@ -77,13 +107,20 @@ export const useUserEventsSocket = (enabled: boolean) => {
         try {
           const message: UserEvent = JSON.parse(event.data);
           if (message.event === 'trusted_contact_accepted') {
-            const { event: _event, ...contact } = message;
-            upsertTrustedContact(queryClient, contact);
+            upsertTrustedContact(queryClient, message);
             // The invite query is a GET that rotates the code on every
             // call (see `generate_invite`) - invalidating is enough, the
             // "add" screen's own `useQuery` (if open) refetches and gets
             // a fresh code for free, no manual regenerate logic needed.
-            queryClient.invalidateQueries({ queryKey: trustedContactsKeys.invite() });
+            queryClient.invalidateQueries({ queryKey: trustedContactInviteOptions().queryKey });
+          } else if (message.event === 'trusted_contact_share_updated') {
+            upsertTrustedBy(queryClient, message);
+            if (message.encryptedShare) {
+              receiveShare(message.owner.id, message.encryptedShare);
+            }
+          } else if (message.event === 'trusted_contact_revoked') {
+            removeTrustedBy(queryClient, message.id);
+            clearReceivedShare(message.owner.id);
           }
         } catch {
           // Malformed frame - ignore rather than crash the socket loop.

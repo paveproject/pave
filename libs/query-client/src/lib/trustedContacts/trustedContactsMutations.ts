@@ -1,5 +1,5 @@
-import { redeemInvite, revokeTrustedContact } from '@libs/api-js';
-import type { TrustedContactResponse } from '@libs/api-js';
+import { redeemInvite, revokeTrustedContact, setShares } from '@libs/api-js';
+import type { ShareUpdate, TrustedContactResponse } from '@libs/api-js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { trustedContactsKeys } from './trustedContactsKeys';
 
@@ -31,6 +31,18 @@ export const useRevokeTrustedContactMutation = () => {
       queryClient.setQueryData<TrustedContactResponse[]>(trustedContactsKeys.mine(), (previous) =>
         previous?.filter((contact) => contact.id !== id),
       );
+    },
+  });
+};
+
+/** Batch-uploads every accepted contact's new sealed share in one call -
+ * see `recoveryKey`'s own doc comment on why a rotation always touches
+ * everyone's share together, not one contact at a time. */
+export const useSetSharesMutation = () => {
+  return useMutation({
+    mutationFn: async (shares: ShareUpdate[]) => {
+      const { error } = await setShares({ body: { shares } });
+      if (error) throw error;
     },
   });
 };

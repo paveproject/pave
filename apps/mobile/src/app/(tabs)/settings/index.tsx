@@ -45,6 +45,10 @@ const SettingsScreen = () => {
     router.push('/settings/trusted-contacts');
   }, [router]);
 
+  const handleDebug = useCallback(() => {
+    router.push('/settings/debug');
+  }, [router]);
+
   const handleSignOut = useCallback(() => {
     Alert.alert(
       t('messages.are_u_sure'),
@@ -146,6 +150,29 @@ const SettingsScreen = () => {
                     color={colors.mutedForeground}
                   />
                 </Row>
+                {__DEV__ && (
+                  <Row
+                    spacing={theme.spaces.md}
+                    alignment="center"
+                    onPress={handleDebug}
+                    modifiers={
+                      Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined
+                    }
+                  >
+                    <Icon
+                      name={Icons.settings}
+                      size={theme.icons.sizes.md}
+                      color={colors.foreground}
+                    />
+                    <NativeText textStyle={{ color: colors.foreground }}>Debug</NativeText>
+                    <Spacer flexible />
+                    <Icon
+                      name={Icons.chevronRight}
+                      size={theme.icons.sizes.sm}
+                      color={colors.mutedForeground}
+                    />
+                  </Row>
+                )}
                 <Row
                   spacing={theme.spaces.md}
                   alignment="center"

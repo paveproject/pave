@@ -17,6 +17,12 @@ export const user = pgTable('user', {
   usernameUpdatedAt: timestamp('username_updated_at', { withTimezone: true, mode: 'string' }),
   // Null until the user has been shown the post-signup welcome flow.
   welcomedAt: timestamp('welcomed_at', { withTimezone: true, mode: 'string' }),
+  // X25519 identity public key (hex), generated on-device and
+  // uploaded once - lets another user seal a Shamir share (see
+  // `trustedContact.encryptedShare`) so only this user's own device,
+  // holding the matching private key, can ever decrypt it. Null until
+  // the mobile app has generated a keypair for this user.
+  publicKey: text('public_key'),
 });
 
 // Notifications

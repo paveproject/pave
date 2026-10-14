@@ -28,6 +28,15 @@ pub struct UpdateMeRequest {
     pub welcomed: Option<bool>,
 }
 
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SetPublicKeyRequest {
+    /// The caller's X25519 identity public key (hex), generated and
+    /// held on-device - lets another user seal a Shamir share so only
+    /// this user's own device can ever decrypt it.
+    pub public_key: String,
+}
+
 /// A minimal, public-safe view of ANOTHER user - deliberately small (just
 /// enough to label who someone is to someone else) so a new feature that
 /// needs to reference a user defaults to not leaking more than that. Add
@@ -45,6 +54,12 @@ pub struct Profile {
     pub id: String,
     pub username: Option<String>,
     pub image: Option<String>,
+    /// `None` until this user's device has generated a recovery-key
+    /// identity keypair and uploaded the public half (see
+    /// `SetPublicKeyRequest`). Exposed here (not just on `MeResponse`) so
+    /// a trusted-contact relationship's other party can seal a Shamir
+    /// share to it without a separate lookup.
+    pub public_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, utoipa::IntoParams)]

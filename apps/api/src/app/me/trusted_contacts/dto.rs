@@ -46,6 +46,26 @@ pub struct RedeemInviteRequest {
     pub code: String,
 }
 
+/// One contact's new sealed share, as part of a `SetSharesRequest` batch.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ShareUpdate {
+    /// The `trusted_contact` relationship this share belongs to - must be
+    /// one the caller owns.
+    pub id: String,
+    pub encrypted_share: String,
+}
+
+/// Uploads every contact's share in one request - the mobile app always
+/// recomputes the full set together (see `trustedContact.encryptedShare`'s
+/// own doc comment on why a rotation touches everyone's share at once),
+/// so one batch call beats N round trips.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SetSharesRequest {
+    pub shares: Vec<ShareUpdate>,
+}
+
 /// A contact the caller has designated (as owner).
 ///
 /// Also `Deserialize`: reused as-is for the `trusted_contact_accepted`
@@ -67,11 +87,21 @@ pub struct TrustedContactResponse {
 /// A relationship where the caller is the one trusted (the reverse of
 /// `TrustedContactResponse`) - a contact needs to know whose safety net
 /// they're part of.
-#[derive(Debug, Clone, Serialize, ToSchema)]
+///
+/// Also `Deserialize`: reused as-is for the `trusted_contact_share_updated`
+/// realtime event payload (see `events::ws_dto::UserEvent`), same reasoning
+/// as `TrustedContactResponse`.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TrustedByResponse {
     pub id: String,
     pub status: TrustedContactStatus,
     pub owner: Profile,
     pub created_at: String,
+    /// The caller's current Shamir share of the owner's recovery key,
+    /// sealed (hex) to the caller's own public key - the server
+    /// stores and serves this but can't read it. `None` until the owner
+    /// has generated a recovery key and split it across their accepted
+    /// contacts.
+    pub encrypted_share: Option<String>,
 }
