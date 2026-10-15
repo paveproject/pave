@@ -1,10 +1,12 @@
 import { useTranslations } from 'use-intl';
 import { useTheme } from '../../../providers/ThemeProvider';
+import { useUIStore } from '../../../stores/useUIStore';
 import { Stack } from 'expo-router';
 
 const SettingsLayout = () => {
   const { defaultScreenOptions, isLiquidGlassAvailable } = useTheme();
   const t = useTranslations();
+  const debug = useUIStore((state) => state.debug);
 
   return (
     <Stack initialRouteName="index" screenOptions={defaultScreenOptions}>
@@ -16,7 +18,7 @@ const SettingsLayout = () => {
       <Stack.Screen name="account" options={{ title: t('messages.account') }} />
       <Stack.Screen name="trusted-contacts" options={{ title: t('messages.trusted_contacts') }} />
       <Stack.Screen name="devices" options={{ title: t('messages.devices') }} />
-      <Stack.Protected guard={__DEV__}>
+      <Stack.Protected guard={debug}>
         <Stack.Screen name="debug" options={{ title: 'Debug' }} />
         <Stack.Screen name="debug/recovery-keys" options={{ title: 'Recovery keys' }} />
       </Stack.Protected>

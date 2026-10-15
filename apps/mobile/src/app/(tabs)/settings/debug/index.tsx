@@ -13,9 +13,11 @@ import { View } from '../../../../components/ui/view';
 import { Icons } from '../../../../constants/icons';
 
 /**
- * `__DEV__`-only menu (see `settings/_layout.tsx`, also gated there) - a
- * home for internal inspectors that have no business being user-facing,
- * without cluttering `settings/index.tsx` itself. Same list-row
+ * Debug-only menu, reachable in dev builds (`__DEV__`) or once a user
+ * triple-taps the version footer on `settings/index.tsx` (see
+ * `useUIStore`'s `debug` flag, also gated in `settings/_layout.tsx`) - a
+ * home for internal inspectors that have no business being user-facing by
+ * default, without cluttering `settings/index.tsx` itself. Same list-row
  * convention as that screen; add one row per inspector as they're built.
  */
 const DebugScreen = () => {

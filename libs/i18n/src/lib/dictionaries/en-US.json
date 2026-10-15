@@ -28,6 +28,8 @@
     "save": "Save",
     "sign_out": "Sign out",
     "are_u_sure": "Are you sure?",
+    "debug_mode_enabled": "Debug mode enabled",
+    "debug_mode_disabled": "Debug mode disabled",
     "ok": "OK",
     "later": "Later",
     "update_now": "Update now",

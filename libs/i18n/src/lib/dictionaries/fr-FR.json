@@ -28,6 +28,8 @@
     "save": "Enregistrer",
     "sign_out": "Se déconnecter",
     "are_u_sure": "Êtes-vous sûr ?",
+    "debug_mode_enabled": "Mode debug activé",
+    "debug_mode_disabled": "Mode debug désactivé",
     "ok": "OK",
     "later": "Plus tard",
     "update_now": "Mettre à jour",

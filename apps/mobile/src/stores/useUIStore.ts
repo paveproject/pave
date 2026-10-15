@@ -45,6 +45,11 @@ interface UIStore {
   setMapCamera: (center: [number, number], zoom: number) => void;
   setSelectedMovieId: (id: number | null) => void;
   setMapStyle: (style: MapStyleVariant) => void;
+
+  // Debug mode - see `settings/index.tsx`'s version-footer triple-tap and
+  // `settings/_layout.tsx`'s route guard.
+  debug: boolean;
+  toggleDebug: () => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -107,6 +112,10 @@ export const useUIStore = create<UIStore>()(
         set((state) => ({
           map: { ...state.map, style },
         })),
+
+      // Debug mode
+      debug: false,
+      toggleDebug: () => set((state) => ({ debug: !state.debug })),
     }),
     {
       name: 'ui-storage',

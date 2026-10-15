@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Application from 'expo-application';
@@ -16,19 +16,50 @@ import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { useTranslations } from 'use-intl';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { useAuth } from '../../../providers/AuthProvider';
+import { useUIStore } from '../../../stores/useUIStore';
 import { View } from '../../../components/ui/view';
 import { Avatar } from '../../../components/ui/Avatar';
 import { NativeButton } from '../../../components/ui/NativeButton';
 import { Icons } from '../../../constants/icons';
 import app from '../../../constants/app';
 
+const DEBUG_TAP_WINDOW_MS = 600;
+const DEBUG_TAP_COUNT = 3;
+
 const SettingsScreen = () => {
   const router = useRouter();
   const t = useTranslations();
   const { user, logout } = useAuth();
   const { colors, theme, mode } = useTheme();
+  const debug = useUIStore((state) => state.debug);
+  const toggleDebug = useUIStore((state) => state.toggleDebug);
 
   const appVersion = useMemo(() => Application.nativeApplicationVersion, []);
+
+  const versionTapCountRef = useRef(0);
+  const versionTapTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const handleVersionTap = useCallback(() => {
+    clearTimeout(versionTapTimerRef.current);
+    versionTapCountRef.current += 1;
+
+    if (versionTapCountRef.current >= DEBUG_TAP_COUNT) {
+      versionTapCountRef.current = 0;
+      const willEnable = !debug;
+      toggleDebug();
+      Alert.alert(
+        t(willEnable ? 'messages.debug_mode_enabled' : 'messages.debug_mode_disabled'),
+        undefined,
+        undefined,
+        { userInterfaceStyle: mode },
+      );
+      return;
+    }
+
+    versionTapTimerRef.current = setTimeout(() => {
+      versionTapCountRef.current = 0;
+    }, DEBUG_TAP_WINDOW_MS);
+  }, [debug, toggleDebug, t, mode]);
 
   const handleSignIn = useCallback(() => {
     router.push('/auth');
@@ -181,29 +212,6 @@ const SettingsScreen = () => {
                     color={colors.mutedForeground}
                   />
                 </Row>
-                {__DEV__ && (
-                  <Row
-                    spacing={theme.spaces.md}
-                    alignment="center"
-                    onPress={handleDebug}
-                    modifiers={
-                      Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined
-                    }
-                  >
-                    <Icon
-                      name={Icons.settings}
-                      size={theme.icons.sizes.md}
-                      color={colors.foreground}
-                    />
-                    <NativeText textStyle={{ color: colors.foreground }}>Debug</NativeText>
-                    <Spacer flexible />
-                    <Icon
-                      name={Icons.chevronRight}
-                      size={theme.icons.sizes.sm}
-                      color={colors.mutedForeground}
-                    />
-                  </Row>
-                )}
                 <Row
                   spacing={theme.spaces.md}
                   alignment="center"
@@ -241,9 +249,27 @@ const SettingsScreen = () => {
                 color={colors.mutedForeground}
               />
             </Row>
+            {debug && (
+              <Row
+                spacing={theme.spaces.md}
+                alignment="center"
+                onPress={handleDebug}
+                modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+              >
+                <Icon name={Icons.settings} size={theme.icons.sizes.md} color={colors.foreground} />
+                <NativeText textStyle={{ color: colors.foreground }}>Debug</NativeText>
+                <Spacer flexible />
+                <Icon
+                  name={Icons.chevronRight}
+                  size={theme.icons.sizes.sm}
+                  color={colors.mutedForeground}
+                />
+              </Row>
+            )}
 
             <FieldGroup.SectionFooter>
               <NativeText
+                onPress={handleVersionTap}
                 textStyle={{ color: colors.mutedForeground, textAlign: 'center' }}
                 modifiers={
                   Platform.OS === 'ios' ? [frame({ maxWidth: Infinity })] : [fillMaxWidth()]
