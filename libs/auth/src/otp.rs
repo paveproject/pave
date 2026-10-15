@@ -137,7 +137,7 @@ impl OtpPlugin {
                 Err(resp) => return Ok(resp),
             };
         let email = body.email.to_lowercase();
-        let lang = body.lang.unwrap_or_else(|| "en".to_string());
+        let lang = body.lang.unwrap_or_else(|| "en-US".to_string());
 
         let otp = generate_otp();
         ctx.database
@@ -318,7 +318,7 @@ impl OtpPlugin {
                 Err(resp) => return Ok(resp),
             };
         let new_email = body.new_email.to_lowercase();
-        let lang = body.lang.unwrap_or_else(|| "en".to_string());
+        let lang = body.lang.unwrap_or_else(|| "en-US".to_string());
 
         if user
             .email()

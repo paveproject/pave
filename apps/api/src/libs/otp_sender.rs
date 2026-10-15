@@ -34,7 +34,7 @@ impl OtpEmailSender for BullmqOtpSender {
         purpose: OtpPurpose,
     ) -> AuthResult<()> {
         let lang = match lang {
-            "fr" => Lang::Fr,
+            "fr-FR" => Lang::Fr,
             _ => Lang::En,
         };
         let kind = match purpose {

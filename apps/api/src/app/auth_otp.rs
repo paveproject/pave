@@ -12,7 +12,7 @@ use utoipa::ToSchema;
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct SendOtpRequest {
     pub email: String,
-    /// `"en"` | `"fr"`, defaults to `"en"` when omitted.
+    /// `"en-US"` | `"fr-FR"`, defaults to `"en-US"` when omitted.
     pub lang: Option<String>,
 }
 
@@ -37,7 +37,7 @@ pub struct VerifyOtpResponse {
 pub struct SendChangeEmailOtpRequest {
     #[serde(rename = "newEmail")]
     pub new_email: String,
-    /// `"en"` | `"fr"`, defaults to `"en"` when omitted.
+    /// `"en-US"` | `"fr-FR"`, defaults to `"en-US"` when omitted.
     pub lang: Option<String>,
 }
 

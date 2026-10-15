@@ -18,17 +18,16 @@ export const getLocale = async (): Promise<string> => {
   // re-derive a real guess.
   if (saved && supportedLocales.includes(saved as SupportedLocale)) return saved;
 
-  // `languageTag` is a full BCP-47 tag (e.g. "fr-FR", "en-US") - essentially
-  // never a bare code match for `supportedLocales` - so it has to be
-  // trimmed down to its primary language subtag and validated *before*
-  // being persisted. Storing the raw tag here used to permanently poison
-  // this key: `LocaleProvider`'s own `supportedLocales.includes(...)` guard
-  // would reject it on every future launch (first one included), silently
-  // forcing English forever regardless of what the user picked afterwards.
+  // `languageTag` is a full BCP-47 tag (e.g. "fr-CA", "en-GB") - the
+  // device's actual region is essentially never a match for one of our
+  // two supported (language, region) pairs, so this matches on just the
+  // primary language subtag against each supported locale's own subtag
+  // (not an exact-tag match) - any region variant of a supported
+  // language resolves to pave's one supported variant of it.
   const deviceLanguage = Localization.getLocales()[0]?.languageTag?.split('-')[0];
-  const guessed = supportedLocales.includes(deviceLanguage as SupportedLocale)
-    ? (deviceLanguage as SupportedLocale)
-    : defaultSupportedLocale;
+  const guessed =
+    supportedLocales.find((locale) => locale.split('-')[0] === deviceLanguage) ??
+    defaultSupportedLocale;
 
   await AsyncStorage.setItem('language', guessed);
   return guessed;

@@ -33,10 +33,10 @@ pub(crate) async fn ensure_pave_user_row(
 
     pave_user::ActiveModel {
         id: Set(user_id.to_string()),
-        // Matches `defaultSupportedLocale` in libs/i18n - not the stale
-        // 'en-US' the Drizzle column default was left at (pre-existing
-        // mismatch: the FK to i18n.supported_languages only has 'en'/'fr').
-        language: Set("en".to_string()),
+        // Matches `defaultSupportedLocale` in libs/i18n (also the Drizzle
+        // column's own default, in case anything ever inserts this row
+        // without going through this path).
+        language: Set("en-US".to_string()),
         welcomed_at: Set(None),
         username_updated_at: Set(None),
     }

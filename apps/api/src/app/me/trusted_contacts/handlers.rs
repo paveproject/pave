@@ -286,7 +286,7 @@ pub async fn redeem_invite(
 
     let owner_row = crate::app::me::handlers::ensure_pave_user_row(&state.db, &owner_user_id).await;
     let owner_lang = match owner_row.language.as_str() {
-        "fr" => Lang::Fr,
+        "fr-FR" => Lang::Fr,
         _ => Lang::En,
     };
 

@@ -41,12 +41,23 @@ export const seedI18n = async (db: DbClient) => {
   }
 
   // 4. Default Locale
+  //
+  // `defaultCountries` is keyed on `iso6391` alone (one row per language),
+  // so if the default locale's *region* ever changes while its language
+  // doesn't (e.g. "en" -> "en-US"), the row already exists under the same
+  // key - `onConflictDoNothing` would then silently leave the stale region
+  // in place instead of updating it, and the cleanup pass below (which
+  // deletes anything not matching the current default) would delete it
+  // outright, leaving no default row at all. Upsert instead.
   const [defLang, defCountry] = defaultSupportedLocale.split('-');
   if (defLang) {
     await db
       .insert(defaultCountries)
       .values({ iso6391: defLang, iso31661: defCountry ?? null })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: defaultCountries.iso6391,
+        set: { iso31661: defCountry ?? null },
+      });
   }
 
   // Cleanup
