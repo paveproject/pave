@@ -85,10 +85,24 @@ export const useRevokeDeviceMutation = () => {
  * their other devices - see `recoveryKey`'s own doc comment on why this
  * is a direct seal, not a Shamir share. */
 export const useSetDeviceDekMutation = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ deviceId, encryptedDek }: { deviceId: string; encryptedDek: string }) => {
-      const { error } = await setDeviceDek({ path: { id: deviceId }, body: { encryptedDek } });
+      const { data, error } = await setDeviceDek({
+        path: { id: deviceId },
+        body: { encryptedDek },
+      });
       if (error) throw error;
+      if (data === undefined) throw new Error('No data');
+      return data;
+    },
+    // Updates the one device in the cached list straight from the
+    // response, same reasoning as `useRevokeDeviceMutation` - no need to
+    // refetch the whole list just to reflect this one row changing.
+    onSuccess: (device) => {
+      queryClient.setQueryData(devicesOptions().queryKey, (previous) =>
+        previous?.map((d) => (d.id === device.id ? device : d)),
+      );
     },
   });
 };

@@ -180,7 +180,7 @@ pub async fn generate_invite(
     tag = "TrustedContacts",
     request_body = MeTrustedContactsRedeemInviteRequest,
     responses(
-        (status = 200, description = "Code redeemed - you're now this person's trusted contact"),
+        (status = 200, description = "Code redeemed - you're now this person's trusted contact", body = MeTrustedContactsAsContactResponse),
         (status = 400, description = "Invalid, expired, already-used code, or your own code")
     )
 )]
@@ -210,6 +210,15 @@ pub async fn redeem_invite(
 
     let invite_id = model.id;
     let owner_user_id = model.owner_user_id.clone();
+    // Fetched now, before `owner_user_id` is moved into the push-token
+    // query below - the caller gets back the same "as contact" shape
+    // `GET .../as-contact` would return for this row, rather than an
+    // empty 200, so they don't need a separate refetch to see who they
+    // just connected with.
+    let owner_profile = profiles_for(&state.db, vec![owner_user_id.clone()], &state.config)
+        .await
+        .remove(&owner_user_id)
+        .expect("owner profile missing for a just-redeemed invite");
 
     // A contact who already has history with this owner (most commonly:
     // was revoked, then re-invited) would otherwise collide with the
@@ -320,7 +329,16 @@ pub async fn redeem_invite(
             .expect("failed to enqueue trusted-contact-accepted push");
     }
 
-    StatusCode::OK.into_response()
+    Json(MeTrustedContactsAsContactResponse {
+        id: updated.id.to_string(),
+        status: TrustedContactStatus::Accepted,
+        owner: owner_profile,
+        created_at: updated.created_at.to_rfc3339(),
+        // Nothing contributed yet - sharing happens via a separate
+        // `set_shares` call once the mobile client has computed it.
+        encrypted_share: None,
+    })
+    .into_response()
 }
 
 #[utoipa::path(

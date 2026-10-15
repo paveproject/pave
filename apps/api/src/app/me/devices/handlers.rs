@@ -161,7 +161,7 @@ pub async fn revoke_device(
     params(("id" = Uuid, Path, description = "Target device id")),
     request_body = MeDevicesSetDekRequest,
     responses(
-        (status = 200, description = "Recovery key copy deposited"),
+        (status = 200, description = "Recovery key copy deposited", body = MeDevicesResponse),
         (status = 404, description = "Not found, or not yours")
     )
 )]
@@ -190,10 +190,11 @@ pub async fn set_device_dek(
         .await
         .expect("failed to set device recovery-key copy");
 
+    let response = to_device_response(updated);
     state.user_events_hub.publish(
         user_id,
-        MeEventsUserEvent::DeviceDekUpdated(to_device_response(updated)),
+        MeEventsUserEvent::DeviceDekUpdated(response.clone()),
     );
 
-    StatusCode::OK.into_response()
+    Json(response).into_response()
 }

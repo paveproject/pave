@@ -8,8 +8,13 @@ export const useRedeemInviteMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (code: string) => {
-      const { error } = await redeemInvite({ body: { code } });
+      const { data, error } = await redeemInvite({ body: { code } });
       if (error) throw error;
+      if (data === undefined) throw new Error('No data');
+      // Returns the new "as contact" row (who you're now trusted by) -
+      // callers can read it straight from `mutate`'s own `onSuccess`
+      // instead of waiting on the invalidation below to refetch.
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: trustedContactsKeys.asContact() });
