@@ -9,7 +9,7 @@ use utoipa::ToSchema;
 /// `handlers::set_device`'s own doc comment).
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct SetDeviceRequest {
+pub struct MeDevicesSetRequest {
     /// The caller's X25519 identity public key (hex), generated and
     /// held on-device - lets another user seal a Shamir share, or this
     /// user's *other* devices seal a direct copy of their own recovery
@@ -20,7 +20,7 @@ pub struct SetDeviceRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct DeviceResponse {
+pub struct MeDevicesResponse {
     pub id: String,
     pub public_key: String,
     pub device_type: DeviceType,
@@ -38,6 +38,6 @@ pub struct DeviceResponse {
 /// plaintext key itself, and never read by the server.
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct SetDeviceDekRequest {
+pub struct MeDevicesSetDekRequest {
     pub encrypted_dek: String,
 }

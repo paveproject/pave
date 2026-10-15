@@ -60,7 +60,7 @@ impl From<ReportTypeEnum> for ReportType {
 /// duplicate (enforced by the handler via `ON CONFLICT (id) DO NOTHING`).
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct CreateReportRequest {
+pub struct ReportsCreateRequest {
     pub id: String,
     pub r#type: ReportType,
     pub lat: f64,
@@ -73,10 +73,10 @@ pub struct CreateReportRequest {
 }
 
 /// Also `Deserialize`: round-trips through Redis pub/sub in plain JSON
-/// between pods as part of `ws_dto::ServerMessage` (see `hub.rs`).
+/// between pods as part of `ws_dto::ReportsServerMessage` (see `hub.rs`).
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct ReportResponse {
+pub struct ReportsResponse {
     pub id: String,
     pub r#type: ReportType,
     pub lat: f64,
@@ -87,11 +87,11 @@ pub struct ReportResponse {
 
 /// Bounding box scoping the map's visible viewport - without this, every
 /// client would pull every report on earth on every refresh. Also used as
-/// the websocket subscribe payload (see `ws_dto::ClientMessage`), hence
+/// the websocket subscribe payload (see `ws_dto::ReportsClientMessage`), hence
 /// `ToSchema` alongside `IntoParams`.
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct ListReportsQuery {
+pub struct ReportsListQuery {
     pub min_lat: f64,
     pub min_lng: f64,
     pub max_lat: f64,

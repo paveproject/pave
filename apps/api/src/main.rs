@@ -22,77 +22,21 @@ use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-#[derive(OpenApi)]
-#[openapi(
-    paths(
-        health::health_check,
-        system::handlers::get_status,
-        auth_otp::send_otp,
-        auth_otp::verify_otp,
-        auth_otp::send_change_email_otp,
-        auth_otp::verify_change_email_otp,
-        me::handlers::get_me,
-        me::handlers::update_me,
-        me::handlers::check_username_available,
-        me::avatar::handlers::set_avatar,
-        me::avatar::handlers::delete_avatar,
-        me::devices::handlers::set_device,
-        me::devices::handlers::list_devices,
-        me::devices::handlers::revoke_device,
-        me::devices::handlers::set_device_dek,
-        me::push_token::handlers::set_push_token,
-        me::trusted_contacts::handlers::generate_invite,
-        me::trusted_contacts::handlers::redeem_invite,
-        me::trusted_contacts::handlers::list_trusted_contacts,
-        me::trusted_contacts::handlers::list_as_contact,
-        me::trusted_contacts::handlers::set_shares,
-        me::trusted_contacts::handlers::revoke_trusted_contact,
-        reports::handlers::create_report,
-        reports::handlers::list_reports,
-    ),
-    components(schemas(
-        health::HealthResponse,
-        system::dto::AppPlatform,
-        system::dto::VersionStatus,
-        system::dto::AppVersionStatus,
-        system::dto::StatusResponse,
-        auth_otp::SendOtpRequest,
-        auth_otp::SendOtpResponse,
-        auth_otp::VerifyOtpRequest,
-        auth_otp::VerifyOtpResponse,
-        auth_otp::SendChangeEmailOtpRequest,
-        auth_otp::VerifyChangeEmailOtpRequest,
-        auth_otp::VerifyChangeEmailOtpResponse,
-        me::dto::MeResponse,
-        me::dto::UpdateMeRequest,
-        me::dto::UsernameAvailableResponse,
-        me::dto::Profile,
-        me::dto::DeviceSummary,
-        me::devices::dto::SetDeviceRequest,
-        me::devices::dto::DeviceResponse,
-        me::devices::dto::SetDeviceDekRequest,
-        me::push_token::dto::SetPushTokenRequest,
-        me::push_token::dto::PushProvider,
-        me::push_token::dto::DeviceType,
-        me::trusted_contacts::dto::TrustedContactStatus,
-        me::trusted_contacts::dto::GenerateInviteResponse,
-        me::trusted_contacts::dto::RedeemInviteRequest,
-        me::trusted_contacts::dto::TrustedContactResponse,
-        me::trusted_contacts::dto::TrustedByResponse,
-        me::trusted_contacts::dto::ShareUpdate,
-        me::trusted_contacts::dto::SetSharesRequest,
-        me::events::ws_dto::UserEvent,
-        reports::dto::ReportType,
-        reports::dto::CreateReportRequest,
-        reports::dto::ReportResponse,
-        reports::ws_dto::ClientMessage,
-        reports::ws_dto::ServerMessage,
-    ))
-)]
-struct ApiDoc;
+/// The full API's OpenAPI doc, assembled from each top-level module's own
+/// slice (each of which may itself be assembled from its own
+/// sub-modules' - see `me::openapi`) - this function is the *only* place
+/// that needs to change when a whole new top-level module is added; a new
+/// path/schema inside an existing one never touches this file at all.
+fn build_openapi() -> utoipa::openapi::OpenApi {
+    health::ApiDoc::openapi()
+        .merge_from(system::ApiDoc::openapi())
+        .merge_from(auth_otp::ApiDoc::openapi())
+        .merge_from(me::openapi())
+        .merge_from(reports::ApiDoc::openapi())
+}
 
 fn emit_openapi_and_exit(path: &str) {
-    let json = ApiDoc::openapi()
+    let json = build_openapi()
         .to_pretty_json()
         .expect("failed to serialize OpenAPI doc");
     let dir = std::path::Path::new(path)
@@ -187,7 +131,7 @@ async fn main() {
     };
 
     let app = Router::new()
-        .merge(SwaggerUi::new("/docs").url("/openapi.json", ApiDoc::openapi()))
+        .merge(SwaggerUi::new("/docs").url("/openapi.json", build_openapi()))
         .route("/health", axum::routing::get(health::health_check))
         .route("/status", axum::routing::get(system::handlers::get_status))
         .nest("/auth", auth.axum_router_with_state::<AppState>())

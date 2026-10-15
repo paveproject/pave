@@ -1,5 +1,5 @@
-use super::dto::{DeviceResponse, SetDeviceDekRequest, SetDeviceRequest};
-use crate::app::me::events::ws_dto::UserEvent;
+use super::dto::{MeDevicesResponse, MeDevicesSetDekRequest, MeDevicesSetRequest};
+use crate::app::me::events::ws_dto::MeEventsUserEvent;
 use crate::libs::entities::device;
 use crate::state::AppState;
 use auth::AppAuthSchema;
@@ -15,8 +15,8 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
-fn to_device_response(model: device::Model) -> DeviceResponse {
-    DeviceResponse {
+fn to_device_response(model: device::Model) -> MeDevicesResponse {
+    MeDevicesResponse {
         id: model.id.to_string(),
         public_key: model.public_key,
         device_type: model.device_type.into(),
@@ -42,13 +42,13 @@ fn to_device_response(model: device::Model) -> DeviceResponse {
     put,
     path = "/me/devices",
     tag = "Me",
-    request_body = SetDeviceRequest,
-    responses((status = 200, description = "Device registered", body = DeviceResponse))
+    request_body = MeDevicesSetRequest,
+    responses((status = 200, description = "Device registered", body = MeDevicesResponse))
 )]
 pub async fn set_device(
     State(state): State<AppState>,
     session: CurrentSession<AppAuthSchema>,
-    Json(body): Json<SetDeviceRequest>,
+    Json(body): Json<MeDevicesSetRequest>,
 ) -> impl IntoResponse {
     let user_id = session.user.id.clone();
     let device_type = body.device_type.into();
@@ -87,9 +87,10 @@ pub async fn set_device(
     };
 
     let response = to_device_response(model);
-    state
-        .user_events_hub
-        .publish(user_id, UserEvent::DeviceRegistered(response.clone()));
+    state.user_events_hub.publish(
+        user_id,
+        MeEventsUserEvent::DeviceRegistered(response.clone()),
+    );
 
     Json(response)
 }
@@ -98,7 +99,7 @@ pub async fn set_device(
     get,
     path = "/me/devices",
     tag = "Me",
-    responses((status = 200, description = "The caller's own registered devices", body = Vec<DeviceResponse>))
+    responses((status = 200, description = "The caller's own registered devices", body = Vec<MeDevicesResponse>))
 )]
 pub async fn list_devices(
     State(state): State<AppState>,
@@ -158,7 +159,7 @@ pub async fn revoke_device(
     path = "/me/devices/{id}/dek",
     tag = "Me",
     params(("id" = Uuid, Path, description = "Target device id")),
-    request_body = SetDeviceDekRequest,
+    request_body = MeDevicesSetDekRequest,
     responses(
         (status = 200, description = "Recovery key copy deposited"),
         (status = 404, description = "Not found, or not yours")
@@ -168,7 +169,7 @@ pub async fn set_device_dek(
     State(state): State<AppState>,
     session: CurrentSession<AppAuthSchema>,
     Path(id): Path<Uuid>,
-    Json(body): Json<SetDeviceDekRequest>,
+    Json(body): Json<MeDevicesSetDekRequest>,
 ) -> impl IntoResponse {
     let user_id = session.user.id;
 
@@ -191,7 +192,7 @@ pub async fn set_device_dek(
 
     state.user_events_hub.publish(
         user_id,
-        UserEvent::DeviceDekUpdated(to_device_response(updated)),
+        MeEventsUserEvent::DeviceDekUpdated(to_device_response(updated)),
     );
 
     StatusCode::OK.into_response()

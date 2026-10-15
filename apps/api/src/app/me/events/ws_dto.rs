@@ -1,5 +1,7 @@
-use crate::app::me::devices::dto::DeviceResponse;
-use crate::app::me::trusted_contacts::dto::{TrustedByResponse, TrustedContactResponse};
+use crate::app::me::devices::dto::MeDevicesResponse;
+use crate::app::me::trusted_contacts::dto::{
+    MeTrustedContactsAsContactResponse, MeTrustedContactsResponse,
+};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -9,7 +11,7 @@ use utoipa::ToSchema;
 /// future manif-mode recovery-request notification).
 ///
 /// Variants carry the same response shape the REST list endpoint would
-/// return for that row (`TrustedContactResponse` here) rather than a
+/// return for that row (`MeTrustedContactsResponse` here) rather than a
 /// bespoke "something changed" payload, so the mobile client can merge the
 /// row directly into its query cache (`setQueryData`) instead of
 /// invalidating and refetching the whole list. Building that payload must
@@ -21,23 +23,23 @@ use utoipa::ToSchema;
 ///
 /// Also `Deserialize`: round-trips through Redis pub/sub in plain JSON
 /// between pods (see `hub.rs`), same reasoning as
-/// `reports::ws_dto::ServerMessage`.
+/// `reports::ws_dto::ReportsServerMessage`.
 // The shared `TrustedContact*` prefix is deliberate, not an oversight -
 // each variant's name is also its wire-format `event` tag (snake_case),
-// read on its own by the mobile client with no enclosing `UserEvent::`
+// read on its own by the mobile client with no enclosing `MeEventsUserEvent::`
 // path in sight, so it needs to stay self-describing rather than leaning
 // on a shortened name real glob-import ergonomics would reward.
 #[allow(clippy::enum_variant_names)]
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "event", rename_all = "snake_case")]
-pub enum UserEvent {
-    TrustedContactAccepted(TrustedContactResponse),
+pub enum MeEventsUserEvent {
+    TrustedContactAccepted(MeTrustedContactsResponse),
     /// Pushed to a *contact* (not the owner) when the owner rotates their
     /// recovery key and this contact's share changes as a result. Silent
     /// background sync, not a user-facing notification - no push job is
     /// enqueued alongside this one (unlike `TrustedContactAccepted`), or
     /// every rotation would spam every remaining contact.
-    TrustedContactShareUpdated(TrustedByResponse),
+    TrustedContactShareUpdated(MeTrustedContactsAsContactResponse),
     /// Pushed to a *contact* (not the owner) when the owner revokes them -
     /// carries the now-`revoked` row so the contact's "as-contact" list
     /// (and its locally decrypted share, see `useUserEventsSocket`) can be
@@ -45,17 +47,17 @@ pub enum UserEvent {
     /// so without this the contact's cache would just silently keep the
     /// stale row until their next unrelated refetch happens to drop it.
     /// Same "no push job" reasoning as `TrustedContactShareUpdated`.
-    TrustedContactRevoked(TrustedByResponse),
+    TrustedContactRevoked(MeTrustedContactsAsContactResponse),
     /// Pushed to a user's *other* devices when a new one registers (see
     /// `devices::handlers::set_device`) - prompts an immediate
     /// reconciliation pass instead of waiting for their next launch to
     /// notice the sibling and seal it a copy of the recovery key.
-    DeviceRegistered(DeviceResponse),
+    DeviceRegistered(MeDevicesResponse),
     /// Pushed to a user's own device(s) when any of them deposits a
     /// sealed recovery-key copy for one of them (see
     /// `devices::handlers::set_device_dek`) - the target device checks
     /// `message.id` against its own locally-cached device id before
     /// acting, same filter-by-id pattern `useReceiveShares` already uses
     /// for `TrustedContactShareUpdated`.
-    DeviceDekUpdated(DeviceResponse),
+    DeviceDekUpdated(MeDevicesResponse),
 }

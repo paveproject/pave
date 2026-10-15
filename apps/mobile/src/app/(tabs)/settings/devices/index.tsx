@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { devicesOptions, useRevokeDeviceMutation } from '@libs/query-client';
-import type { DeviceResponse } from '@libs/api-js';
+import type { MeDevicesResponse } from '@libs/api-js';
 import { useFormatter, useTranslations } from 'use-intl';
 import { Text } from '../../../../components/ui/text';
 import { View } from '../../../../components/ui/view';
@@ -28,7 +28,7 @@ import tw from '../../../../lib/tw';
 import { scheduleOnRN } from 'react-native-worklets';
 
 interface Row {
-  readonly device: DeviceResponse;
+  readonly device: MeDevicesResponse;
   readonly isThisDevice: boolean;
   readonly isLeaving: boolean;
 }

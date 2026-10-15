@@ -1,5 +1,5 @@
 import { redeemInvite, revokeTrustedContact, setShares } from '@libs/api-js';
-import type { ShareUpdate } from '@libs/api-js';
+import type { MeTrustedContactsShareUpdate } from '@libs/api-js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { trustedContactsKeys } from './trustedContactsKeys';
 import { trustedContactsOptions } from './trustedContactsOptions';
@@ -41,7 +41,7 @@ export const useRevokeTrustedContactMutation = () => {
  * everyone's share together, not one contact at a time. */
 export const useSetSharesMutation = () => {
   return useMutation({
-    mutationFn: async (shares: ShareUpdate[]) => {
+    mutationFn: async (shares: MeTrustedContactsShareUpdate[]) => {
       const { error } = await setShares({ body: { shares } });
       if (error) throw error;
     },

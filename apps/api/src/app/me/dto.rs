@@ -20,7 +20,7 @@ pub struct MeResponse {
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct UpdateMeRequest {
+pub struct MeUpdateRequest {
     pub name: Option<String>,
     pub username: Option<String>,
     pub language: Option<String>,
@@ -31,12 +31,13 @@ pub struct UpdateMeRequest {
 /// Just enough about one of a user's registered devices for ANOTHER user
 /// to seal something to it - the `id` is required (not just the public
 /// key) so a sealed Shamir share can be attached to the right
-/// `trusted_contact_share` row (see `trusted_contacts::dto::ShareUpdate`).
-/// Deliberately smaller than `devices::dto::DeviceResponse` (no
-/// `encryptedDek`/timestamps - none of another user's business).
+/// `trusted_contact_share` row (see
+/// `trusted_contacts::dto::MeTrustedContactsShareUpdate`). Deliberately
+/// smaller than `devices::dto::MeDevicesResponse` (no `encryptedDek`/
+/// timestamps - none of another user's business).
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct DeviceSummary {
+pub struct MeDeviceSummary {
     pub id: String,
     pub public_key: String,
 }
@@ -49,12 +50,12 @@ pub struct DeviceSummary {
 /// so it stays the single thing to audit for "what do we ever expose
 /// about a user to other users".
 ///
-/// Also `Deserialize`: embedded in `TrustedContactResponse`, which
+/// Also `Deserialize`: embedded in `MeTrustedContactsResponse`, which
 /// round-trips through Redis pub/sub as part of the `trusted_contact_accepted`
 /// realtime event (see `trusted_contacts::dto` and `events::ws_dto`).
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct Profile {
+pub struct MeProfile {
     pub id: String,
     pub username: Option<String>,
     pub image: Option<String>,
@@ -63,16 +64,16 @@ pub struct Profile {
     /// registered it. Exposed here (not just via `/me/devices`) so a
     /// trusted-contact relationship's other party can seal a Shamir share
     /// to *every* one of their devices without a separate lookup.
-    pub devices: Vec<DeviceSummary>,
+    pub devices: Vec<MeDeviceSummary>,
 }
 
 #[derive(Debug, Clone, Deserialize, utoipa::IntoParams)]
-pub struct UsernameAvailableQuery {
+pub struct MeUsernameAvailableQuery {
     pub username: String,
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct UsernameAvailableResponse {
+pub struct MeUsernameAvailableResponse {
     pub available: bool,
 }

@@ -1,8 +1,8 @@
-use super::dto::{CreateReportRequest, ListReportsQuery, ReportResponse};
+use super::dto::{ReportsCreateRequest, ReportsListQuery, ReportsResponse};
 use super::geohash_util;
 use super::hub::{self, ReportsHub};
 use super::rate_limit;
-use super::ws_dto::{ClientMessage, ServerMessage};
+use super::ws_dto::{ReportsClientMessage, ReportsServerMessage};
 use crate::libs::entities::sea_orm_active_enums::ReportTypeEnum;
 use crate::state::AppState;
 use auth::AppAuthSchema;
@@ -33,9 +33,9 @@ struct ReportRow {
     expires_at: DateTimeWithTimeZone,
 }
 
-impl From<ReportRow> for ReportResponse {
+impl From<ReportRow> for ReportsResponse {
     fn from(row: ReportRow) -> Self {
-        ReportResponse {
+        ReportsResponse {
             id: row.id,
             r#type: row.r#type.into(),
             lat: row.lat,
@@ -50,13 +50,13 @@ impl From<ReportRow> for ReportResponse {
     post,
     path = "/reports",
     tag = "Reports",
-    request_body = CreateReportRequest,
-    responses((status = 200, description = "Report recorded (a repeat of the same id is a no-op)", body = ReportResponse))
+    request_body = ReportsCreateRequest,
+    responses((status = 200, description = "Report recorded (a repeat of the same id is a no-op)", body = ReportsResponse))
 )]
 pub async fn create_report(
     State(mut state): State<AppState>,
     session: CurrentSession<AppAuthSchema>,
-    Json(body): Json<CreateReportRequest>,
+    Json(body): Json<ReportsCreateRequest>,
 ) -> impl IntoResponse {
     if rate_limit::check_report_rate_limit(&mut state.redis, &session.user.id)
         .await
@@ -94,7 +94,7 @@ pub async fn create_report(
         .await
         .expect("failed to insert report");
 
-    let response = ReportResponse {
+    let response = ReportsResponse {
         id: body.id,
         r#type: body.r#type,
         lat: body.lat,
@@ -110,7 +110,7 @@ pub async fn create_report(
     let cells = geohash_util::cells_for_point(response.lat, response.lng);
     state
         .reports_hub
-        .publish(cells, ServerMessage::ReportCreated(response.clone()));
+        .publish(cells, ReportsServerMessage::ReportCreated(response.clone()));
 
     Json(response).into_response()
 }
@@ -119,12 +119,12 @@ pub async fn create_report(
     get,
     path = "/reports",
     tag = "Reports",
-    params(ListReportsQuery),
-    responses((status = 200, description = "Non-expired reports within the given bounding box", body = Vec<ReportResponse>))
+    params(ReportsListQuery),
+    responses((status = 200, description = "Non-expired reports within the given bounding box", body = Vec<ReportsResponse>))
 )]
 pub async fn list_reports(
     State(state): State<AppState>,
-    Query(query): Query<ListReportsQuery>,
+    Query(query): Query<ReportsListQuery>,
 ) -> impl IntoResponse {
     let stmt = Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
@@ -156,14 +156,14 @@ pub async fn list_reports(
 
     Json(
         rows.into_iter()
-            .map(ReportResponse::from)
+            .map(ReportsResponse::from)
             .collect::<Vec<_>>(),
     )
 }
 
 /// Live feed of newly created reports for whatever viewport the client is
 /// currently looking at. Not part of the OpenAPI `paths` (there's no REST
-/// representation for a websocket) - `ClientMessage`/`ServerMessage` are
+/// representation for a websocket) - `ReportsClientMessage`/`ReportsServerMessage` are
 /// still registered as OpenAPI schemas (see `main.rs`) purely so the
 /// generated TS client stays type-safe for both ends of this socket.
 pub async fn reports_ws(State(state): State<AppState>, ws: WebSocketUpgrade) -> impl IntoResponse {
@@ -174,7 +174,7 @@ async fn handle_socket(socket: WebSocket, reports_hub: ReportsHub) {
     use futures_util::{SinkExt, StreamExt};
 
     let conn_id = hub::next_connection_id();
-    let (tx, mut rx) = mpsc::unbounded_channel::<ServerMessage>();
+    let (tx, mut rx) = mpsc::unbounded_channel::<ReportsServerMessage>();
     reports_hub.register(conn_id, tx);
 
     let (mut sink, mut stream) = socket.split();
@@ -185,8 +185,8 @@ async fn handle_socket(socket: WebSocket, reports_hub: ReportsHub) {
                 let Some(Ok(message)) = incoming else { break };
                 match message {
                     Message::Text(text) => {
-                        if let Ok(ClientMessage::Subscribe(query)) =
-                            serde_json::from_str::<ClientMessage>(text.as_str())
+                        if let Ok(ReportsClientMessage::Subscribe(query)) =
+                            serde_json::from_str::<ReportsClientMessage>(text.as_str())
                         {
                             let cells: HashSet<String> = geohash_util::cells_for_bbox(&query);
                             reports_hub.set_interest(conn_id, cells);

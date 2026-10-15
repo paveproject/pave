@@ -1,9 +1,10 @@
 use super::dto::{
-    AsContactQuery, GenerateInviteResponse, RedeemInviteRequest, SetSharesRequest,
-    TrustedByResponse, TrustedContactResponse, TrustedContactStatus,
+    MeTrustedContactsAsContactQuery, MeTrustedContactsAsContactResponse,
+    MeTrustedContactsGenerateInviteResponse, MeTrustedContactsRedeemInviteRequest,
+    MeTrustedContactsResponse, MeTrustedContactsSetSharesRequest, TrustedContactStatus,
 };
-use crate::app::me::dto::{DeviceSummary, Profile};
-use crate::app::me::events::ws_dto::UserEvent;
+use crate::app::me::dto::{MeDeviceSummary, MeProfile};
+use crate::app::me::events::ws_dto::MeEventsUserEvent;
 use crate::config::ApiConfig;
 use crate::libs::entities::device;
 use crate::libs::entities::sea_orm_active_enums::TrustedContactStatusEnum;
@@ -42,7 +43,7 @@ fn hash_code(code: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
-/// One user's registered devices, as `DeviceSummary`s (id + public key
+/// One user's registered devices, as `MeDeviceSummary`s (id + public key
 /// only - see its own doc comment) - every device gets its own sealed
 /// copy of whatever's meant for that user (a Shamir share, as a contact;
 /// a full recovery-key copy, as a sibling device), keyed on the device
@@ -50,21 +51,21 @@ fn hash_code(code: &str) -> String {
 pub(crate) async fn device_summaries_for(
     db: &sea_orm::DatabaseConnection,
     user_id: &str,
-) -> Vec<DeviceSummary> {
+) -> Vec<MeDeviceSummary> {
     device::Entity::find()
         .filter(device::Column::UserId.eq(user_id.to_string()))
         .all(db)
         .await
         .expect("failed to query devices")
         .into_iter()
-        .map(|row| DeviceSummary {
+        .map(|row| MeDeviceSummary {
             id: row.id.to_string(),
             public_key: row.public_key,
         })
         .collect()
 }
 
-/// Batch-fetches a minimal public `Profile` for a set of user ids - avoids
+/// Batch-fetches a minimal public `MeProfile` for a set of user ids - avoids
 /// N+1 queries when listing several trusted-contact rows at once.
 ///
 /// Two queries, not a join: `username`/`image` live on better-auth's own
@@ -75,12 +76,12 @@ pub(crate) async fn profiles_for(
     db: &sea_orm::DatabaseConnection,
     user_ids: Vec<String>,
     config: &ApiConfig,
-) -> HashMap<String, Profile> {
+) -> HashMap<String, MeProfile> {
     if user_ids.is_empty() {
         return HashMap::new();
     }
 
-    let mut devices: HashMap<String, Vec<DeviceSummary>> = HashMap::new();
+    let mut devices: HashMap<String, Vec<MeDeviceSummary>> = HashMap::new();
     for row in device::Entity::find()
         .filter(device::Column::UserId.is_in(user_ids.clone()))
         .all(db)
@@ -90,7 +91,7 @@ pub(crate) async fn profiles_for(
         devices
             .entry(row.user_id.clone())
             .or_default()
-            .push(DeviceSummary {
+            .push(MeDeviceSummary {
                 id: row.id.to_string(),
                 public_key: row.public_key,
             });
@@ -106,7 +107,7 @@ pub(crate) async fn profiles_for(
             let devices = devices.remove(&row.id).unwrap_or_default();
             (
                 row.id.clone(),
-                Profile {
+                MeProfile {
                     id: row.id,
                     username: row.username,
                     image: media::resolve_media_url(
@@ -130,7 +131,7 @@ pub(crate) async fn profiles_for(
     get,
     path = "/me/trusted-contacts/invite",
     tag = "TrustedContacts",
-    responses((status = 200, description = "Current invite code - calling this again rotates it, shown once, share it out-of-band", body = GenerateInviteResponse))
+    responses((status = 200, description = "Current invite code - calling this again rotates it, shown once, share it out-of-band", body = MeTrustedContactsGenerateInviteResponse))
 )]
 pub async fn generate_invite(
     State(state): State<AppState>,
@@ -165,7 +166,7 @@ pub async fn generate_invite(
     .await
     .expect("failed to create trusted contact invite");
 
-    Json(GenerateInviteResponse {
+    Json(MeTrustedContactsGenerateInviteResponse {
         id: id.to_string(),
         code,
         expires_at: expires_at.to_rfc3339(),
@@ -177,7 +178,7 @@ pub async fn generate_invite(
     post,
     path = "/me/trusted-contacts/redeem",
     tag = "TrustedContacts",
-    request_body = RedeemInviteRequest,
+    request_body = MeTrustedContactsRedeemInviteRequest,
     responses(
         (status = 200, description = "Code redeemed - you're now this person's trusted contact"),
         (status = 400, description = "Invalid, expired, already-used code, or your own code")
@@ -186,7 +187,7 @@ pub async fn generate_invite(
 pub async fn redeem_invite(
     State(state): State<AppState>,
     session: CurrentSession<AppAuthSchema>,
-    Json(body): Json<RedeemInviteRequest>,
+    Json(body): Json<MeTrustedContactsRedeemInviteRequest>,
 ) -> impl IntoResponse {
     let hash = hash_code(&body.code.trim().to_uppercase());
 
@@ -257,14 +258,14 @@ pub async fn redeem_invite(
 
     // Almost everything below is already in hand from the update above and
     // the caller's own session - no extra query, whether or not the owner
-    // is actually connected to `/me/ws` right now (see `ws_dto::UserEvent`'s
+    // is actually connected to `/me/ws` right now (see `ws_dto::MeEventsUserEvent`'s
     // own doc comment on why that matters). The contact's devices are the
     // one exception: they live on Pave's own `device` table, not
     // better-auth's session, so the owner can seal a share to each of them
     // the instant they see this event instead of waiting on a separate
     // list refetch.
     let contact_devices = device_summaries_for(&state.db, &session.user.id).await;
-    let contact_profile = Profile {
+    let contact_profile = MeProfile {
         id: session.user.id.clone(),
         username: contact_username.clone(),
         image: media::resolve_media_url(
@@ -276,7 +277,7 @@ pub async fn redeem_invite(
     };
     state.user_events_hub.publish(
         owner_user_id.clone(),
-        UserEvent::TrustedContactAccepted(TrustedContactResponse {
+        MeEventsUserEvent::TrustedContactAccepted(MeTrustedContactsResponse {
             id: updated.id.to_string(),
             status: TrustedContactStatus::Accepted,
             contact: Some(contact_profile),
@@ -326,7 +327,7 @@ pub async fn redeem_invite(
     get,
     path = "/me/trusted-contacts",
     tag = "TrustedContacts",
-    responses((status = 200, description = "Contacts you've designated", body = Vec<TrustedContactResponse>))
+    responses((status = 200, description = "Contacts you've designated", body = Vec<MeTrustedContactsResponse>))
 )]
 pub async fn list_trusted_contacts(
     State(state): State<AppState>,
@@ -346,7 +347,7 @@ pub async fn list_trusted_contacts(
 
     Json(
         rows.into_iter()
-            .map(|row| TrustedContactResponse {
+            .map(|row| MeTrustedContactsResponse {
                 id: row.id.to_string(),
                 status: row.status.into(),
                 contact: row
@@ -364,13 +365,13 @@ pub async fn list_trusted_contacts(
     get,
     path = "/me/trusted-contacts/as-contact",
     tag = "TrustedContacts",
-    params(AsContactQuery),
-    responses((status = 200, description = "People whose safety net you're part of", body = Vec<TrustedByResponse>))
+    params(MeTrustedContactsAsContactQuery),
+    responses((status = 200, description = "People whose safety net you're part of", body = Vec<MeTrustedContactsAsContactResponse>))
 )]
 pub async fn list_as_contact(
     State(state): State<AppState>,
     session: CurrentSession<AppAuthSchema>,
-    Query(query): Query<AsContactQuery>,
+    Query(query): Query<MeTrustedContactsAsContactQuery>,
 ) -> impl IntoResponse {
     let rows = trusted_contact::Entity::find()
         .filter(trusted_contact::Column::ContactUserId.eq(session.user.id))
@@ -405,7 +406,7 @@ pub async fn list_as_contact(
 
     Json(
         rows.into_iter()
-            .map(|row| TrustedByResponse {
+            .map(|row| MeTrustedContactsAsContactResponse {
                 encrypted_share: shares_by_trusted_contact.remove(&row.id),
                 id: row.id.to_string(),
                 status: row.status.into(),
@@ -458,7 +459,7 @@ pub async fn revoke_trusted_contact(
     // nothing else can have reached this point with a `contact_user_id` set.
     if let Some(contact_user_id) = contact_user_id {
         let owner_devices = device_summaries_for(&state.db, &session.user.id).await;
-        let owner_profile = Profile {
+        let owner_profile = MeProfile {
             id: session.user.id,
             username: session.user.username,
             image: media::resolve_media_url(
@@ -471,7 +472,7 @@ pub async fn revoke_trusted_contact(
 
         state.user_events_hub.publish(
             contact_user_id,
-            UserEvent::TrustedContactRevoked(TrustedByResponse {
+            MeEventsUserEvent::TrustedContactRevoked(MeTrustedContactsAsContactResponse {
                 id: updated.id.to_string(),
                 status: updated.status.into(),
                 owner: owner_profile,
@@ -495,7 +496,7 @@ pub async fn revoke_trusted_contact(
     put,
     path = "/me/trusted-contacts/shares",
     tag = "TrustedContacts",
-    request_body = SetSharesRequest,
+    request_body = MeTrustedContactsSetSharesRequest,
     responses(
         (status = 200, description = "Shares updated"),
         (status = 400, description = "One of the ids isn't a trusted contact you own, or one of the devices doesn't belong to that contact")
@@ -504,7 +505,7 @@ pub async fn revoke_trusted_contact(
 pub async fn set_shares(
     State(state): State<AppState>,
     session: CurrentSession<AppAuthSchema>,
-    Json(body): Json<SetSharesRequest>,
+    Json(body): Json<MeTrustedContactsSetSharesRequest>,
 ) -> impl IntoResponse {
     let owner_id = session.user.id.clone();
 
@@ -581,7 +582,7 @@ pub async fn set_shares(
     }
 
     let owner_devices = device_summaries_for(&state.db, &owner_id).await;
-    let owner_profile = Profile {
+    let owner_profile = MeProfile {
         id: owner_id,
         username: session.user.username,
         image: media::resolve_media_url(
@@ -632,7 +633,7 @@ pub async fn set_shares(
         if let Some(contact_user_id) = trusted_contact.contact_user_id.clone() {
             state.user_events_hub.publish(
                 contact_user_id,
-                UserEvent::TrustedContactShareUpdated(TrustedByResponse {
+                MeEventsUserEvent::TrustedContactShareUpdated(MeTrustedContactsAsContactResponse {
                     id: trusted_contact.id.to_string(),
                     status: trusted_contact.status.into(),
                     owner: owner_profile.clone(),

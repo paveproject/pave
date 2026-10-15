@@ -1,5 +1,5 @@
 import { queryOptions, useQuery, type QueryClient } from '@tanstack/react-query';
-import { listReports, type ReportResponse } from '@libs/api-js';
+import { listReports, type ReportsResponse } from '@libs/api-js';
 import { reportsKeys } from './reportsKeys';
 
 export interface ReportsBoundingBox {
@@ -39,7 +39,7 @@ export const useReportsQuery = (bbox: ReportsBoundingBox | undefined) => {
 export const applyReportCreated = (
   queryClient: QueryClient,
   bbox: ReportsBoundingBox,
-  report: ReportResponse,
+  report: ReportsResponse,
 ) => {
   queryClient.setQueryData(reportsOptions(bbox).queryKey, (current) => {
     if (!current) return current;

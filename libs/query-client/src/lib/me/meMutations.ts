@@ -7,8 +7,8 @@ import {
   setPushToken,
   updateMe,
   DeviceType,
-  SetPushTokenRequest,
-  UpdateMeRequest,
+  MePushTokenSetRequest,
+  MeUpdateRequest,
 } from '@libs/api-js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { devicesOptions, meOptions } from './meOptions';
@@ -16,7 +16,7 @@ import { devicesOptions, meOptions } from './meOptions';
 export const useMeUpdateMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ avatar, ...body }: UpdateMeRequest & { avatar?: File | null }) => {
+    mutationFn: async ({ avatar, ...body }: MeUpdateRequest & { avatar?: File | null }) => {
       if (avatar === null) {
         const { data, error } = await deleteAvatar();
         if (error) throw error;
@@ -44,7 +44,7 @@ export const useMeUpdateMutation = () => {
 
 export const usePushTokenUpdateMutation = () => {
   return useMutation({
-    mutationFn: async (body: SetPushTokenRequest) => {
+    mutationFn: async (body: MePushTokenSetRequest) => {
       const { error } = await setPushToken({ body });
       if (error) throw error;
     },

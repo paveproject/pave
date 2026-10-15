@@ -4,7 +4,7 @@ use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct SetPushTokenRequest {
+pub struct MePushTokenSetRequest {
     pub provider: PushProvider,
     pub token: String,
     pub device_type: DeviceType,

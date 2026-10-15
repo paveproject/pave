@@ -5,7 +5,7 @@ import { AnimatedLegendList } from '@legendapp/list/reanimated';
 import { LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { trustedByOptions } from '@libs/query-client';
-import type { TrustedByResponse } from '@libs/api-js';
+import type { MeTrustedContactsAsContactResponse } from '@libs/api-js';
 import { useFormatter, useTranslations } from 'use-intl';
 import { Text } from '../../../../components/ui/text';
 import { View } from '../../../../components/ui/view';
@@ -16,7 +16,7 @@ import { useTheme } from '../../../../providers/ThemeProvider';
 import { useDeviceId } from '../../../../hooks/useDeviceId';
 import tw from '../../../../lib/tw';
 
-const TrustedByRowItem = ({ item }: { item: TrustedByResponse }) => {
+const TrustedByRowItem = ({ item }: { item: MeTrustedContactsAsContactResponse }) => {
   const t = useTranslations();
   const format = useFormatter();
   const { theme } = useTheme();
@@ -64,7 +64,7 @@ const TrustedByScreen = () => {
   };
 
   const renderItem = useCallback(
-    ({ item }: { item: TrustedByResponse }) => <TrustedByRowItem item={item} />,
+    ({ item }: { item: MeTrustedContactsAsContactResponse }) => <TrustedByRowItem item={item} />,
     [],
   );
 

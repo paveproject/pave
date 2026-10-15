@@ -1,4 +1,4 @@
-use super::dto::SetPushTokenRequest;
+use super::dto::MePushTokenSetRequest;
 use crate::libs::entities::push_token;
 use crate::libs::entities::sea_orm_active_enums::{DeviceTypeEnum, PushProviderEnum};
 use crate::state::AppState;
@@ -21,13 +21,13 @@ use sea_orm::{
     put,
     path = "/me/push-token",
     tag = "Me",
-    request_body = SetPushTokenRequest,
+    request_body = MePushTokenSetRequest,
     responses((status = 200, description = "Push token registered"))
 )]
 pub async fn set_push_token(
     State(state): State<AppState>,
     session: CurrentSession<AppAuthSchema>,
-    Json(body): Json<SetPushTokenRequest>,
+    Json(body): Json<MePushTokenSetRequest>,
 ) -> impl IntoResponse {
     let provider: PushProviderEnum = body.provider.into();
     let device_type: DeviceTypeEnum = body.device_type.into();

@@ -1,5 +1,5 @@
 use super::hub::{self, UserEventsHub};
-use super::ws_dto::UserEvent;
+use super::ws_dto::MeEventsUserEvent;
 use crate::state::AppState;
 use auth::AppAuthSchema;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
@@ -13,7 +13,7 @@ use tokio::sync::mpsc;
 /// geo data), this one requires a session: the hub registers the
 /// connection under the session's own `user.id`, never anything
 /// client-supplied. Not part of the OpenAPI `paths` (no REST shape for a
-/// websocket) - `UserEvent` is still registered as an OpenAPI schema (see
+/// websocket) - `MeEventsUserEvent` is still registered as an OpenAPI schema (see
 /// `main.rs`) purely so the generated TS client stays type-safe.
 pub async fn user_events_ws(
     State(state): State<AppState>,
@@ -27,7 +27,7 @@ async fn handle_socket(socket: WebSocket, hub: UserEventsHub, user_id: String) {
     use futures_util::{SinkExt, StreamExt};
 
     let conn_id = hub::next_connection_id();
-    let (tx, mut rx) = mpsc::unbounded_channel::<UserEvent>();
+    let (tx, mut rx) = mpsc::unbounded_channel::<MeEventsUserEvent>();
     hub.register(conn_id, user_id, tx);
 
     let (mut sink, mut stream) = socket.split();

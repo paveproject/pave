@@ -1,4 +1,4 @@
-use super::ws_dto::UserEvent;
+use super::ws_dto::MeEventsUserEvent;
 use futures_util::StreamExt;
 use redis::aio::{PubSubSink, PubSubStream};
 use redis::AsyncCommands;
@@ -24,14 +24,14 @@ enum HubCommand {
     Register {
         conn_id: ConnectionId,
         user_id: String,
-        tx: mpsc::UnboundedSender<UserEvent>,
+        tx: mpsc::UnboundedSender<MeEventsUserEvent>,
     },
     Deregister {
         conn_id: ConnectionId,
     },
     Publish {
         user_id: String,
-        message: UserEvent,
+        message: MeEventsUserEvent,
     },
 }
 
@@ -57,7 +57,7 @@ impl UserEventsHub {
         &self,
         conn_id: ConnectionId,
         user_id: String,
-        tx: mpsc::UnboundedSender<UserEvent>,
+        tx: mpsc::UnboundedSender<MeEventsUserEvent>,
     ) {
         let _ = self.cmd_tx.send(HubCommand::Register {
             conn_id,
@@ -70,7 +70,7 @@ impl UserEventsHub {
         let _ = self.cmd_tx.send(HubCommand::Deregister { conn_id });
     }
 
-    pub fn publish(&self, user_id: String, message: UserEvent) {
+    pub fn publish(&self, user_id: String, message: MeEventsUserEvent) {
         let _ = self.cmd_tx.send(HubCommand::Publish { user_id, message });
     }
 }
@@ -78,7 +78,7 @@ impl UserEventsHub {
 #[derive(Default)]
 struct HubState {
     // Each connection's own sender plus the user id it's registered under.
-    connections: HashMap<ConnectionId, (mpsc::UnboundedSender<UserEvent>, String)>,
+    connections: HashMap<ConnectionId, (mpsc::UnboundedSender<MeEventsUserEvent>, String)>,
     // Reverse index: which connections (on this pod) care about a given
     // user id - also what decides whether we need a live Redis
     // subscription for it. Almost always zero or one entry (a user with
@@ -92,7 +92,7 @@ impl HubState {
         sink: &mut PubSubSink,
         conn_id: ConnectionId,
         user_id: String,
-        tx: mpsc::UnboundedSender<UserEvent>,
+        tx: mpsc::UnboundedSender<MeEventsUserEvent>,
     ) {
         let subscribers = self.user_subscribers.entry(user_id.clone()).or_default();
         let was_empty = subscribers.is_empty();
@@ -120,7 +120,7 @@ impl HubState {
         }
     }
 
-    fn dispatch(&self, user_id: &str, message: &UserEvent) {
+    fn dispatch(&self, user_id: &str, message: &MeEventsUserEvent) {
         let Some(conn_ids) = self.user_subscribers.get(user_id) else {
             return;
         };
@@ -183,7 +183,7 @@ async fn run(redis_url: String, mut cmd_rx: mpsc::UnboundedReceiver<HubCommand>)
             msg = stream.next() => {
                 let Some(msg) = msg else { break };
                 let Ok(payload) = msg.get_payload::<String>() else { continue };
-                let Ok(event) = serde_json::from_str::<UserEvent>(&payload) else { continue };
+                let Ok(event) = serde_json::from_str::<MeEventsUserEvent>(&payload) else { continue };
                 let channel = msg.get_channel_name();
                 let user_id = channel.strip_prefix(CHANNEL_PREFIX).unwrap_or(channel);
                 state.dispatch(user_id, &event);

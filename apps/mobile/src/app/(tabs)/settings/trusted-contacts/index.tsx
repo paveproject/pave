@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { trustedContactsOptions, useRevokeTrustedContactMutation } from '@libs/query-client';
-import type { TrustedContactResponse } from '@libs/api-js';
+import type { MeTrustedContactsResponse } from '@libs/api-js';
 import { useFormatter, useTranslations } from 'use-intl';
 import { Text } from '../../../../components/ui/text';
 import { View } from '../../../../components/ui/view';
@@ -28,7 +28,7 @@ import tw from '../../../../lib/tw';
 import { scheduleOnRN } from 'react-native-worklets';
 
 interface ContactRow {
-  readonly contact: TrustedContactResponse;
+  readonly contact: MeTrustedContactsResponse;
   readonly isLeaving: boolean;
 }
 

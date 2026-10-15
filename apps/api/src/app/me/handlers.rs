@@ -1,4 +1,6 @@
-use super::dto::{MeResponse, UpdateMeRequest, UsernameAvailableQuery, UsernameAvailableResponse};
+use super::dto::{
+    MeResponse, MeUpdateRequest, MeUsernameAvailableQuery, MeUsernameAvailableResponse,
+};
 use crate::config::ApiConfig;
 use crate::libs::entities::user as pave_user;
 use crate::libs::media;
@@ -97,13 +99,13 @@ pub async fn get_me(
     patch,
     path = "/me",
     tag = "Me",
-    request_body = UpdateMeRequest,
+    request_body = MeUpdateRequest,
     responses((status = 200, description = "Updated current user", body = MeResponse))
 )]
 pub async fn update_me(
     State(state): State<AppState>,
     session: CurrentSession<AppAuthSchema>,
-    Json(body): Json<UpdateMeRequest>,
+    Json(body): Json<MeUpdateRequest>,
 ) -> impl IntoResponse {
     let user_id = session.user.id.clone();
 
@@ -163,13 +165,13 @@ pub async fn update_me(
     get,
     path = "/me/username-available",
     tag = "Me",
-    params(UsernameAvailableQuery),
-    responses((status = 200, description = "Whether the username is free", body = UsernameAvailableResponse))
+    params(MeUsernameAvailableQuery),
+    responses((status = 200, description = "Whether the username is free", body = MeUsernameAvailableResponse))
 )]
 pub async fn check_username_available(
     State(state): State<AppState>,
     session: CurrentSession<AppAuthSchema>,
-    Query(query): Query<UsernameAvailableQuery>,
+    Query(query): Query<MeUsernameAvailableQuery>,
 ) -> impl IntoResponse {
     let taken = auth_user::Entity::find()
         .filter(auth_user::Column::Username.eq(query.username))
@@ -178,5 +180,5 @@ pub async fn check_username_available(
         .await
         .expect("failed to query username availability")
         .is_some();
-    Json(UsernameAvailableResponse { available: !taken })
+    Json(MeUsernameAvailableResponse { available: !taken })
 }

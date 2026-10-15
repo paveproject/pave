@@ -1,4 +1,4 @@
-use super::ws_dto::ServerMessage;
+use super::ws_dto::ReportsServerMessage;
 use futures_util::StreamExt;
 use redis::aio::{PubSubSink, PubSubStream};
 use redis::AsyncCommands;
@@ -27,7 +27,7 @@ fn cell_from_channel(channel: &str) -> &str {
 enum HubCommand {
     Register {
         conn_id: ConnectionId,
-        tx: mpsc::UnboundedSender<ServerMessage>,
+        tx: mpsc::UnboundedSender<ReportsServerMessage>,
     },
     Deregister {
         conn_id: ConnectionId,
@@ -38,7 +38,7 @@ enum HubCommand {
     },
     Publish {
         cells: HashSet<String>,
-        message: ServerMessage,
+        message: ReportsServerMessage,
     },
 }
 
@@ -65,7 +65,7 @@ impl ReportsHub {
         Self { cmd_tx }
     }
 
-    pub fn register(&self, conn_id: ConnectionId, tx: mpsc::UnboundedSender<ServerMessage>) {
+    pub fn register(&self, conn_id: ConnectionId, tx: mpsc::UnboundedSender<ReportsServerMessage>) {
         let _ = self.cmd_tx.send(HubCommand::Register { conn_id, tx });
     }
 
@@ -80,7 +80,7 @@ impl ReportsHub {
         let _ = self.cmd_tx.send(HubCommand::SetInterest { conn_id, cells });
     }
 
-    pub fn publish(&self, cells: HashSet<String>, message: ServerMessage) {
+    pub fn publish(&self, cells: HashSet<String>, message: ReportsServerMessage) {
         let _ = self.cmd_tx.send(HubCommand::Publish { cells, message });
     }
 }
@@ -88,7 +88,8 @@ impl ReportsHub {
 #[derive(Default)]
 struct HubState {
     // Each connection's own sender plus the cells it currently subscribes to.
-    connections: HashMap<ConnectionId, (mpsc::UnboundedSender<ServerMessage>, HashSet<String>)>,
+    connections:
+        HashMap<ConnectionId, (mpsc::UnboundedSender<ReportsServerMessage>, HashSet<String>)>,
     // Reverse index: which connections care about a given cell - this is
     // also what decides whether we need a live Redis subscription for it.
     cell_subscribers: HashMap<String, HashSet<ConnectionId>>,
@@ -154,7 +155,7 @@ impl HubState {
         }
     }
 
-    fn dispatch(&self, cell: &str, message: &ServerMessage) {
+    fn dispatch(&self, cell: &str, message: &ReportsServerMessage) {
         let Some(conn_ids) = self.cell_subscribers.get(cell) else {
             return;
         };
@@ -222,7 +223,7 @@ async fn run(redis_url: String, mut cmd_rx: mpsc::UnboundedReceiver<HubCommand>)
             msg = stream.next() => {
                 let Some(msg) = msg else { break };
                 let Ok(payload) = msg.get_payload::<String>() else { continue };
-                let Ok(event) = serde_json::from_str::<ServerMessage>(&payload) else { continue };
+                let Ok(event) = serde_json::from_str::<ReportsServerMessage>(&payload) else { continue };
                 let cell = cell_from_channel(msg.get_channel_name());
                 state.dispatch(cell, &event);
             }

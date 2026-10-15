@@ -7,7 +7,11 @@ import {
   trustedContactInviteOptions,
   trustedContactsOptions,
 } from '@libs/query-client';
-import type { TrustedByResponse, TrustedContactResponse, UserEvent } from '@libs/api-js';
+import type {
+  MeTrustedContactsAsContactResponse,
+  MeTrustedContactsResponse,
+  MeEventsUserEvent,
+} from '@libs/api-js';
 import { getSessionToken } from '../../lib/auth/session';
 import { ME_WS_URL } from '../../env/common';
 import { clearReceivedShare, getDeviceId, receiveDek, receiveShare } from '../../lib/recoveryKey';
@@ -25,7 +29,7 @@ const AuthenticatedWebSocket = WebSocket as unknown as new (
 /**
  * Merges the row the event just carried straight into the "mine" query's
  * cache - the event payload is the same shape the REST list endpoint
- * returns (see `UserEvent`'s own doc comment on the API side for why),
+ * returns (see `MeEventsUserEvent`'s own doc comment on the API side for why),
  * so there's no need to invalidate and refetch the whole list just to
  * reflect one row changing.
  *
@@ -35,7 +39,7 @@ const AuthenticatedWebSocket = WebSocket as unknown as new (
  */
 const upsertTrustedContact = (
   queryClient: ReturnType<typeof useQueryClient>,
-  contact: TrustedContactResponse,
+  contact: MeTrustedContactsResponse,
 ) => {
   queryClient.setQueryData(trustedContactsOptions().queryKey, (old) => {
     if (!old) return old;
@@ -50,7 +54,7 @@ const upsertTrustedContact = (
 const upsertTrustedBy = (
   queryClient: ReturnType<typeof useQueryClient>,
   deviceId: string | null,
-  row: TrustedByResponse,
+  row: MeTrustedContactsAsContactResponse,
 ) => {
   queryClient.setQueryData(trustedByOptions(deviceId ?? undefined).queryKey, (old) => {
     if (!old) return old;
@@ -120,7 +124,7 @@ export const useUserEventsSocket = (enabled: boolean) => {
 
       socket.onmessage = (event) => {
         try {
-          const message: UserEvent = JSON.parse(event.data);
+          const message: MeEventsUserEvent = JSON.parse(event.data);
           if (message.event === 'trusted_contact_accepted') {
             upsertTrustedContact(queryClient, message);
             // The invite query is a GET that rotates the code on every
