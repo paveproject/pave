@@ -25,7 +25,7 @@ import {
 import type { NativeSyntheticEvent } from 'react-native';
 import { useReportsQuery } from '@libs/query-client';
 import useDebounce from '../../hooks/useDebounce';
-import type { ReportResponse } from '@libs/api-js';
+import type { ReportsResponse } from '@libs/api-js';
 import { useUIStore } from '../../stores/useUIStore';
 import { useTheme } from '../../providers/ThemeProvider';
 import { useLocation } from '../../providers/LocationProvider';
@@ -238,7 +238,7 @@ const MapMap = () => {
   useReportsSocket(bbox);
 
   const reportsFeatureCollection = useMemo(() => {
-    const reports: ReportResponse[] = reportsQuery.data ?? [];
+    const reports: ReportsResponse[] = reportsQuery.data ?? [];
     return {
       type: 'FeatureCollection' as const,
       features: reports.map((report) => ({

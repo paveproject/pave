@@ -10,11 +10,11 @@ import { defaultSupportedLocale, SupportedLocale } from '../locales';
  *
  * @example
  * ```tsx
- * const fallbackLanguage = getFallbackLanguage({ locale: 'fr-CA' });
+ * const fallbackLanguage = getFallbackLanguage({ locale: 'fr-FR' });
  * ```
  * @example
  * ```tsx
- * const fallbackLanguage = getFallbackLanguage({ locale: 'en' });
+ * const fallbackLanguage = getFallbackLanguage({ locale: 'en-US' });
  * ```
  */
 export const getFallbackLocale = ({

@@ -1,11 +1,12 @@
 import { createContext, use, useCallback, useEffect, useRef, useState } from 'react';
 import { useSplashScreen } from './SplashScreenProvider';
 import { useLocaleContext } from './LocaleProvider';
+import { clearPersistedQueryCache } from './ReactQueryProvider';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MeResponse, client } from '@libs/api-js';
 import { meKeys, meOptions } from '@libs/query-client';
 import { defaultSupportedLocale, SupportedLocale, supportedLocales } from '@libs/i18n';
-import { getPendingLanguage } from '../lib/i18n';
+import { useMeSyncStore } from '../stores/useMeSyncStore';
 import { clearSessionToken, setSessionToken } from '../lib/auth/session';
 
 type AuthContextProps = {
@@ -38,6 +39,11 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
       // fresh, authenticated fetch can land.
       await queryClient.cancelQueries();
       await setSessionToken(token);
+      // Not just the in-memory cache - the persisted MMKV blob (see
+      // `clearPersistedQueryCache`'s own doc comment) can still carry
+      // whichever account was last active on this device, since it isn't
+      // actually scoped per-user today.
+      clearPersistedQueryCache();
       await queryClient.resetQueries();
     },
     [queryClient],
@@ -57,6 +63,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
     // setting `/me` straight to `null`, removes the window for that.
     await queryClient.cancelQueries();
     await clearSessionToken();
+    clearPersistedQueryCache();
     queryClient.setQueryData(meKeys.details(), null);
     await queryClient.resetQueries();
   }, [queryClient]);
@@ -74,19 +81,18 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     if (!user?.language) return;
-    (async () => {
-      // A local pick made while offline (or that otherwise failed to push,
-      // see `useLanguageSync`) hasn't reached the account yet - `user.language`
-      // here is stale in that case, not a change made elsewhere that this
-      // device should adopt. Applying it would silently revert the user's
-      // own still-unsynced pick.
-      if (await getPendingLanguage()) return;
-      setLocaleRef.current(
-        supportedLocales.includes(user.language as SupportedLocale)
-          ? (user.language as SupportedLocale)
-          : defaultSupportedLocale,
-      );
-    })();
+    // A local pick made while offline (or that otherwise failed to push,
+    // see `useMeSync`) hasn't reached the account yet - `user.language`
+    // here is stale in that case, not a change made elsewhere that this
+    // device should adopt. Applying it would silently revert the user's
+    // own still-unsynced pick. MMKV-backed, so this read is synchronous -
+    // no need for the async check this used to be.
+    if (useMeSyncStore.getState().pending.language) return;
+    setLocaleRef.current(
+      supportedLocales.includes(user.language as SupportedLocale)
+        ? (user.language as SupportedLocale)
+        : defaultSupportedLocale,
+    );
   }, [user?.language]);
 
   useEffect(() => {

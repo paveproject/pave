@@ -1,0 +1,14 @@
+{
+  "approval_requested": {
+    "title": "Pavé",
+    "body": "A new device wants access to your recovery key - review it"
+  },
+  "approved": {
+    "title": "Pavé",
+    "body": "Your device was approved and can now receive your recovery key"
+  },
+  "declined": {
+    "title": "Pavé",
+    "body": "Your device registration was declined"
+  }
+}

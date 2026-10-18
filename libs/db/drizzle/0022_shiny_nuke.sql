@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "idx_recovery_request_one_pending_per_owner" ON "recovery_request" USING btree ("owner_user_id") WHERE status = 'pending';

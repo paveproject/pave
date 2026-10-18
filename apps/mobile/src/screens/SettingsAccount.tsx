@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator } from 'react-native';
-import { Host, Button, Icon, Row, TextInput, FieldGroup, Text as NativeText } from '@expo/ui';
-import { fillMaxWidth, background as androidBackground } from '@expo/ui/jetpack-compose/modifiers';
+import { Host, Icon, Row, TextInput, FieldGroup, Text as NativeText } from '@expo/ui';
+import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { useTranslations } from 'use-intl';
 import { useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -10,6 +10,7 @@ import { View } from '../components/ui/view';
 import { FormFieldError } from '../components/ui/FormFieldError';
 import { StatusBubble } from '../components/ui/StatusBubble';
 import { FloatingFooter } from '../components/ui/FloatingFooter';
+import { NativeButton } from '../components/ui/NativeButton';
 import { Icons } from '../constants/icons';
 import { Icons as LegacyIcons } from '../constants/IconsOld';
 import { useSettingsAccountForm } from './useSettingsAccountForm';
@@ -25,7 +26,7 @@ import { useSettingsAccountForm } from './useSettingsAccountForm';
  */
 const SettingsAccount = () => {
   const t = useTranslations();
-  const { colors, theme } = useTheme();
+  const { colors, theme, mode } = useTheme();
   const { form, canSave, isUsernameChecking, isUsernameAvailable, usernameError, handleSave } =
     useSettingsAccountForm();
 
@@ -43,7 +44,14 @@ const SettingsAccount = () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, gap: theme.spaces.md }}>
-      <Host style={{ flex: 1, width: '100%' }} seedColor={colors.foreground}>
+      <Host
+        style={{ flex: 1, width: '100%' }}
+        seedColor={colors.foreground}
+        // Without this, Compose derives light/dark from the device setting
+        // (`isSystemInDarkTheme()`), so a theme forced in-app renders the
+        // Material palette of the opposite scheme.
+        colorScheme={mode}
+      >
         <FieldGroup style={{ backgroundColor: colors.background }}>
           <FieldGroup.Section>
             <Row spacing={theme.spaces.md} alignment="center">
@@ -52,7 +60,7 @@ const SettingsAccount = () => {
                 style={{ width: '100%' }}
                 textStyle={{ color: colors.foreground }}
                 defaultValue={form.getValues('username')}
-                placeholder={t('pages.settings.account.username.label')}
+                placeholder={t('messages.username')}
                 autoCapitalize="none"
                 autoCorrect={false}
                 onChangeText={(text) =>
@@ -79,7 +87,7 @@ const SettingsAccount = () => {
                 style={{ width: '100%' }}
                 textStyle={{ color: colors.foreground }}
                 defaultValue={form.getValues('email')}
-                placeholder={t('pages.settings.account.email.label')}
+                placeholder={t('messages.email')}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
@@ -101,16 +109,19 @@ const SettingsAccount = () => {
 
       <FloatingFooter height={footerHeight}>
         <Host style={{ width: '100%' }} matchContents={{ vertical: true }}>
-          <Button
-            variant="filled"
+          <NativeButton
             disabled={!canSave}
             onPress={handleSave}
-            modifiers={[fillMaxWidth(), androidBackground(colors.secondary)]}
+            colors={{
+              containerColor: colors.secondary,
+              contentColor: colors.secondaryForeground,
+            }}
+            androidModifiers={[fillMaxWidth()]}
           >
             <NativeText textStyle={{ color: colors.secondaryForeground }}>
               {t('messages.save')}
             </NativeText>
-          </Button>
+          </NativeButton>
         </Host>
       </FloatingFooter>
     </View>

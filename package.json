@@ -76,6 +76,9 @@
     "@nestjs/schedule": "^6.1.1",
     "@nestjs/swagger": "^11.2.5",
     "@nestjs/websockets": "^11.1.16",
+    "@noble/ciphers": "^2.4.0",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
     "@normy/react-query": "^0.18.0",
     "@novu/react": "^3.5.0",
     "@novu/react-native": "^3.11.1",
@@ -114,6 +117,7 @@
     "expo-auth-session": "^57.0.7",
     "expo-blur": "^57.0.2",
     "expo-build-properties": "~57.0.11",
+    "expo-camera": "~57.0.6",
     "expo-clipboard": "^57.0.1",
     "expo-constants": "^57.0.11",
     "expo-crypto": "^57.0.1",
@@ -163,12 +167,14 @@
     "react-native-draggable-flatlist": "^4.0.3",
     "react-native-enriched-markdown": "^1.0.2",
     "react-native-gesture-handler": "^2.32.0",
+    "react-native-get-random-values": "^2.0.0",
     "react-native-image-colors": "^2.5.1",
     "react-native-keyboard-controller": "^1.21.9",
     "react-native-mmkv": "^4.2.0",
     "react-native-modal-datetime-picker": "^18.0.0",
     "react-native-nitro-modules": "^0.35.0",
     "react-native-pager-view": "8.0.2",
+    "react-native-qrcode-svg": "^6.3.26",
     "react-native-reanimated": "^4.5.1",
     "react-native-reanimated-carousel": "^4.0.2",
     "react-native-safe-area-context": "^5.6.2",
@@ -193,6 +199,7 @@
     "rxjs": "^7.8.0",
     "schema-dts": "^1.1.5",
     "sf-symbols-typescript": "^2.2.0",
+    "shamir-secret-sharing": "^0.0.4",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "sonner-native": "^0.22.2",
@@ -300,5 +307,8 @@
     "*.rs": [
       "cargo fmt --"
     ]
+  },
+  "patchedDependencies": {
+    "@nozbe/watermelondb@0.28.0": "patches/@nozbe%2Fwatermelondb@0.28.0.patch"
   }
 }

@@ -3,7 +3,7 @@ import tw from '../../lib/tw';
 import * as React from 'react';
 import Animated from 'react-native-reanimated';
 
-type Variant = 'default' | 'destructive' | 'outline';
+type Variant = 'default' | 'destructive' | 'warning' | 'outline';
 
 interface BadgeTextProps extends React.ComponentPropsWithoutRef<typeof Animated.Text> {
   variant?: Variant;
@@ -19,6 +19,11 @@ const BadgeText = React.forwardRef<React.ComponentRef<typeof Animated.Text>, Bad
         case 'destructive':
           style = {
             color: colors.destructiveForeground,
+          };
+          break;
+        case 'warning':
+          style = {
+            color: colors.warningForeground,
           };
           break;
         case 'outline':
@@ -63,6 +68,11 @@ const Badge = React.forwardRef<React.ComponentRef<typeof Animated.View>, BadgePr
         case 'destructive':
           style = {
             backgroundColor: colors.destructive,
+          };
+          break;
+        case 'warning':
+          style = {
+            backgroundColor: colors.warning,
           };
           break;
         case 'outline':

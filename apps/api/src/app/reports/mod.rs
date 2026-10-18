@@ -9,6 +9,20 @@ use crate::state::AppState;
 use axum::routing::get;
 use axum::Router;
 
+/// Merged into the top-level OpenAPI doc in `main.rs`.
+#[derive(utoipa::OpenApi)]
+#[openapi(
+    paths(handlers::create_report, handlers::list_reports),
+    components(schemas(
+        dto::ReportType,
+        dto::ReportsCreateRequest,
+        dto::ReportsResponse,
+        ws_dto::ReportsClientMessage,
+        ws_dto::ReportsServerMessage
+    ))
+)]
+pub struct ApiDoc;
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(

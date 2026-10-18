@@ -12,7 +12,7 @@ const reports = () => database.get<Report>(REPORT_TABLE);
  * Writes the report locally first (so it survives being offline right now),
  * then tries to push it to the API immediately. On failure it just stays
  * `synced: false` - `pushPendingReports` retries it on the next reconnect
- * (see `hooks/useReportSync.ts`), no error is thrown back to the caller.
+ * (see `hooks/sync/useReportSync.ts`), no error is thrown back to the caller.
  */
 export const createReport = async (params: {
   type: ReportType;

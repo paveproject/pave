@@ -28,13 +28,12 @@ const WelcomeLayout = () => {
     if (!finishPromiseRef.current) {
       const previous = queryClient.getQueryData(meOptions().queryKey);
       if (previous && previous.welcomedAt == null) {
-        queryClient.setQueryData(meOptions().queryKey, {
-          ...previous,
-          welcomedAt: new Date().toISOString(),
-        });
+        queryClient.setQueryData(meOptions().queryKey, (old) =>
+          old ? { ...old, welcomedAt: new Date().toISOString() } : old,
+        );
       }
 
-      finishPromiseRef.current = updateMe({ body: { welcomed: true } })
+      finishPromiseRef.current = updateMe({ welcomed: true })
         .then(() => undefined)
         .catch(() => {
           if (previous) queryClient.setQueryData(meOptions().queryKey, previous);

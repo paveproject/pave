@@ -7,12 +7,34 @@ import {
   PersistQueryClientProviderProps,
 } from '@tanstack/react-query-persist-client';
 import { persistKey } from '../api';
-import { meKeys } from '@libs/query-client';
+import { meKeys, trustedContactsKeys } from '@libs/query-client';
 // import { useReactQueryDevTools } from "@dev-plugins/react-query";
 
 const queryStorage = createMMKV({
   id: 'react-query-cache',
 });
+
+/**
+ * Wipes the persisted react-query cache from disk (not just the in-memory
+ * `QueryClient`) - called from `AuthProvider`'s `setSession`/`logout`
+ * alongside `queryClient.resetQueries()`.
+ *
+ * The in-memory reset alone isn't enough: `PERSISTED_QUERY_KEYS` below
+ * (trusted contacts, `/me`) survive to disk specifically so the recovery-
+ * key bootstrap has something to read on a cold start, before the first
+ * refetch lands - but every account currently shares the *same* on-disk
+ * key (`queryClient-anonymous`, since `ReactQueryProvider` is never
+ * actually given a `userId` to scope it by - it can't be, sitting above
+ * `AuthProvider` in the tree). Without this, a stale blob from whichever
+ * account was last active can rehydrate as if it belonged to whoever logs
+ * in next on the same device, "fresh" for the rest of `staleTime` -
+ * exactly how a trusted-contact upload ended up carrying a *different*
+ * account's relationship ids. Clearing on every session transition closes
+ * that regardless of which account was there before.
+ */
+export const clearPersistedQueryCache = () => {
+  queryStorage.clearAll();
+};
 
 const createMMKVPersister = (key: string) => ({
   persistClient: async (client: any) => {
@@ -40,7 +62,11 @@ const createMMKVPersister = (key: string) => ({
   },
 });
 
-const PERSISTED_QUERY_KEYS = [meKeys.base, persistKey];
+// `trustedContactsKeys.base` is here so the "mine"/"as-contact" lists
+// survive a cold start, same reasoning as `meKeys.base` - the recovery-key
+// bootstrap (see `Providers.tsx`'s `RecoveryKeyBootstrap`) and its debug
+// screen both read off these on launch, before the first refetch lands.
+const PERSISTED_QUERY_KEYS = [meKeys.base, trustedContactsKeys.base, persistKey];
 
 const createQueryClient = () =>
   new QueryClient({

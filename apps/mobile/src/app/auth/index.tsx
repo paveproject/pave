@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Platform } from 'react-native';
-import { Host, Button, Icon, Row, Text as NativeText } from '@expo/ui';
+import { Host, Button as UIButton, Icon, Row, Text as NativeText } from '@expo/ui';
 import {
   buttonStyle,
   controlSize,
@@ -8,11 +8,13 @@ import {
   frame,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
-import { fillMaxWidth, background as androidBackground } from '@expo/ui/jetpack-compose/modifiers';
+import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { useTheme } from '../../providers/ThemeProvider';
 import { Stack, useRouter } from 'expo-router';
 import tw from '../../lib/tw';
 import { Input } from '../../components/ui/Input';
+import { Button } from '../../components/ui/Button';
+import { NativeButton } from '../../components/ui/NativeButton';
 import { Icons as LegacyIcons } from '../../constants/IconsOld';
 import { useTranslations } from 'use-intl';
 import * as z from 'zod';
@@ -29,6 +31,7 @@ import { useModalHeaderOptions } from '../../hooks/useModalHeaderOptions';
 import { useAuth } from '../../providers/AuthProvider';
 import { useLocaleContext } from '../../providers/LocaleProvider';
 import { useHeaderHeight } from 'expo-router/react-navigation';
+import { isAndroid, isIpad } from '../../platform/detection';
 
 const OTP_LENGTH = 6;
 
@@ -51,6 +54,7 @@ const AuthScreen = () => {
   const navigationHeaderHeight = useHeaderHeight();
   const [showOtp, setShowOtp] = useState(false);
   const [otp, setOtp] = useState('');
+  const bottomInset = isIpad || isAndroid ? insets.bottom : 0;
 
   const { mutateAsync: sendOtp, isPending: isSending } = useSendOtpMutation();
   const { mutateAsync: verifyOtp, isPending: isVerifying } = useVerifyOtpMutation();
@@ -66,7 +70,7 @@ const AuthScreen = () => {
     async (data: EmailFormValues) => {
       try {
         await sendOtp({ email: data.email, lang: locale });
-        toast.success(t('form.code_sent'));
+        toast.success(t('messages.code_sent'));
         setShowOtp(true);
       } catch (error) {
         toast.error(t('messages.an_error_occurred'));
@@ -82,14 +86,14 @@ const AuthScreen = () => {
         const { token } = await verifyOtp({ email: formGetValues('email'), code });
         await setSession(token);
         logger.metric('account:loggedIn', { logContext: 'AuthScreen' });
-        toast.success(t('form.code_verified'));
+        toast.success(t('messages.code_verified'));
         if (router.canGoBack()) {
           router.back();
         } else {
           router.replace({ pathname: '/(tabs)/(home)' });
         }
       } catch (error) {
-        toast.error(t('form.error.invalid_code'));
+        toast.error(t('messages.invalid_or_expired_code'));
         logger.metric('account:loginFailed', { logContext: 'AuthScreen', reason: String(error) });
       } finally {
         setOtp('');
@@ -103,19 +107,47 @@ const AuthScreen = () => {
     toast.info(t('messages.coming_soon'));
   }, [toast, t]);
 
-  const socialButtonModifiers =
-    Platform.OS === 'ios'
-      ? [
-          buttonStyle('glassProminent'),
-          controlSize('extraLarge'),
-          tint(colors.muted),
-          foregroundStyle(colors.foreground),
-        ]
-      : [fillMaxWidth(), androidBackground(colors.muted)];
+  const socialButtonIosModifiers = [
+    buttonStyle('glassProminent'),
+    controlSize('extraLarge'),
+    tint(colors.muted),
+    foregroundStyle(colors.foreground),
+  ];
+  const socialButtonColors = {
+    containerColor: colors.muted,
+    contentColor: colors.foreground,
+  };
 
   return (
     <>
-      <Stack.Screen options={modalHeaderOptions} />
+      <Stack.Screen options={isAndroid ? { headerShown: false } : modalHeaderOptions} />
+      {isAndroid && (
+        <View
+          style={[
+            tw`flex-row items-center`,
+            {
+              paddingTop: theme.spaces.sm,
+              paddingBottom: theme.spaces.sm,
+              paddingLeft: insets.left + theme.spaces.horizontal,
+              paddingRight: insets.right + theme.spaces.horizontal,
+            },
+          ]}
+        >
+          <Button
+            variant="muted"
+            size="icon"
+            icon={LegacyIcons.X}
+            disabled={isLoading}
+            onPress={() => router.dismiss()}
+            style={tw`rounded-full`}
+          />
+          <View pointerEvents="none" style={tw`items-center justify-center absolute inset-0`}>
+            <Text variant="title" numberOfLines={1}>
+              {t('messages.sign_in')}
+            </Text>
+          </View>
+        </View>
+      )}
       <View
         style={[
           tw`flex-1 justify-start items-center`,
@@ -124,7 +156,7 @@ const AuthScreen = () => {
             paddingTop: navigationHeaderHeight + theme.spaces.vertical,
             paddingLeft: insets.left + theme.spaces.horizontal,
             paddingRight: insets.right + theme.spaces.horizontal,
-            // paddingBottom: insets.bottom + theme.spaces.vertical,
+            paddingBottom: bottomInset,
           },
         ]}
       >
@@ -136,7 +168,7 @@ const AuthScreen = () => {
               render={({ field: { onChange, onBlur, value } }) => (
                 <Input
                   nativeID="email"
-                  placeholder={t('form.email.label')}
+                  placeholder={t('messages.email')}
                   autoComplete="email"
                   autoCapitalize="none"
                   value={value}
@@ -149,20 +181,20 @@ const AuthScreen = () => {
               )}
             />
             <Host style={{ width: '100%' }} matchContents={{ vertical: true }}>
-              <Button
-                variant="filled"
+              <NativeButton
                 disabled={isLoading}
                 onPress={form.handleSubmit(handleSendOtp)}
-                modifiers={
-                  Platform.OS === 'ios'
-                    ? [
-                        buttonStyle('glassProminent'),
-                        controlSize('extraLarge'),
-                        tint(colors.secondary),
-                        foregroundStyle(colors.secondaryForeground),
-                      ]
-                    : [fillMaxWidth(), androidBackground(colors.secondary)]
-                }
+                colors={{
+                  containerColor: colors.secondary,
+                  contentColor: colors.secondaryForeground,
+                }}
+                iosModifiers={[
+                  buttonStyle('glassProminent'),
+                  controlSize('extraLarge'),
+                  tint(colors.secondary),
+                  foregroundStyle(colors.secondaryForeground),
+                ]}
+                androidModifiers={[fillMaxWidth()]}
               >
                 <NativeText
                   textStyle={{ color: colors.secondaryForeground, textAlign: 'center' }}
@@ -173,9 +205,9 @@ const AuthScreen = () => {
                     Platform.OS === 'ios' ? [frame({ maxWidth: Infinity })] : [fillMaxWidth()]
                   }
                 >
-                  {t('pages.auth.otp.form.submit')}
+                  {t('messages.continue')}
                 </NativeText>
-              </Button>
+              </NativeButton>
             </Host>
 
             <View style={tw`flex-row items-center gap-3`}>
@@ -188,10 +220,11 @@ const AuthScreen = () => {
 
             <View style={{ gap: theme.spaces.md, width: '100%' }}>
               <Host style={{ width: '100%' }} matchContents={{ vertical: true }}>
-                <Button
-                  variant="filled"
+                <NativeButton
                   onPress={handleSocialPlaceholder}
-                  modifiers={socialButtonModifiers}
+                  colors={socialButtonColors}
+                  iosModifiers={socialButtonIosModifiers}
+                  androidModifiers={[fillMaxWidth()]}
                 >
                   <Row
                     alignment="center"
@@ -215,13 +248,14 @@ const AuthScreen = () => {
                       <NativeText textStyle={{ color: colors.foreground }}>Google</NativeText>
                     </Row>
                   </Row>
-                </Button>
+                </NativeButton>
               </Host>
               <Host style={{ width: '100%' }} matchContents={{ vertical: true }}>
-                <Button
-                  variant="filled"
+                <NativeButton
                   onPress={handleSocialPlaceholder}
-                  modifiers={socialButtonModifiers}
+                  colors={socialButtonColors}
+                  iosModifiers={socialButtonIosModifiers}
+                  androidModifiers={[fillMaxWidth()]}
                 >
                   <Row
                     alignment="center"
@@ -251,16 +285,16 @@ const AuthScreen = () => {
                       <NativeText textStyle={{ color: colors.foreground }}>Apple</NativeText>
                     </Row>
                   </Row>
-                </Button>
+                </NativeButton>
               </Host>
             </View>
           </View>
         ) : (
           <>
             <View style={tw`gap-2 items-center`}>
-              <Text variant="title">{t('pages.auth.otp.confirm_form.label')}</Text>
+              <Text variant="title">{t('messages.check_your_email')}</Text>
               <Text textColor="muted">
-                {t('pages.auth.otp.confirm_form.description', {
+                {t('messages.enter_code_sent_to_email', {
                   email: formGetValues('email'),
                 })}
               </Text>
@@ -272,11 +306,11 @@ const AuthScreen = () => {
               onComplete={handleVerifyOtp}
             />
             <View style={tw`items-center`}>
-              <Text textColor="muted">{t('form.error.not_received_code')} </Text>
+              <Text textColor="muted">{t('messages.not_received_code')} </Text>
               <Host matchContents>
-                <Button
+                <UIButton
                   variant="text"
-                  label={t('form.resend_code')}
+                  label={t('messages.resend_code')}
                   disabled={isLoading}
                   onPress={form.handleSubmit(handleSendOtp)}
                 />

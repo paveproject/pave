@@ -16,9 +16,9 @@ export const USERNAME_MAX = 20;
 export const usernameSchema = (t: ReturnType<typeof useTranslations>) =>
   z
     .string()
-    .min(USERNAME_MIN, { message: t('form.username.schema.min', { count: USERNAME_MIN }) })
-    .max(USERNAME_MAX, { message: t('form.username.schema.max', { count: USERNAME_MAX }) })
-    .regex(/^[a-zA-Z0-9_.]+$/, { message: t('form.username.schema.format') });
+    .min(USERNAME_MIN, { message: t('messages.min_count_characters', { count: USERNAME_MIN }) })
+    .max(USERNAME_MAX, { message: t('messages.max_count_characters', { count: USERNAME_MAX }) })
+    .regex(/^[a-zA-Z0-9_.]+$/, { message: t('messages.username_format') });
 
 /**
  * Debounces the form's `username` field and checks it against the server

@@ -1,13 +1,13 @@
 use super::dto::{AppPlatform, AppVersionStatus, StatusResponse, VersionStatus};
 use super::headers::AppHeaders;
 use super::version_rules::{evaluate_status, max_version, VersionPolicy};
-use crate::libs::entities::sea_orm_active_enums::AppPlatformEnum;
-use crate::libs::entities::sea_orm_active_enums::VersionReleaseStateEnum;
-use crate::libs::entities::version_policy;
-use sea_orm::sea_query::OnConflict;
+use db_rs::sea_orm_active_enums::AppPlatformEnum;
+use db_rs::sea_orm_active_enums::VersionReleaseStateEnum;
+use db_rs::version_policy;
+use sea_orm::sea_query::{Expr, OnConflict};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseBackend, DatabaseConnection, DbErr,
-    EntityTrait, FromQueryResult, IntoActiveModel, QueryFilter, Statement,
+    ActiveValue::Set, ColumnTrait, DatabaseBackend, DatabaseConnection, DbErr, EntityTrait,
+    FromQueryResult, QueryFilter, Statement,
 };
 
 #[derive(Debug, FromQueryResult)]
@@ -57,38 +57,40 @@ async fn live_versions_for_platform(
 /// `app` is `None` for callers that never sent their app headers - they get
 /// a neutral `up_to_date` back.
 pub async fn get_status(db: &DatabaseConnection, app: Option<AppHeaders>) -> StatusResponse {
-    let is_maintenance = is_maintenance(db).await;
+    // Independent of each other - resolved concurrently.
+    let version_future = async {
+        match app {
+            None => AppVersionStatus {
+                status: VersionStatus::UpToDate,
+                min_version: None,
+                latest_version: None,
+            },
+            Some(app) => {
+                let rows = live_versions_for_platform(db, app.platform).await;
+                let min_version = max_version(
+                    rows.iter()
+                        .filter(|row| row.is_breaking)
+                        .map(|row| row.version.as_str()),
+                );
+                let latest_version = max_version(rows.iter().map(|row| row.version.as_str()));
 
-    let version = match app {
-        None => AppVersionStatus {
-            status: VersionStatus::UpToDate,
-            min_version: None,
-            latest_version: None,
-        },
-        Some(app) => {
-            let rows = live_versions_for_platform(db, app.platform).await;
-            let min_version = max_version(
-                rows.iter()
-                    .filter(|row| row.is_breaking)
-                    .map(|row| row.version.as_str()),
-            );
-            let latest_version = max_version(rows.iter().map(|row| row.version.as_str()));
+                let status = evaluate_status(
+                    &app.version,
+                    &VersionPolicy {
+                        min_version: min_version.clone(),
+                        latest_version: latest_version.clone(),
+                    },
+                );
 
-            let status = evaluate_status(
-                &app.version,
-                &VersionPolicy {
-                    min_version: min_version.clone(),
-                    latest_version: latest_version.clone(),
-                },
-            );
-
-            AppVersionStatus {
-                status,
-                min_version,
-                latest_version,
+                AppVersionStatus {
+                    status,
+                    min_version,
+                    latest_version,
+                }
             }
         }
     };
+    let (is_maintenance, version) = tokio::join!(is_maintenance(db), version_future);
 
     StatusResponse {
         is_maintenance,
@@ -139,7 +141,11 @@ pub async fn update_version_policy(
         .do_nothing()
         .to_owned(),
     )
-    .exec(db)
+    // `.exec()` treats the `DO NOTHING` branch's zero-rows-affected as
+    // `DbErr::RecordNotInserted` (it can't return a row to read the id
+    // back from) - exactly the case this upsert exists to tolerate (CD
+    // retrying the same version report), so it has to be this instead.
+    .exec_without_returning(db)
     .await
     .map_err(UpdateVersionPolicyError::Db)?;
 
@@ -147,26 +153,29 @@ pub async fn update_version_policy(
 }
 
 /// Called once a store confirms `version` is actually available (see
-/// `apps/api/src/app/webhooks/app_store_connect`). A plain update, not an
-/// upsert - [`update_version_policy`] is what creates the row (with the
-/// right `is_breaking`); if it hasn't run yet, this is a no-op rather than
-/// guessing.
+/// `apps/api/src/app/webhooks/app_store_connect`). A direct conditional
+/// update, not a find-then-update or an upsert - [`update_version_policy`]
+/// is what creates the row (with the right `is_breaking`); if it hasn't
+/// run yet, this naturally touches zero rows rather than guessing.
 pub async fn confirm_version_live(
     db: &DatabaseConnection,
     platform: AppPlatform,
     version: String,
 ) -> Result<(), DbErr> {
     let platform_enum: AppPlatformEnum = platform.into();
-    let existing = version_policy::Entity::find_by_id((platform_enum, version))
-        .one(db)
+    version_policy::Entity::update_many()
+        .col_expr(
+            version_policy::Column::State,
+            Expr::value(VersionReleaseStateEnum::Live),
+        )
+        .col_expr(
+            version_policy::Column::UpdatedAt,
+            Expr::value(chrono::Utc::now()),
+        )
+        .filter(version_policy::Column::Platform.eq(platform_enum))
+        .filter(version_policy::Column::Version.eq(version))
+        .exec(db)
         .await?;
-
-    if let Some(model) = existing {
-        let mut active = model.into_active_model();
-        active.state = Set(VersionReleaseStateEnum::Live);
-        active.updated_at = Set(chrono::Utc::now().into());
-        active.update(db).await?;
-    }
 
     Ok(())
 }

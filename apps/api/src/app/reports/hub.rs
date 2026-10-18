@@ -1,4 +1,4 @@
-use super::ws_dto::ServerMessage;
+use super::ws_dto::ReportsServerMessage;
 use futures_util::StreamExt;
 use redis::aio::{PubSubSink, PubSubStream};
 use redis::AsyncCommands;
@@ -27,7 +27,7 @@ fn cell_from_channel(channel: &str) -> &str {
 enum HubCommand {
     Register {
         conn_id: ConnectionId,
-        tx: mpsc::UnboundedSender<ServerMessage>,
+        tx: mpsc::UnboundedSender<ReportsServerMessage>,
     },
     Deregister {
         conn_id: ConnectionId,
@@ -38,7 +38,7 @@ enum HubCommand {
     },
     Publish {
         cells: HashSet<String>,
-        message: ServerMessage,
+        message: ReportsServerMessage,
     },
 }
 
@@ -65,7 +65,7 @@ impl ReportsHub {
         Self { cmd_tx }
     }
 
-    pub fn register(&self, conn_id: ConnectionId, tx: mpsc::UnboundedSender<ServerMessage>) {
+    pub fn register(&self, conn_id: ConnectionId, tx: mpsc::UnboundedSender<ReportsServerMessage>) {
         let _ = self.cmd_tx.send(HubCommand::Register { conn_id, tx });
     }
 
@@ -80,7 +80,7 @@ impl ReportsHub {
         let _ = self.cmd_tx.send(HubCommand::SetInterest { conn_id, cells });
     }
 
-    pub fn publish(&self, cells: HashSet<String>, message: ServerMessage) {
+    pub fn publish(&self, cells: HashSet<String>, message: ReportsServerMessage) {
         let _ = self.cmd_tx.send(HubCommand::Publish { cells, message });
     }
 }
@@ -88,7 +88,8 @@ impl ReportsHub {
 #[derive(Default)]
 struct HubState {
     // Each connection's own sender plus the cells it currently subscribes to.
-    connections: HashMap<ConnectionId, (mpsc::UnboundedSender<ServerMessage>, HashSet<String>)>,
+    connections:
+        HashMap<ConnectionId, (mpsc::UnboundedSender<ReportsServerMessage>, HashSet<String>)>,
     // Reverse index: which connections care about a given cell - this is
     // also what decides whether we need a live Redis subscription for it.
     cell_subscribers: HashMap<String, HashSet<ConnectionId>>,
@@ -154,7 +155,7 @@ impl HubState {
         }
     }
 
-    fn dispatch(&self, cell: &str, message: &ServerMessage) {
+    fn dispatch(&self, cell: &str, message: &ReportsServerMessage) {
         let Some(conn_ids) = self.cell_subscribers.get(cell) else {
             return;
         };
@@ -183,7 +184,7 @@ async fn run(redis_url: String, mut cmd_rx: mpsc::UnboundedReceiver<HubCommand>)
         }
     };
 
-    let mut publish_conn = match client.get_connection_manager().await {
+    let publish_conn = match client.get_connection_manager().await {
         Ok(conn) => conn,
         Err(err) => {
             tracing::error!(%err, "reports hub: failed to open redis connection for publishing");
@@ -209,20 +210,33 @@ async fn run(redis_url: String, mut cmd_rx: mpsc::UnboundedReceiver<HubCommand>)
                     }
                     HubCommand::Publish { cells, message } => {
                         let Ok(payload) = serde_json::to_string(&message) else { continue };
-                        for cell in cells {
-                            let res: redis::RedisResult<i64> =
-                                publish_conn.publish(channel_name(&cell), payload.clone()).await;
-                            if let Err(err) = res {
-                                tracing::warn!(cell, %err, "failed to publish report event");
+                        // Up to 9 cells (the point's own plus its 8
+                        // neighbors - see `geohash_util::cells_for_point`) -
+                        // published concurrently rather than one round
+                        // trip at a time, since this actor is the only
+                        // thing handling fan-out for the whole pod and
+                        // would otherwise block on each in turn.
+                        // `ConnectionManager` clones are cheap and share
+                        // the same underlying connection.
+                        let publishes = cells.into_iter().map(|cell| {
+                            let mut conn = publish_conn.clone();
+                            let payload = payload.clone();
+                            async move {
+                                let res: redis::RedisResult<i64> =
+                                    conn.publish(channel_name(&cell), payload).await;
+                                if let Err(err) = res {
+                                    tracing::warn!(cell, %err, "failed to publish report event");
+                                }
                             }
-                        }
+                        });
+                        futures_util::future::join_all(publishes).await;
                     }
                 }
             }
             msg = stream.next() => {
                 let Some(msg) = msg else { break };
                 let Ok(payload) = msg.get_payload::<String>() else { continue };
-                let Ok(event) = serde_json::from_str::<ServerMessage>(&payload) else { continue };
+                let Ok(event) = serde_json::from_str::<ReportsServerMessage>(&payload) else { continue };
                 let cell = cell_from_channel(msg.get_channel_name());
                 state.dispatch(cell, &event);
             }

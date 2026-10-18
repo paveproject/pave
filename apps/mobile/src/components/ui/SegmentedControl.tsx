@@ -16,7 +16,7 @@ const SegmentedControl = forwardRef<RNSegmentedControl, SegmentedControlProps>(
     const getTintColor = (): string => {
       switch (variant) {
         default:
-          return colors.background;
+          return colors.secondary;
       }
     };
     const getFontStyle = (): FontStyle => {
@@ -31,7 +31,7 @@ const SegmentedControl = forwardRef<RNSegmentedControl, SegmentedControlProps>(
       switch (variant) {
         default:
           return {
-            color: colors.primary,
+            color: colors.secondaryForeground,
           };
       }
     };

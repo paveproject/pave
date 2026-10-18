@@ -79,7 +79,7 @@ const SettingsAccount = () => {
                 the 0/`USERNAME_MIN` character boundaries where the error
                 message starts/stops existing. */}
             <Section
-              title={t('pages.settings.account.username.label')}
+              title={t('messages.username')}
               footer={<FormFieldError message={usernameError} />}
             >
               <HStack
@@ -94,7 +94,7 @@ const SettingsAccount = () => {
                 />
                 <TextField
                   text={usernameField}
-                  placeholder={t('pages.settings.account.username.label')}
+                  placeholder={t('messages.username')}
                   onTextChange={(text) =>
                     form.setValue('username', text, { shouldValidate: true, shouldDirty: true })
                   }
@@ -125,10 +125,7 @@ const SettingsAccount = () => {
               </HStack>
             </Section>
 
-            <Section
-              title={t('pages.settings.account.email.label')}
-              footer={<FormFieldError message={emailError} />}
-            >
+            <Section title={t('messages.email')} footer={<FormFieldError message={emailError} />}>
               <HStack
                 spacing={theme.spaces.md}
                 alignment="center"
@@ -141,7 +138,7 @@ const SettingsAccount = () => {
                 />
                 <TextField
                   text={emailField}
-                  placeholder={t('pages.settings.account.email.label')}
+                  placeholder={t('messages.email')}
                   onTextChange={(text) =>
                     form.setValue('email', text, { shouldValidate: true, shouldDirty: true })
                   }

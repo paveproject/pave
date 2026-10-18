@@ -1,0 +1,204 @@
+{
+  "messages": {
+    "welcome": "Bienvenue",
+    "home": "Accueil",
+    "map": "Carte",
+    "report": "Signaler",
+    "otp": "Code de vérification",
+    "an_error_occurred": "Une erreur est survenue",
+    "or": "Ou",
+    "coming_soon": "Bientôt disponible",
+    "sign_in": "Se connecter",
+    "settings": "Réglages",
+    "appearance": "Apparence",
+    "account": "Mon compte",
+    "trusted_contacts": "Contacts de confiance",
+    "devices": "Appareils",
+    "recovery": "Récupération",
+    "language": "Langue",
+    "theme": "Thème",
+    "system": "Système",
+    "light": "Clair",
+    "dark": "Sombre",
+    "add": "Ajouter",
+    "cancel": "Annuler",
+    "continue": "Continuer",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "save": "Enregistrer",
+    "sign_out": "Se déconnecter",
+    "are_u_sure": "Êtes-vous sûr ?",
+    "debug_mode_enabled": "Mode debug activé",
+    "debug_mode_disabled": "Mode debug désactivé",
+    "ok": "OK",
+    "later": "Plus tard",
+    "update_now": "Mettre à jour",
+    "update_available_title": "Mise à jour disponible",
+    "update_available_message": "Une nouvelle version de l'application est disponible. Certaines fonctionnalités peuvent ne pas fonctionner correctement jusqu'à la mise à jour.",
+    "greeting_with_name": "{timeOfDay, select, night {Bonsoir, {name}} evening {Bonsoir, {name}} other {Bonjour, {name}}}",
+    "greeting": "{timeOfDay, select, night {Bonsoir} evening {Bonsoir} other {Bonjour}}",
+    "location_denied": "L'accès à la position est requis",
+    "try_again": "Réessayer",
+    "remove": "Retirer",
+    "refresh": "Actualiser",
+    "redeem": "Valider",
+    "review": "Valider",
+    "open_settings": "Ouvrir les réglages",
+    "code_copied": "Code copié",
+    "copied": "{gender, select, female {{count, plural, one {Copiée} other {Copiées}}} other {{count, plural, one {Copié} other {Copiés}}}}",
+    "no_username": "Pas de nom d'utilisateur",
+    "pending": "En attente",
+    "active": "Actif",
+    "declined": "Refusé",
+    "revoked": "Révoqué",
+    "expires_in_value_hours": "Expire dans {value} heures",
+    "value_character_code": "Code à {count} caractère{count, plural, one {} other {s}}",
+    "username": "Nom d'utilisateur",
+    "username_updated": "Nom d'utilisateur mis à jour",
+    "email": "Email",
+    "change_email": "Changer l'email",
+    "email_updated": "Email mis à jour",
+    "invalid_email": "Adresse email invalide",
+    "min_count_characters": "Doit contenir au moins {count} caractères",
+    "max_count_characters": "Doit contenir au maximum {count} caractères",
+    "minutes_count": "{count} minute{count, plural, one {} other {s}}",
+    "hours_count": "{count} heure{count, plural, one {} other {s}}",
+    "days_count": "{count} jour{count, plural, one {} other {s}}",
+    "on": "Activé",
+    "off": "Désactivé",
+    "username_format": "Seules les lettres, chiffres, underscores et points sont autorisés",
+    "username_unavailable": "Ce nom d'utilisateur est déjà pris",
+    "code_sent": "Code envoyé",
+    "code_verified": "Code vérifié",
+    "resend_code": "Renvoyer le code",
+    "invalid_or_expired_code": "Code invalide ou expiré",
+    "not_received_code": "Vous n'avez pas reçu de code ?",
+    "check_your_email": "Vérifiez vos emails",
+    "enter_code_sent_to_email": "Entrez le code envoyé à {email}",
+    "choose_a_username": "Choisissez un nom d'utilisateur",
+    "share_my_code": "Partager mon code",
+    "scan_my_code": "Scanner un code",
+    "scan_code_or_enter_code_manually": "Scannez leur QR code, ou entrez leur code manuellement.",
+    "or_enter_manually": "Ou entrez-le manuellement :",
+    "camera_access_needed_to_scan_code": "L'accès à la caméra est nécessaire pour scanner un code.",
+    "grant_camera_access": "Autoriser la caméra",
+    "my_contacts": "Mes contacts",
+    "trusts_me": "Me font confiance"
+  },
+  "pages": {
+    "auth": {
+      "complete": {
+        "description": "Choisissez un nom d'utilisateur pour finaliser la création de votre compte."
+      }
+    },
+    "welcome": {
+      "description": "On vous a choisi un nom d'utilisateur - gardez-le, ou faites-le vôtre."
+    },
+    "protest_mode": {
+      "title": "Mode manif",
+      "description": "Raccourcit le délai obligatoire avant que vos contacts de confiance puissent vous aider à récupérer votre compte - pour quand perdre un appareil compte plus que d'habitude."
+    },
+    "pending_actions": {
+      "device": {
+        "title": "Nouvel appareil",
+        "body": "Un nouvel appareil demande l'accès à votre clé de récupération. N'approuvez que si vous le reconnaissez.",
+        "location": "{city}, {country}",
+        "location_approximate": "Position approximative, basée sur l'adresse IP",
+        "approve": "Approuver",
+        "approve_confirm_title": "Approuver cet appareil ?",
+        "approve_confirm_message": "Il pourra recevoir une copie de votre clé de récupération.",
+        "decline": "Refuser"
+      },
+      "recovery_request": {
+        "title": "Demande de récupération",
+        "body": "{ownerName} a perdu l'accès à tous ses appareils et vous demande, en tant que contact de confiance, de l'aider à récupérer sa clé.",
+        "approve": "Approuver",
+        "approve_confirm_title": "Transmettre votre part ?",
+        "approve_confirm_message": "Cette action est irréversible. Ne le faites que si vous êtes sûr qu'il s'agit bien de {ownerName}.",
+        "decline": "Refuser",
+        "someone": "Quelqu'un"
+      },
+      "own_device": {
+        "title": "En attente d'approbation",
+        "body": "Cet appareil attend qu'un de vos autres appareils l'approuve avant de pouvoir recevoir votre clé de récupération.",
+        "approvers_label": "Peut être approuvé depuis :",
+        "recovery": {
+          "start": "Je n'ai accès à aucun de mes autres appareils",
+          "start_short": "Aucun accès ? démarrer la récupération",
+          "start_confirm_title": "Démarrer la récupération du compte ?",
+          "start_confirm_message": "Cela supprime définitivement tous les autres appareils de votre compte et demande à vos contacts de confiance de vous aider à récupérer l'accès. Cette action est irréversible.",
+          "no_contacts": "Il vous faut au moins un contact de confiance accepté pour récupérer l'accès de cette façon.",
+          "title": "Récupération en cours",
+          "delay_body": "Pour votre sécurité, les réponses de vos contacts de confiance ne pourront être utilisées qu'à partir du {releaseAt}.",
+          "waiting_shares_body": "En attente de réponses suffisantes de vos contacts de confiance.",
+          "progress": "{approved} approuvé(s), {declined} refusé(s) ({total} contacts sollicités)",
+          "cancel": "Annuler la récupération",
+          "cancel_confirm_title": "Annuler la récupération ?",
+          "cancel_confirm_message": "Vos contacts de confiance seront informés que ce n'est plus nécessaire.",
+          "impossible": "Il ne reste plus assez de contacts de confiance pouvant approuver cette demande. Annulez-la et relancez-en une nouvelle."
+        }
+      }
+    },
+    "settings": {
+      "recovery": {
+        "resend": "Renvoyer la demande",
+        "resend_success": "Demande renvoyée",
+        "active_title": "Clé de récupération active",
+        "active_body": "Cet appareil a déjà accès à votre clé de récupération.",
+        "declined_title": "Non approuvé",
+        "declined_body": "La demande de cet appareil a été refusée, ou il a été retiré de votre compte. Enregistrez-le à nouveau pour refaire une demande.",
+        "register_again": "Enregistrer à nouveau",
+        "delay": "Délai de récupération",
+        "protest_delay": "Délai en mode manif"
+      },
+      "trusted_contacts": {
+        "empty": {
+          "mine": "Aucun contact de confiance pour l'instant",
+          "trusted_by": "Personne ne vous a encore ajouté"
+        },
+        "revoke_confirm_title": "Retirer ce contact ?",
+        "revoke_confirm_message": "Il ne fera plus partie de vos contacts de confiance.",
+        "add": {
+          "title": "Ajouter un contact de confiance",
+          "share": {
+            "description": "Montrez ce QR code, ou partagez le code ci-dessous à voix haute ou par message."
+          },
+          "success": "Contact de confiance ajouté"
+        }
+      },
+      "devices": {
+        "empty": "Aucun appareil enregistré pour l'instant",
+        "this_device": "Cet appareil",
+        "pending": "En attente",
+        "revoke_confirm_title": "Retirer cet appareil ?",
+        "revoke_confirm_message": "Il cessera de recevoir les mises à jour de votre clé de récupération."
+      }
+    },
+    "map": {
+      "report": {
+        "title": "Que se passe-t-il ?",
+        "no_location": "Impossible d'obtenir votre position - réessayez dans un instant.",
+        "created": "Signalement envoyé",
+        "types": {
+          "tear_gas": "Gaz lacrymogène",
+          "police_presence": "Présence policière",
+          "arrest": "Arrestation",
+          "violence": "Violence",
+          "road_block": "Route bloquée",
+          "medical": "Urgence médicale",
+          "water_cannon": "Canon à eau",
+          "kettling": "Nasse",
+          "other": "Autre"
+        }
+      },
+      "settings": {
+        "title": "Style de carte",
+        "styles": {
+          "default": "Par défaut",
+          "satellite": "Satellite"
+        }
+      }
+    }
+  }
+}

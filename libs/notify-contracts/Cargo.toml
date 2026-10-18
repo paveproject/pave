@@ -6,5 +6,10 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+# `PushContent` derives `ToSchema` purely so `api` can register it as an
+# OpenAPI component with no path of its own - see its own doc comment on
+# why the generated TS type is what the mobile client's
+# `NotificationsProvider` switches on, instead of a hand-duplicated type.
+utoipa = "6.0.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

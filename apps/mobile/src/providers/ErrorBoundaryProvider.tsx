@@ -8,16 +8,16 @@ import { ErrorBoundaryProps } from 'expo-router';
 import { setStringAsync } from 'expo-clipboard';
 import { useTranslations } from 'use-intl';
 import { useCallback, useEffect } from 'react';
-import { Platform, Pressable } from 'react-native';
-import { Host, Icon, Button } from '@expo/ui';
+import { Pressable } from 'react-native';
+import { Host, Icon } from '@expo/ui';
 import { buttonStyle, controlSize, tint } from '@expo/ui/swift-ui/modifiers';
-import { background as androidBackground } from '@expo/ui/jetpack-compose/modifiers';
 import { ToastProvider, useToast } from '../components/Toast';
 import { logger } from '../logger';
 import { View } from '../components/ui/view';
 import tw from '../lib/tw';
 import { Icons } from '../constants/icons';
 import { Text } from '../components/ui/text';
+import { NativeButton } from '../components/ui/NativeButton';
 
 const ErrorBoundaryInner = ({ error, retry }: ErrorBoundaryProps) => {
   const { colors, theme } = useTheme();
@@ -34,11 +34,6 @@ const ErrorBoundaryInner = ({ error, retry }: ErrorBoundaryProps) => {
       context: 'GlobalErrorBoundary',
     });
   }, [error]);
-
-  const retryButtonModifiers =
-    Platform.OS === 'ios'
-      ? [buttonStyle('glassProminent'), controlSize('extraLarge'), tint(colors.destructive)]
-      : [androidBackground(colors.destructive)];
 
   return (
     <View style={tw`flex-1 justify-center items-center p-4 gap-4`}>
@@ -58,7 +53,19 @@ const ErrorBoundaryInner = ({ error, retry }: ErrorBoundaryProps) => {
         <Text>{error.message}</Text>
       </Pressable>
       <Host matchContents>
-        <Button label={t('messages.try_again')} onPress={retry} modifiers={retryButtonModifiers} />
+        <NativeButton
+          label={t('messages.try_again')}
+          onPress={retry}
+          colors={{
+            containerColor: colors.destructive,
+            contentColor: colors.destructiveForeground,
+          }}
+          iosModifiers={[
+            buttonStyle('glassProminent'),
+            controlSize('extraLarge'),
+            tint(colors.destructive),
+          ]}
+        />
       </Host>
     </View>
   );

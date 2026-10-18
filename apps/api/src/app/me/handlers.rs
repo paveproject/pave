@@ -1,71 +1,55 @@
-use super::dto::{MeResponse, UpdateMeRequest, UsernameAvailableQuery, UsernameAvailableResponse};
-use crate::libs::entities::user as pave_user;
+use super::dto::{
+    MeResponse, MeUpdateRequest, MeUsernameAvailableQuery, MeUsernameAvailableResponse,
+};
+use crate::config::ApiConfig;
+use crate::libs::media;
 use crate::state::AppState;
 use auth::schema::user as auth_user;
 use auth::AppAuthSchema;
 use axum::extract::{Query, State};
+use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use better_auth::integrations::axum::{CurrentSession, OptionalSession};
 use chrono::Utc;
+use db_rs::user as pave_user;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait,
     IntoActiveModel, QueryFilter, TryIntoModel,
 };
 
-/// Pave's own `user` row isn't created by better-auth-rs (it only owns the
-/// `auth` schema's 4 tables) - there's no signup hook yet to create it, so
-/// any handler reading or writing it has to be able to create it on first
-/// access instead of assuming it already exists.
-pub(crate) async fn ensure_pave_user_row(
-    db: &DatabaseConnection,
-    user_id: &str,
-) -> pave_user::Model {
-    if let Some(existing) = pave_user::Entity::find_by_id(user_id.to_string())
+/// Pave's own `user` row - created atomically alongside the `auth.users`
+/// one by `libs::auth_hooks::CreatePaveUserRowHook`, so every real user
+/// already has it by the time anything here runs.
+pub(crate) async fn find_pave_user_row(db: &DatabaseConnection, user_id: &str) -> pave_user::Model {
+    pave_user::Entity::find_by_id(user_id.to_string())
         .one(db)
         .await
         .expect("failed to query user")
-    {
-        return existing;
-    }
-
-    pave_user::ActiveModel {
-        id: Set(user_id.to_string()),
-        // Matches `defaultSupportedLocale` in libs/i18n - not the stale
-        // 'en-US' the Drizzle column default was left at (pre-existing
-        // mismatch: the FK to i18n.supported_languages only has 'en'/'fr').
-        language: Set("en".to_string()),
-        welcomed_at: Set(None),
-        username_updated_at: Set(None),
-    }
-    .insert(db)
-    .await
-    .expect("failed to create user row")
+        .expect("pave user row missing - CreatePaveUserRowHook should have created it at signup")
 }
 
 pub(crate) fn to_me_response(
     auth_user: auth_user::Model,
     pave_user: pave_user::Model,
+    config: &ApiConfig,
 ) -> MeResponse {
     MeResponse {
         id: auth_user.id,
         email: auth_user.email,
         email_verified: auth_user.email_verified,
         name: auth_user.name,
-        username: auth_user.username,
-        image: auth_user.image,
+        username: auth_user
+            .display_username
+            .expect("display_username is NOT NULL in db"),
+        image: media::resolve_media_url(auth_user.image.as_deref(), media::AVATARS_FOLDER, config),
         language: pave_user.language,
         welcomed_at: pave_user.welcomed_at.map(|d| d.to_rfc3339()),
         username_updated_at: pave_user.username_updated_at.map(|d| d.to_rfc3339()),
+        protest_mode_enabled: pave_user.protest_mode_enabled,
+        recovery_delay_seconds: pave_user.recovery_delay_seconds,
+        recovery_delay_protest_seconds: pave_user.recovery_delay_protest_seconds,
     }
-}
-
-async fn find_auth_user(db: &DatabaseConnection, user_id: &str) -> auth_user::Model {
-    auth_user::Entity::find_by_id(user_id.to_string())
-        .one(db)
-        .await
-        .expect("failed to query auth user")
-        .expect("auth user not found")
 }
 
 #[utoipa::path(
@@ -82,21 +66,25 @@ pub async fn get_me(
         return Json(None::<MeResponse>);
     };
 
-    let pave_user_row = ensure_pave_user_row(&state.db, &session.user.id).await;
-    Json(Some(to_me_response(session.user, pave_user_row)))
+    let pave_user_row = find_pave_user_row(&state.db, &session.user.id).await;
+    Json(Some(to_me_response(
+        session.user,
+        pave_user_row,
+        &state.config,
+    )))
 }
 
 #[utoipa::path(
     patch,
     path = "/me",
     tag = "Me",
-    request_body = UpdateMeRequest,
+    request_body = MeUpdateRequest,
     responses((status = 200, description = "Updated current user", body = MeResponse))
 )]
 pub async fn update_me(
     State(state): State<AppState>,
     session: CurrentSession<AppAuthSchema>,
-    Json(body): Json<UpdateMeRequest>,
+    Json(body): Json<MeUpdateRequest>,
 ) -> impl IntoResponse {
     let user_id = session.user.id.clone();
 
@@ -111,18 +99,50 @@ pub async fn update_me(
         auth_changed = true;
     }
     if let Some(username) = body.username.clone() {
-        auth_active.username = Set(Some(username));
+        auth_active.username = Set(Some(username.to_lowercase()));
+        auth_active.display_username = Set(Some(username));
         auth_changed = true;
     }
-    if auth_changed {
-        auth_user::Entity::update(auth_active)
-            .exec(&state.db)
-            .await
-            .expect("failed to update auth user");
+
+    // Independent of each other (different tables) - resolved
+    // concurrently. `update(...).exec()` already returns the full
+    // updated model, and the session already has it when nothing
+    // changed - no final refetch needed either way.
+    let auth_update = async {
+        if auth_changed {
+            auth_user::Entity::update(auth_active)
+                .exec(&state.db)
+                .await
+                .expect("failed to update auth user")
+        } else {
+            session.user
+        }
+    };
+    let (auth_user_row, pave_user_row) =
+        tokio::join!(auth_update, find_pave_user_row(&state.db, &user_id));
+
+    // Protest mode must stay strictly faster than the normal delay - check
+    // against the EFFECTIVE values (whichever of the two this request is
+    // also changing, else whatever's already stored), same invariant the
+    // DB's own check constraint enforces.
+    let effective_delay = body
+        .recovery_delay_seconds
+        .unwrap_or(pave_user_row.recovery_delay_seconds);
+    let effective_protest_delay = body
+        .recovery_delay_protest_seconds
+        .unwrap_or(pave_user_row.recovery_delay_protest_seconds);
+    if (body.recovery_delay_seconds.is_some() || body.recovery_delay_protest_seconds.is_some())
+        && effective_protest_delay >= effective_delay
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            "protest mode delay must be shorter than the normal delay",
+        )
+            .into_response();
     }
 
-    // Language/welcome flow/username cooldown are Pave's own fields.
-    let pave_user_row = ensure_pave_user_row(&state.db, &user_id).await;
+    // Language/welcome flow/username cooldown/recovery delays are Pave's
+    // own fields.
     let mut pave_active = pave_user_row.into_active_model();
     let mut pave_changed = false;
     if let Some(language) = body.language {
@@ -137,6 +157,18 @@ pub async fn update_me(
         pave_active.username_updated_at = Set(Some(Utc::now().into()));
         pave_changed = true;
     }
+    if let Some(protest_mode_enabled) = body.protest_mode_enabled {
+        pave_active.protest_mode_enabled = Set(protest_mode_enabled);
+        pave_changed = true;
+    }
+    if let Some(recovery_delay_seconds) = body.recovery_delay_seconds {
+        pave_active.recovery_delay_seconds = Set(recovery_delay_seconds);
+        pave_changed = true;
+    }
+    if let Some(recovery_delay_protest_seconds) = body.recovery_delay_protest_seconds {
+        pave_active.recovery_delay_protest_seconds = Set(recovery_delay_protest_seconds);
+        pave_changed = true;
+    }
     let pave_user_row = if pave_changed {
         pave_active
             .update(&state.db)
@@ -148,28 +180,27 @@ pub async fn update_me(
             .expect("active model missing fields")
     };
 
-    let auth_user_row = find_auth_user(&state.db, &user_id).await;
-    Json(to_me_response(auth_user_row, pave_user_row))
+    Json(to_me_response(auth_user_row, pave_user_row, &state.config)).into_response()
 }
 
 #[utoipa::path(
     get,
     path = "/me/username-available",
     tag = "Me",
-    params(UsernameAvailableQuery),
-    responses((status = 200, description = "Whether the username is free", body = UsernameAvailableResponse))
+    params(MeUsernameAvailableQuery),
+    responses((status = 200, description = "Whether the username is free", body = MeUsernameAvailableResponse))
 )]
 pub async fn check_username_available(
     State(state): State<AppState>,
     session: CurrentSession<AppAuthSchema>,
-    Query(query): Query<UsernameAvailableQuery>,
+    Query(query): Query<MeUsernameAvailableQuery>,
 ) -> impl IntoResponse {
     let taken = auth_user::Entity::find()
-        .filter(auth_user::Column::Username.eq(query.username))
+        .filter(auth_user::Column::Username.eq(query.username.to_lowercase()))
         .filter(auth_user::Column::Id.ne(session.user.id))
         .one(&state.db)
         .await
         .expect("failed to query username availability")
         .is_some();
-    Json(UsernameAvailableResponse { available: !taken })
+    Json(MeUsernameAvailableResponse { available: !taken })
 }

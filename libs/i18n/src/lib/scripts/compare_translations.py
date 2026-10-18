@@ -2,7 +2,7 @@ import json
 import os
 import sys
 
-REFERENCE_FILE = "en.json"
+REFERENCE_FILE = "en-US.json"
 
 def flatten_dict(d, parent_key="", sep="."):
     """Flatten nested dictionaries (e.g. {"a": {"b": "c"}} -> {"a.b": "c"})"""

@@ -7,49 +7,49 @@
 
 use axum::Json;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{OpenApi, ToSchema};
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
-pub struct SendOtpRequest {
+pub struct AuthOtpSendRequest {
     pub email: String,
-    /// `"en"` | `"fr"`, defaults to `"en"` when omitted.
+    /// `"en-US"` | `"fr-FR"`, defaults to `"en-US"` when omitted.
     pub lang: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-pub struct SendOtpResponse {
+pub struct AuthOtpSendResponse {
     pub success: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
-pub struct VerifyOtpRequest {
+pub struct AuthOtpVerifyRequest {
     pub email: String,
     pub code: String,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-pub struct VerifyOtpResponse {
+pub struct AuthOtpVerifyResponse {
     /// Pass back as `Authorization: Bearer <token>` on every later request.
     pub token: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
-pub struct SendChangeEmailOtpRequest {
+pub struct AuthOtpSendChangeEmailRequest {
     #[serde(rename = "newEmail")]
     pub new_email: String,
-    /// `"en"` | `"fr"`, defaults to `"en"` when omitted.
+    /// `"en-US"` | `"fr-FR"`, defaults to `"en-US"` when omitted.
     pub lang: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
-pub struct VerifyChangeEmailOtpRequest {
+pub struct AuthOtpVerifyChangeEmailRequest {
     #[serde(rename = "newEmail")]
     pub new_email: String,
     pub code: String,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-pub struct VerifyChangeEmailOtpResponse {
+pub struct AuthOtpVerifyChangeEmailResponse {
     pub success: bool,
 }
 
@@ -57,14 +57,14 @@ pub struct VerifyChangeEmailOtpResponse {
     post,
     path = "/auth/otp/send",
     tag = "Auth",
-    request_body = SendOtpRequest,
-    responses((status = 200, description = "Code sent", body = SendOtpResponse))
+    request_body = AuthOtpSendRequest,
+    responses((status = 200, description = "Code sent", body = AuthOtpSendResponse))
 )]
 #[allow(
     dead_code,
     reason = "referenced by ApiDoc's paths(), never actually called"
 )]
-pub async fn send_otp() -> Json<SendOtpResponse> {
+pub async fn send_otp() -> Json<AuthOtpSendResponse> {
     unreachable!("documentation only - routed by auth::OtpPlugin")
 }
 
@@ -72,14 +72,14 @@ pub async fn send_otp() -> Json<SendOtpResponse> {
     post,
     path = "/auth/otp/verify",
     tag = "Auth",
-    request_body = VerifyOtpRequest,
-    responses((status = 200, description = "Signed in", body = VerifyOtpResponse))
+    request_body = AuthOtpVerifyRequest,
+    responses((status = 200, description = "Signed in", body = AuthOtpVerifyResponse))
 )]
 #[allow(
     dead_code,
     reason = "referenced by ApiDoc's paths(), never actually called"
 )]
-pub async fn verify_otp() -> Json<VerifyOtpResponse> {
+pub async fn verify_otp() -> Json<AuthOtpVerifyResponse> {
     unreachable!("documentation only - routed by auth::OtpPlugin")
 }
 
@@ -89,14 +89,14 @@ pub async fn verify_otp() -> Json<VerifyOtpResponse> {
     post,
     path = "/auth/otp/change-email/send",
     tag = "Auth",
-    request_body = SendChangeEmailOtpRequest,
-    responses((status = 200, description = "Code sent to the new address", body = SendOtpResponse))
+    request_body = AuthOtpSendChangeEmailRequest,
+    responses((status = 200, description = "Code sent to the new address", body = AuthOtpSendResponse))
 )]
 #[allow(
     dead_code,
     reason = "referenced by ApiDoc's paths(), never actually called"
 )]
-pub async fn send_change_email_otp() -> Json<SendOtpResponse> {
+pub async fn send_change_email_otp() -> Json<AuthOtpSendResponse> {
     unreachable!("documentation only - routed by auth::OtpPlugin")
 }
 
@@ -106,13 +106,31 @@ pub async fn send_change_email_otp() -> Json<SendOtpResponse> {
     post,
     path = "/auth/otp/change-email/verify",
     tag = "Auth",
-    request_body = VerifyChangeEmailOtpRequest,
-    responses((status = 200, description = "Email changed", body = VerifyChangeEmailOtpResponse))
+    request_body = AuthOtpVerifyChangeEmailRequest,
+    responses((status = 200, description = "Email changed", body = AuthOtpVerifyChangeEmailResponse))
 )]
 #[allow(
     dead_code,
     reason = "referenced by ApiDoc's paths(), never actually called"
 )]
-pub async fn verify_change_email_otp() -> Json<VerifyChangeEmailOtpResponse> {
+pub async fn verify_change_email_otp() -> Json<AuthOtpVerifyChangeEmailResponse> {
     unreachable!("documentation only - routed by auth::OtpPlugin")
 }
+
+/// This module's own slice of the OpenAPI doc - merged into the top-level
+/// one in `main.rs`, so adding a path/schema here never requires touching
+/// that file.
+#[derive(OpenApi)]
+#[openapi(
+    paths(send_otp, verify_otp, send_change_email_otp, verify_change_email_otp),
+    components(schemas(
+        AuthOtpSendRequest,
+        AuthOtpSendResponse,
+        AuthOtpVerifyRequest,
+        AuthOtpVerifyResponse,
+        AuthOtpSendChangeEmailRequest,
+        AuthOtpVerifyChangeEmailRequest,
+        AuthOtpVerifyChangeEmailResponse
+    ))
+)]
+pub struct ApiDoc;

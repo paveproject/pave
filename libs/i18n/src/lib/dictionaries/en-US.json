@@ -1,0 +1,204 @@
+{
+  "messages": {
+    "welcome": "Welcome",
+    "home": "Home",
+    "map": "Map",
+    "report": "Report",
+    "otp": "Verification code",
+    "an_error_occurred": "An error occurred",
+    "or": "Or",
+    "coming_soon": "Coming soon",
+    "sign_in": "Sign in",
+    "settings": "Settings",
+    "appearance": "Appearance",
+    "account": "My account",
+    "trusted_contacts": "Trusted contacts",
+    "devices": "Devices",
+    "recovery": "Recovery",
+    "language": "Language",
+    "theme": "Theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark",
+    "add": "Add",
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "save": "Save",
+    "sign_out": "Sign out",
+    "are_u_sure": "Are you sure?",
+    "debug_mode_enabled": "Debug mode enabled",
+    "debug_mode_disabled": "Debug mode disabled",
+    "ok": "OK",
+    "later": "Later",
+    "update_now": "Update now",
+    "update_available_title": "Update available",
+    "update_available_message": "A new version of the app is available. Some features may not work correctly until you update.",
+    "greeting_with_name": "{timeOfDay, select, morning {Good morning, {name}} afternoon {Good afternoon, {name}} evening {Good evening, {name}} night {Good night, {name}} other {Hello, {name}}}",
+    "greeting": "{timeOfDay, select, morning {Good morning} afternoon {Good afternoon} evening {Good evening} night {Good night} other {Hello}}",
+    "location_denied": "Location access is required",
+    "try_again": "Try again",
+    "remove": "Remove",
+    "refresh": "Refresh",
+    "redeem": "Redeem",
+    "review": "Review",
+    "open_settings": "Open settings",
+    "code_copied": "Code copied",
+    "copied": "Copied",
+    "no_username": "No username",
+    "pending": "Pending",
+    "active": "Active",
+    "declined": "Declined",
+    "revoked": "Revoked",
+    "expires_in_value_hours": "Expires in {value} hours",
+    "value_character_code": "{count}-character code",
+    "username": "Username",
+    "username_updated": "Username updated",
+    "email": "Email",
+    "change_email": "Change email",
+    "email_updated": "Email updated",
+    "invalid_email": "Invalid email address",
+    "min_count_characters": "Must be at least {count} characters",
+    "max_count_characters": "Must be at most {count} characters",
+    "minutes_count": "{count, plural, one {{count} minute} other {{count} minutes}}",
+    "hours_count": "{count, plural, one {{count} hour} other {{count} hours}}",
+    "days_count": "{count, plural, one {{count} day} other {{count} days}}",
+    "on": "On",
+    "off": "Off",
+    "username_format": "Only letters, numbers, underscores and dots are allowed",
+    "username_unavailable": "This username is already taken",
+    "code_sent": "Code sent",
+    "code_verified": "Code verified",
+    "resend_code": "Resend code",
+    "invalid_or_expired_code": "Invalid or expired code",
+    "not_received_code": "Didn't receive a code?",
+    "check_your_email": "Check your email",
+    "enter_code_sent_to_email": "Enter the code we sent to {email}",
+    "choose_a_username": "Choose a username",
+    "share_my_code": "Share my code",
+    "scan_my_code": "Scan a code",
+    "scan_code_or_enter_code_manually": "Scan their QR code, or enter their code manually.",
+    "or_enter_manually": "Or enter it manually:",
+    "camera_access_needed_to_scan_code": "Camera access is needed to scan a code.",
+    "grant_camera_access": "Grant camera access",
+    "my_contacts": "My contacts",
+    "trusts_me": "Trusts me"
+  },
+  "pages": {
+    "auth": {
+      "complete": {
+        "description": "Pick a username to finish setting up your account."
+      }
+    },
+    "welcome": {
+      "description": "We've picked a username for you - keep it, or make it yours."
+    },
+    "protest_mode": {
+      "title": "Protest mode",
+      "description": "Shortens the mandatory delay before your trusted contacts can help you recover your account - for when losing a device matters more urgently than usual."
+    },
+    "pending_actions": {
+      "device": {
+        "title": "New device",
+        "body": "A new device wants access to your recovery key. Only approve this if you recognize it.",
+        "location": "{city}, {country}",
+        "location_approximate": "Approximate location, based on IP address",
+        "approve": "Approve",
+        "approve_confirm_title": "Approve this device?",
+        "approve_confirm_message": "It will be able to receive a copy of your recovery key.",
+        "decline": "Decline"
+      },
+      "recovery_request": {
+        "title": "Recovery request",
+        "body": "{ownerName} lost access to all their devices and is asking you, as a trusted contact, to help them recover their key.",
+        "approve": "Approve",
+        "approve_confirm_title": "Release your share?",
+        "approve_confirm_message": "This can't be undone. Only do this if you're sure it's really {ownerName} asking.",
+        "decline": "Decline",
+        "someone": "Someone"
+      },
+      "own_device": {
+        "title": "Waiting for approval",
+        "body": "This device is waiting for one of your other devices to approve it before it can receive your recovery key.",
+        "approvers_label": "Can be approved from:",
+        "recovery": {
+          "start": "I don't have access to any of my other devices",
+          "start_short": "No access? start recovery",
+          "start_confirm_title": "Start account recovery?",
+          "start_confirm_message": "This permanently removes every other device from your account and asks your trusted contacts to help you recover access instead. This can't be undone.",
+          "no_contacts": "You'll need at least one accepted trusted contact before you can recover access this way.",
+          "title": "Recovery in progress",
+          "delay_body": "For your security, your trusted contacts' responses won't be usable until {releaseAt}.",
+          "waiting_shares_body": "Waiting for enough of your trusted contacts to respond.",
+          "progress": "{approved} approved, {declined} declined ({total} contacts asked)",
+          "cancel": "Cancel recovery",
+          "cancel_confirm_title": "Cancel recovery?",
+          "cancel_confirm_message": "Your trusted contacts will be notified that this is no longer needed.",
+          "impossible": "Not enough of your trusted contacts can still approve this request. Cancel it and start a new one."
+        }
+      }
+    },
+    "settings": {
+      "recovery": {
+        "resend": "Resend request",
+        "resend_success": "Request sent again",
+        "active_title": "Recovery key active",
+        "active_body": "This device already has access to your recovery key.",
+        "declined_title": "Not approved",
+        "declined_body": "This device's request was declined, or it was removed from your account. Register it again to ask once more.",
+        "register_again": "Register again",
+        "delay": "Recovery delay",
+        "protest_delay": "Protest mode delay"
+      },
+      "trusted_contacts": {
+        "empty": {
+          "mine": "No trusted contacts yet",
+          "trusted_by": "Nobody has added you yet"
+        },
+        "revoke_confirm_title": "Remove this contact?",
+        "revoke_confirm_message": "They will no longer be part of your trusted contacts.",
+        "add": {
+          "title": "Add a trusted contact",
+          "share": {
+            "description": "Show this QR code, or share the code below out loud or by text."
+          },
+          "success": "Trusted contact added"
+        }
+      },
+      "devices": {
+        "empty": "No devices registered yet",
+        "this_device": "This device",
+        "pending": "Pending",
+        "revoke_confirm_title": "Remove this device?",
+        "revoke_confirm_message": "It will stop receiving updates to your recovery key."
+      }
+    },
+    "map": {
+      "report": {
+        "title": "What's happening?",
+        "no_location": "Can't get your location - try again in a moment.",
+        "created": "Report sent",
+        "types": {
+          "tear_gas": "Tear gas",
+          "police_presence": "Police presence",
+          "arrest": "Arrest",
+          "violence": "Violence",
+          "road_block": "Road block",
+          "medical": "Medical emergency",
+          "water_cannon": "Water cannon",
+          "kettling": "Kettling",
+          "other": "Other"
+        }
+      },
+      "settings": {
+        "title": "Map style",
+        "styles": {
+          "default": "Default",
+          "satellite": "Satellite"
+        }
+      }
+    }
+  }
+}

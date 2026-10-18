@@ -5,7 +5,7 @@
 mod apns;
 mod fcm;
 
-use notify_contracts::{PushNotificationPayload, PushProvider};
+use notify_contracts::PushProvider;
 
 pub struct PushSender {
     fcm: Option<fcm::FcmClient>,
@@ -46,34 +46,55 @@ impl PushSender {
         }
     }
 
-    pub async fn send(&self, payload: &PushNotificationPayload) {
-        let result = match payload.provider {
+    /// `title`/`body` are already-rendered, already-localized text - the
+    /// caller (`dispatch.rs`) resolves those from the job's `content`/`lang`
+    /// via `Dictionaries` before calling this; this layer only ever talks
+    /// to the provider, it has no i18n concerns of its own.
+    pub async fn send(
+        &self,
+        provider: PushProvider,
+        token: &str,
+        title: &str,
+        body: &str,
+        data: &serde_json::Value,
+    ) {
+        let result = match provider {
             PushProvider::Fcm => match &self.fcm {
-                Some(client) => {
-                    client
-                        .send(&payload.token, &payload.title, &payload.body, &payload.data)
-                        .await
-                }
+                Some(client) => client.send(token, title, body, data).await,
                 None => Err("FCM not configured".to_string()),
             },
             PushProvider::Apns => match (&self.apns, &self.apns_bundle_id) {
                 (Some(client), Some(topic)) => {
-                    apns::send(
-                        client,
-                        topic,
-                        &payload.token,
-                        &payload.title,
-                        &payload.body,
-                        &payload.data,
-                    )
-                    .await
+                    apns::send(client, topic, token, title, body, data).await
                 }
                 _ => Err("APNs not configured".to_string()),
             },
         };
 
         if let Err(err) = result {
-            tracing::error!(%err, provider = ?payload.provider, "failed to send push notification");
+            tracing::error!(%err, ?provider, "failed to send push notification");
         }
+    }
+
+    /// One provider, one language group, many tokens - fired concurrently
+    /// per token, same as the Firebase Admin SDK's `sendEachForMulticast`
+    /// and `node-apn`'s `provider.send(note, tokens)` actually do under the
+    /// hood: neither FCM's HTTP v1 API nor APNs has a true wire-level batch
+    /// endpoint, so "batching" here means one aggregated result over many
+    /// concurrent requests, not one HTTP call.
+    pub async fn send_batch(
+        &self,
+        provider: PushProvider,
+        tokens: &[String],
+        title: &str,
+        body: &str,
+        data: &serde_json::Value,
+    ) {
+        futures_util::future::join_all(
+            tokens
+                .iter()
+                .map(|token| self.send(provider, token, title, body, data)),
+        )
+        .await;
     }
 }

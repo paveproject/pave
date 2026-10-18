@@ -1,4 +1,4 @@
-use super::dto::ListReportsQuery;
+use super::dto::ReportsListQuery;
 use geohash::{encode, neighbors, Coord};
 use std::collections::HashSet;
 
@@ -12,7 +12,7 @@ pub const GEOHASH_PRECISION: usize = 5;
 /// The set of cells covering a viewport. A viewport usually spans several
 /// cells, so this grid-steps across the bbox rather than encoding a single
 /// point.
-pub fn cells_for_bbox(query: &ListReportsQuery) -> HashSet<String> {
+pub fn cells_for_bbox(query: &ReportsListQuery) -> HashSet<String> {
     let mut cells = HashSet::new();
 
     // One cell's lat/lng span at our precision, taken from an arbitrary

@@ -36,7 +36,7 @@ const ChangeEmailScreen = () => {
   const handleResend = useCallback(async () => {
     try {
       await sendChangeEmailOtp({ newEmail, lang: locale });
-      toast.success(t('form.code_sent'));
+      toast.success(t('messages.code_sent'));
     } catch (error) {
       toast.error(t('messages.an_error_occurred'));
       logger.error('change-email resend error', { error });
@@ -47,10 +47,10 @@ const ChangeEmailScreen = () => {
     async (code: string) => {
       try {
         await verifyChangeEmailOtp({ newEmail, code });
-        toast.success(t('pages.settings.account.email.updated'));
+        toast.success(t('messages.email_updated'));
         router.back();
       } catch (error) {
-        toast.error(t('form.error.invalid_code'));
+        toast.error(t('messages.invalid_or_expired_code'));
         logger.error('change-email verify error', { error });
       } finally {
         setOtp('');
@@ -74,7 +74,7 @@ const ChangeEmailScreen = () => {
       >
         <View style={tw`gap-2 items-center`}>
           <Text textColor="muted">
-            {t('pages.auth.otp.confirm_form.description', { email: newEmail })}
+            {t('messages.enter_code_sent_to_email', { email: newEmail })}
           </Text>
         </View>
         <InputOTP
@@ -85,11 +85,11 @@ const ChangeEmailScreen = () => {
           disabled={isVerifying}
         />
         <View style={tw`items-center`}>
-          <Text textColor="muted">{t('form.error.not_received_code')} </Text>
+          <Text textColor="muted">{t('messages.not_received_code')} </Text>
           <Host matchContents>
             <Button
               variant="text"
-              label={t('form.resend_code')}
+              label={t('messages.resend_code')}
               disabled={isResending}
               onPress={handleResend}
             />

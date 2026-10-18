@@ -11,61 +11,33 @@ import { useTranslations } from 'use-intl';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { useAuth } from '../../../providers/AuthProvider';
 import { useLocaleContext } from '../../../providers/LocaleProvider';
-import { useMeUpdateMutation } from '@libs/query-client';
-import { setPendingLanguage } from '../../../lib/i18n';
-import { supportedLocales, type SupportedLocale } from '@libs/i18n';
-import type { ThemeVariant } from '../../../stores/useUIStore';
+import { usePushMeField } from '../../../hooks/usePushMeField';
 import { View } from '../../../components/ui/view';
 import { Icons } from '../../../constants/icons';
-
-// Language names are shown in their own language, never translated - the
-// standard convention for a language picker (so you can find yours even if
-// the app is currently stuck in one you don't read).
-const LOCALE_LABELS: Record<SupportedLocale, string> = {
-  en: 'English',
-  fr: 'Français',
-};
-
-const THEME_VARIANTS: ThemeVariant[] = ['system', 'light', 'dark'];
+import useLocalizedLanguageName from '../../../hooks/useLocalizedLanguageName';
+import { useThemes } from '../../../hooks/useThemes';
 
 const AppearanceScreen = () => {
   const t = useTranslations();
-  const { colors, theme, themePreference, setThemePreference } = useTheme();
+  const { colors, theme, mode, themePreference, setThemePreference } = useTheme();
   const { locale, setLocale } = useLocaleContext();
   const { user } = useAuth();
-  const { mutateAsync: updateMe } = useMeUpdateMutation();
+  const pushMeField = usePushMeField();
+  const localizedLanguageNames = useLocalizedLanguageName();
+  const themes = useThemes();
 
-  // The app is offline-first - picking a language must work with no
-  // network at all, so `setLocale` (local, instant) never waits on this.
-  // The account's `language` field is what the user's own pick gets
-  // synced to (so e.g. emails/push notifications land in the right
-  // language) - marked "pending" first so it survives being offline right
-  // now: `AuthProvider` won't let the account's (stale) value override the
-  // local pick while a sync is still pending, and `useLanguageSync` retries
-  // this same push once a connection is back, in case this attempt below
-  // fails. Signed out, there's no account row to update - local-only is
-  // the only option, and also the correct one.
   const handleLocaleChange = useCallback(
     async (newLocale: string) => {
       setLocale(newLocale);
       if (!user) return;
-      await setPendingLanguage(newLocale);
-      try {
-        await updateMe({ language: newLocale });
-        await setPendingLanguage(null);
-      } catch {
-        // Offline (or the request otherwise failed) - stays pending,
-        // `useLanguageSync` picks it up on the next reconnect.
-      }
+      await pushMeField({ language: newLocale });
     },
-    [setLocale, updateMe, user],
+    [setLocale, pushMeField, user],
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* FieldGroup is a scrollable container with no intrinsic size to
-          hug - this Host must fill the available space, not matchContents. */}
-      <Host style={{ flex: 1, width: '100%' }} seedColor={colors.foreground}>
+      <Host style={{ flex: 1, width: '100%' }} seedColor={colors.foreground} colorScheme={mode}>
         <FieldGroup
           style={{ backgroundColor: colors.background }}
           modifiers={
@@ -90,12 +62,8 @@ const AppearanceScreen = () => {
               </NativeText>
               <Spacer flexible />
               <Picker selectedValue={locale} onValueChange={handleLocaleChange}>
-                {supportedLocales.map((supportedLocale) => (
-                  <Picker.Item
-                    key={supportedLocale}
-                    label={LOCALE_LABELS[supportedLocale]}
-                    value={supportedLocale}
-                  />
+                {localizedLanguageNames.map(({ locale: supportedLocale, name }) => (
+                  <Picker.Item key={supportedLocale} label={name} value={supportedLocale} />
                 ))}
               </Picker>
             </Row>
@@ -113,8 +81,8 @@ const AppearanceScreen = () => {
               </NativeText>
               <Spacer flexible />
               <Picker selectedValue={themePreference} onValueChange={setThemePreference}>
-                {THEME_VARIANTS.map((variant) => (
-                  <Picker.Item key={variant} label={t(`messages.${variant}`)} value={variant} />
+                {themes.map((variant) => (
+                  <Picker.Item key={variant.value} label={variant.label} value={variant.value} />
                 ))}
               </Picker>
             </Row>

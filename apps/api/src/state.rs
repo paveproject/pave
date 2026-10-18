@@ -1,10 +1,13 @@
+use crate::app::me::events::hub::UserEventsHub;
 use crate::app::reports::hub::ReportsHub;
 use crate::config::ApiConfig;
 use crate::libs::app_store_connect::AppStoreConnectClient;
+use crate::libs::geoip::GeoIp;
 use auth::AppAuthSchema;
 use aws_sdk_s3::Client as S3Client;
 use axum::extract::FromRef;
 use better_auth::BetterAuth;
+use bullmq_rs::Queue;
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
@@ -15,6 +18,13 @@ pub struct AppState {
     pub db: DatabaseConnection,
     pub s3: S3Client,
     pub reports_hub: ReportsHub,
+    pub user_events_hub: UserEventsHub,
+    /// Producer handle for `notify_contracts::NOTIFY_QUEUE` - anything that
+    /// needs to send an email/push enqueues a `NotifyJob` through this
+    /// (see `app::me::trusted_contacts::handlers::redeem_invite` for the
+    /// first non-auth user of it; `libs::otp_sender` has its own dedicated
+    /// one, built the same way, for the auth plugin specifically).
+    pub notify_queue: Arc<Queue<serde_json::Value>>,
     /// General-purpose Redis connection (cheap to clone, auto-reconnects) -
     /// separate from `reports_hub`'s own dedicated pub/sub connection, which
     /// must stay exclusively in subscribe-listening mode. Used for rate
@@ -25,6 +35,10 @@ pub struct AppState {
     /// `AppStoreConnectClient::token`) actually gets reused - see
     /// `app::webhooks::app_store_connect`.
     pub app_store_connect: Arc<AppStoreConnectClient>,
+    /// `None` until `GEOIP_DB_PATH` points at a real `.mmdb` file (see
+    /// `GeoIp::open`'s own doc comment) - `set_device` just skips
+    /// resolving a location when this is `None`.
+    pub geoip: Option<Arc<GeoIp>>,
 }
 
 impl FromRef<AppState> for Arc<BetterAuth<AppAuthSchema>> {

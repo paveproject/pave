@@ -1,0 +1,28 @@
+diff --git a/native/android-jsi/src/main/cpp/CMakeLists.txt b/native/android-jsi/src/main/cpp/CMakeLists.txt
+index 79d961e8a1b3a292d93cd5bfc4dff303d7151cd6..8656692babd7bb3b6648132c3ce05304983d0a60 100755
+--- a/native/android-jsi/src/main/cpp/CMakeLists.txt
++++ b/native/android-jsi/src/main/cpp/CMakeLists.txt
+@@ -14,6 +14,7 @@ set(WMELON_JSI_BUMP 4)
+ 
+ get_filename_component(_nativeTesterPath "../../../../../node_modules/@nozbe/sqlite/" REALPATH)
+ get_filename_component(_nozbePath "../../../../../../../../../native/node_modules/react-native/ReactCommon/jsi/jsi/" REALPATH)
++get_filename_component(_bunIsolatedPath "../../../../../../../../../../react-native/ReactCommon/jsi/jsi/" REALPATH)
+ 
+ if(EXISTS "${_nativeTesterPath}")
+         # these paths work for WatermelonDB native tester
+@@ -23,6 +24,15 @@ elseif(EXISTS "${_nozbePath}")
+         # these paths work for Nozbe
+         set(NODE_MODULES_PATH_WM ../../../../../../../)
+         set(NODE_MODULES_PATH_RN ../../../../../../../../../native/node_modules/)
++elseif(EXISTS "${_bunIsolatedPath}")
++        # Bun's "isolated" installs nest a package's own dependencies
++        # (here @nozbe/sqlite, @nozbe/simdjson) right alongside it, under
++        # a per-package node_modules - so the "standard" 7-level path
++        # below still finds those - but react-native itself is a
++        # top-level app dependency living outside that nesting, 3 levels
++        # further up (node_modules/.bun/<name>@<version>+<hash>/node_modules/...).
++        set(NODE_MODULES_PATH_WM ../../../../../../../)
++        set(NODE_MODULES_PATH_RN ../../../../../../../../../../)
+ else()
+         # these paths should work for a standard RN project
+         set(NODE_MODULES_PATH_WM ../../../../../../../)

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { useQueryClient } from '@tanstack/react-query';
 import { applyReportCreated, type ReportsBoundingBox } from '@libs/query-client';
-import type { ClientMessage, ServerMessage } from '@libs/api-js';
+import type { ReportsClientMessage, ReportsServerMessage } from '@libs/api-js';
 import { REPORTS_WS_URL } from '../../env/common';
 
 /**
@@ -31,7 +31,7 @@ export const useReportsSocket = (bbox: ReportsBoundingBox | undefined) => {
     let closedByUs = false;
 
     const sendSubscribe = (socket: WebSocket, bbox: ReportsBoundingBox) => {
-      const message: ClientMessage = { event: 'subscribe', ...bbox };
+      const message: ReportsClientMessage = { event: 'subscribe', ...bbox };
       socket.send(JSON.stringify(message));
     };
 
@@ -45,7 +45,7 @@ export const useReportsSocket = (bbox: ReportsBoundingBox | undefined) => {
 
       socket.onmessage = (event) => {
         try {
-          const message: ServerMessage = JSON.parse(event.data);
+          const message: ReportsServerMessage = JSON.parse(event.data);
           if (message.event === 'report_created' && bboxRef.current) {
             applyReportCreated(queryClient, bboxRef.current, message);
           }
@@ -87,7 +87,7 @@ export const useReportsSocket = (bbox: ReportsBoundingBox | undefined) => {
   useEffect(() => {
     const socket = socketRef.current;
     if (socket && socket.readyState === WebSocket.OPEN && bbox) {
-      socket.send(JSON.stringify({ event: 'subscribe', ...bbox } satisfies ClientMessage));
+      socket.send(JSON.stringify({ event: 'subscribe', ...bbox } satisfies ReportsClientMessage));
     }
   }, [bbox]);
 };

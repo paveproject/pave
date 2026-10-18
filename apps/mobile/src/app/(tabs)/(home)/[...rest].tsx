@@ -1,13 +1,16 @@
 import { Redirect, RelativePathString, useLocalSearchParams } from 'expo-router';
 import NotFoundScreen from './+not-found';
-import { SupportedLocale, supportedLocales } from '@libs/i18n';
+import { supportedLocales } from '@libs/i18n';
+
+// Matches either the current full tag (`fr-FR`) or the bare language
+// prefix an older-style link might still use (`fr`) - deep links minted
+// before the region-qualified locale migration must keep stripping.
+const isLocaleSegment = (segment: string): boolean =>
+  supportedLocales.some((locale) => locale === segment || locale.split('-')[0] === segment);
 
 const handleLocalePrefix = (segments: string[]): string[] => {
   let firstNonLocaleIndex = 0;
-  while (
-    firstNonLocaleIndex < segments.length &&
-    supportedLocales.includes(segments[firstNonLocaleIndex] as SupportedLocale)
-  ) {
+  while (firstNonLocaleIndex < segments.length && isLocaleSegment(segments[firstNonLocaleIndex])) {
     firstNonLocaleIndex++;
   }
 

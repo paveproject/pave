@@ -1,0 +1,1 @@
+ALTER TABLE "auth"."users" ADD CONSTRAINT "check_users_username_is_lower_display_username" CHECK (username = lower(display_username));

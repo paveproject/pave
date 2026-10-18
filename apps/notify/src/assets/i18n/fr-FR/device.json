@@ -1,0 +1,14 @@
+{
+  "approval_requested": {
+    "title": "Pavé",
+    "body": "Un nouvel appareil demande l'accès à votre clé de récupération - vérifiez-le"
+  },
+  "approved": {
+    "title": "Pavé",
+    "body": "Votre appareil a été approuvé et peut désormais recevoir votre clé de récupération"
+  },
+  "declined": {
+    "title": "Pavé",
+    "body": "L'enregistrement de votre appareil a été refusé"
+  }
+}

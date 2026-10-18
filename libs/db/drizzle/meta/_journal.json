@@ -106,6 +106,90 @@
       "when": 1791912862558,
       "tag": "0014_push_provider_fcm_apns",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791924141954,
+      "tag": "0015_trusted_contact",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791972034670,
+      "tag": "0016_red_squirrel_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791983814319,
+      "tag": "0017_yellow_supreme_intelligence",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792142391324,
+      "tag": "0018_nappy_mandarin",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792222108148,
+      "tag": "0019_polite_vindicator",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792242609516,
+      "tag": "0020_strong_zeigeist",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792243793335,
+      "tag": "0021_married_tempest",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792245348922,
+      "tag": "0022_shiny_nuke",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792249270082,
+      "tag": "0023_spicy_paladin",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792273642196,
+      "tag": "0024_good_emma_frost",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792276442454,
+      "tag": "0025_hesitant_namorita",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792319286162,
+      "tag": "0026_shocking_famine",
+      "breakpoints": true
     }
   ]
 }

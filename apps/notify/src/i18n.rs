@@ -7,6 +7,12 @@ use std::collections::HashMap;
 
 const EN_AUTH_JSON: &str = include_str!("assets/i18n/en-US/auth.json");
 const FR_AUTH_JSON: &str = include_str!("assets/i18n/fr-FR/auth.json");
+const EN_TRUSTED_CONTACT_JSON: &str = include_str!("assets/i18n/en-US/trusted_contact.json");
+const FR_TRUSTED_CONTACT_JSON: &str = include_str!("assets/i18n/fr-FR/trusted_contact.json");
+const EN_RECOVERY_REQUEST_JSON: &str = include_str!("assets/i18n/en-US/recovery_request.json");
+const FR_RECOVERY_REQUEST_JSON: &str = include_str!("assets/i18n/fr-FR/recovery_request.json");
+const EN_DEVICE_JSON: &str = include_str!("assets/i18n/en-US/device.json");
+const FR_DEVICE_JSON: &str = include_str!("assets/i18n/fr-FR/device.json");
 
 #[derive(Clone)]
 pub struct Dictionaries {
@@ -16,10 +22,15 @@ pub struct Dictionaries {
 
 impl Dictionaries {
     pub fn load() -> Self {
-        Self {
-            en: flatten_dict(EN_AUTH_JSON),
-            fr: flatten_dict(FR_AUTH_JSON),
-        }
+        let mut en = flatten_dict("auth", EN_AUTH_JSON);
+        let mut fr = flatten_dict("auth", FR_AUTH_JSON);
+        en.extend(flatten_dict("trusted_contact", EN_TRUSTED_CONTACT_JSON));
+        fr.extend(flatten_dict("trusted_contact", FR_TRUSTED_CONTACT_JSON));
+        en.extend(flatten_dict("recovery_request", EN_RECOVERY_REQUEST_JSON));
+        fr.extend(flatten_dict("recovery_request", FR_RECOVERY_REQUEST_JSON));
+        en.extend(flatten_dict("device", EN_DEVICE_JSON));
+        fr.extend(flatten_dict("device", FR_DEVICE_JSON));
+        Self { en, fr }
     }
 
     /// Returns the raw key itself if missing, so a translation gap shows up
@@ -33,11 +44,11 @@ impl Dictionaries {
     }
 }
 
-fn flatten_dict(raw: &str) -> HashMap<String, String> {
+fn flatten_dict(prefix: &str, raw: &str) -> HashMap<String, String> {
     let json: serde_json::Value =
-        serde_json::from_str(raw).expect("bundled auth.json must be valid JSON");
+        serde_json::from_str(raw).expect("bundled i18n dictionary must be valid JSON");
     let mut out = HashMap::new();
-    flatten("auth", &json, &mut out);
+    flatten(prefix, &json, &mut out);
     out
 }
 

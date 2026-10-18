@@ -41,6 +41,14 @@ pub struct ApiConfig {
     pub app_store_connect_issuer_id: Option<String>,
     pub app_store_connect_private_key: Option<String>,
     pub app_store_connect_app_id: Option<String>,
+
+    /// Path to a MaxMind GeoLite2 City `.mmdb` file (see
+    /// `libs::geoip::GeoIp`'s own doc comment) - `None`/missing file both
+    /// mean "ship without it", same reasoning as the App Store Connect
+    /// keys above: `set_device` just skips resolving a location rather
+    /// than failing the request. Never committed to the repo (requires a
+    /// free MaxMind account + license key to download).
+    pub geoip_db_path: Option<String>,
 }
 
 fn default_api_url() -> String {

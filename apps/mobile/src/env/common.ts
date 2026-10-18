@@ -90,6 +90,14 @@ export const API_ENDPOINT = API_URL;
  */
 export const REPORTS_WS_URL = `${API_URL.replace(/^http/, 'ws')}/reports/ws`;
 
+/**
+ * Personal realtime channel (see `apps/api/src/app/me/events`) - unlike
+ * `REPORTS_WS_URL`, this one is authenticated (see `useUserEventsSocket`,
+ * which attaches the bearer token as a connection header, not a query
+ * param, so it never ends up in a URL that could get logged).
+ */
+export const ME_WS_URL = `${API_URL.replace(/^http/, 'ws')}/me/ws`;
+
 const schemeFromConfig = Constants.expoConfig?.scheme;
 export const SCHEME: string = Array.isArray(schemeFromConfig)
   ? schemeFromConfig[0]

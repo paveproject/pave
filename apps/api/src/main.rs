@@ -1,73 +1,22 @@
-mod app;
-mod config;
-mod libs;
-mod state;
-
-use app::{auth_otp, health, internal, me, reports, system, webhooks};
+use api::app::me;
+use api::app::reports;
+use api::config::ApiConfig;
+use api::libs;
+use api::state::{build_s3_client, AppState};
+use api::{build_app, build_openapi};
 use auth::{database_url, AppAuthSchema, OtpPlugin};
-use axum::Router;
 use better_auth::config::BearerConfig;
-use better_auth::integrations::axum::AxumIntegration;
 use better_auth::plugins::SessionManagementPlugin;
 use better_auth::seaorm::{Database, SeaOrmStore};
 use better_auth::{AuthConfig, BetterAuth};
-use config::ApiConfig;
+use bullmq_rs::{QueueBuilder, RedisConnection};
 use env_rs::RedisConfig;
 use libs::otp_sender;
-use state::{build_s3_client, AppState};
+use notify_contracts::NOTIFY_QUEUE;
 use std::sync::Arc;
-use tower_http::cors::CorsLayer;
-use utoipa::OpenApi;
-use utoipa_swagger_ui::SwaggerUi;
-
-#[derive(OpenApi)]
-#[openapi(
-    paths(
-        health::health_check,
-        system::handlers::get_status,
-        auth_otp::send_otp,
-        auth_otp::verify_otp,
-        auth_otp::send_change_email_otp,
-        auth_otp::verify_change_email_otp,
-        me::handlers::get_me,
-        me::handlers::update_me,
-        me::handlers::check_username_available,
-        me::avatar::handlers::set_avatar,
-        me::avatar::handlers::delete_avatar,
-        me::push_token::handlers::set_push_token,
-        reports::handlers::create_report,
-        reports::handlers::list_reports,
-    ),
-    components(schemas(
-        health::HealthResponse,
-        system::dto::AppPlatform,
-        system::dto::VersionStatus,
-        system::dto::AppVersionStatus,
-        system::dto::StatusResponse,
-        auth_otp::SendOtpRequest,
-        auth_otp::SendOtpResponse,
-        auth_otp::VerifyOtpRequest,
-        auth_otp::VerifyOtpResponse,
-        auth_otp::SendChangeEmailOtpRequest,
-        auth_otp::VerifyChangeEmailOtpRequest,
-        auth_otp::VerifyChangeEmailOtpResponse,
-        me::dto::MeResponse,
-        me::dto::UpdateMeRequest,
-        me::dto::UsernameAvailableResponse,
-        me::push_token::dto::SetPushTokenRequest,
-        me::push_token::dto::PushProvider,
-        me::push_token::dto::DeviceType,
-        reports::dto::ReportType,
-        reports::dto::CreateReportRequest,
-        reports::dto::ReportResponse,
-        reports::ws_dto::ClientMessage,
-        reports::ws_dto::ServerMessage,
-    ))
-)]
-struct ApiDoc;
 
 fn emit_openapi_and_exit(path: &str) {
-    let json = ApiDoc::openapi()
+    let json = build_openapi()
         .to_pretty_json()
         .expect("failed to serialize OpenAPI doc");
     let dir = std::path::Path::new(path)
@@ -116,7 +65,9 @@ async fn main() {
     // and `/me`'s `CurrentSession`/`OptionalSession` extractors alike) must
     // accept it too.
     config.session.bearer = Some(BearerConfig::default());
-    let store = SeaOrmStore::<AppAuthSchema>::new(config.clone(), database.clone());
+    let store = SeaOrmStore::<AppAuthSchema>::new(config.clone(), database.clone())
+        .hook(libs::auth_hooks::GenerateUsernameHook)
+        .hook(libs::auth_hooks::CreatePaveUserRowHook);
     let otp_sender = Arc::new(otp_sender::BullmqOtpSender::connect(&redis_config.url()).await);
     let auth = Arc::new(
         BetterAuth::<AppAuthSchema>::new(config)
@@ -138,35 +89,32 @@ async fn main() {
     let app_store_connect = Arc::new(libs::app_store_connect::AppStoreConnectClient::new(
         &api_config,
     ));
-    let reports_hub = app::reports::hub::ReportsHub::spawn(redis_config.url());
+    let geoip = libs::geoip::GeoIp::open(api_config.geoip_db_path.as_deref()).map(Arc::new);
+    let reports_hub = reports::hub::ReportsHub::spawn(redis_config.url());
+    let user_events_hub = me::events::hub::UserEventsHub::spawn(redis_config.url());
+
+    let notify_queue = Arc::new(
+        QueueBuilder::new(NOTIFY_QUEUE)
+            .connection(RedisConnection::new(redis_config.url()))
+            .build::<serde_json::Value>()
+            .await
+            .expect("failed to build notify queue producer"),
+    );
 
     let state = AppState {
         config: Arc::new(api_config),
-        auth: auth.clone(),
+        auth,
         db: database,
         s3,
         reports_hub,
+        user_events_hub,
+        notify_queue,
         redis,
         app_store_connect,
+        geoip,
     };
 
-    let app = Router::new()
-        .merge(SwaggerUi::new("/docs").url("/openapi.json", ApiDoc::openapi()))
-        .route("/health", axum::routing::get(health::health_check))
-        .route("/status", axum::routing::get(system::handlers::get_status))
-        .nest("/auth", auth.axum_router_with_state::<AppState>())
-        .nest("/me", me::router())
-        .nest("/reports", reports::router())
-        .nest(
-            "/internal/version-policy",
-            internal::version_policy::router(),
-        )
-        .nest(
-            "/webhooks/app-store-connect",
-            webhooks::app_store_connect::router(),
-        )
-        .with_state(state)
-        .layer(CorsLayer::permissive());
+    let app = build_app(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3002")
         .await

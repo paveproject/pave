@@ -31,6 +31,10 @@ export const Icons = {
     android: import('@expo/material-symbols/visibility_off.xml'),
   }),
   user: Icon.select({ ios: 'person', android: import('@expo/material-symbols/person.xml') }),
+  peopleOff: Icon.select({
+    ios: 'person.2.slash',
+    android: import('@expo/material-symbols/group_off.xml'),
+  }),
 
   chevronLeft: Icon.select({
     ios: 'chevron.left',
@@ -65,6 +69,10 @@ export const Icons = {
     ios: 'circle.lefthalf.filled',
     android: import('@expo/material-symbols/contrast.xml'),
   }),
+  device: Icon.select({
+    ios: 'iphone',
+    android: import('@expo/material-symbols/devices.xml'),
+  }),
   language: Icon.select({
     ios: 'globe',
     android: import('@expo/material-symbols/language.xml'),
@@ -88,6 +96,10 @@ export const Icons = {
   }),
   link: Icon.select({ ios: 'link', android: import('@expo/material-symbols/link.xml') }),
   clock: Icon.select({ ios: 'clock', android: import('@expo/material-symbols/schedule.xml') }),
+  megaphone: Icon.select({
+    ios: 'megaphone',
+    android: import('@expo/material-symbols/campaign.xml'),
+  }),
   calendar: Icon.select({
     ios: 'calendar',
     android: import('@expo/material-symbols/calendar_month.xml'),
@@ -105,6 +117,14 @@ export const Icons = {
   share: Icon.select({
     ios: 'square.and.arrow.up',
     android: import('@expo/material-symbols/share.xml'),
+  }),
+  copy: Icon.select({
+    ios: 'doc.on.doc',
+    android: import('@expo/material-symbols/content_copy.xml'),
+  }),
+  camera: Icon.select({
+    ios: 'camera',
+    android: import('@expo/material-symbols/photo_camera.xml'),
   }),
   download: Icon.select({
     ios: 'arrow.down.to.line',
