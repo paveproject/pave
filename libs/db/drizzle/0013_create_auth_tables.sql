@@ -1,4 +1,4 @@
-CREATE SCHEMA "auth";
+CREATE SCHEMA IF NOT EXISTS "auth";
 --> statement-breakpoint
 CREATE TABLE "auth"."accounts" (
 	"id" varchar PRIMARY KEY NOT NULL,
