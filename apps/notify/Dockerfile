@@ -27,6 +27,10 @@ COPY libs/assets-rs/Cargo.toml libs/assets-rs/Cargo.toml
 COPY libs/assets-rs/build.rs libs/assets-rs/build.rs
 COPY libs/assets-rs/src libs/assets-rs/src
 COPY libs/assets/static libs/assets/static
+COPY libs/test-support/Cargo.toml libs/test-support/Cargo.toml
+COPY libs/test-support/src libs/test-support/src
+COPY libs/api-testkit/Cargo.toml libs/api-testkit/Cargo.toml
+COPY libs/api-testkit/src libs/api-testkit/src
 
 RUN cargo build --release --locked --bin notify
 
