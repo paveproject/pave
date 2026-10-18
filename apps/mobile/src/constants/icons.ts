@@ -160,6 +160,7 @@ export const Icons = {
     ios: 'location.slash',
     android: import('@expo/material-symbols/location_disabled.xml'),
   }),
+  microphone: Icon.select({ ios: 'mic', android: import('@expo/material-symbols/mic.xml') }),
 };
 
 export type IconKey = keyof typeof Icons;

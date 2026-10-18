@@ -62,6 +62,7 @@
     "invalid_email": "Invalid email address",
     "min_count_characters": "Must be at least {count} characters",
     "max_count_characters": "Must be at most {count} characters",
+    "seconds_count": "{count, plural, one {{count} second} other {{count} seconds}}",
     "minutes_count": "{count, plural, one {{count} minute} other {{count} minutes}}",
     "hours_count": "{count, plural, one {{count} hour} other {{count} hours}}",
     "days_count": "{count, plural, one {{count} day} other {{count} days}}",
@@ -97,7 +98,10 @@
     },
     "protest_mode": {
       "title": "Protest mode",
-      "description": "Shortens the mandatory delay before your trusted contacts can help you recover your account - for when losing a device matters more urgently than usual."
+      "description": "Shortens the mandatory delay before your trusted contacts can help you recover your account - for when losing a device matters more urgently than usual.",
+      "settings": "Recording settings",
+      "start_recording": "Start recording",
+      "stop_recording": "Stop recording"
     },
     "pending_actions": {
       "device": {
@@ -151,6 +155,13 @@
         "register_again": "Register again",
         "delay": "Recovery delay",
         "protest_delay": "Protest mode delay"
+      },
+      "protest_mode": {
+        "gps_recording": "Record position",
+        "polling_frequency": "Position frequency",
+        "polling_frequency_description": "How often your position is captured while recording. More frequent uses more battery.",
+        "save_frequency": "Save frequency",
+        "save_frequency_description": "How often recorded positions are uploaded. More frequent means less is lost if this device is lost or destroyed."
       },
       "trusted_contacts": {
         "empty": {

@@ -4,6 +4,7 @@ pub mod dto;
 pub mod events;
 pub mod handlers;
 pub mod pending_actions;
+pub mod protest_sessions;
 pub mod push_token;
 pub mod recovery_requests;
 pub mod trusted_contacts;
@@ -26,6 +27,7 @@ pub fn router() -> Router<AppState> {
         .nest("/avatar", avatar::router())
         .nest("/devices", devices::router())
         .nest("/pending-actions", pending_actions::router())
+        .nest("/protest-sessions", protest_sessions::router())
         .nest("/push-token", push_token::router())
         .nest("/trusted-contacts", trusted_contacts::router())
         .nest("/recovery-requests", recovery_requests::router())
@@ -64,6 +66,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         .merge_from(avatar::ApiDoc::openapi())
         .merge_from(devices::ApiDoc::openapi())
         .merge_from(pending_actions::ApiDoc::openapi())
+        .merge_from(protest_sessions::ApiDoc::openapi())
         .merge_from(push_token::ApiDoc::openapi())
         .merge_from(trusted_contacts::ApiDoc::openapi())
         .merge_from(recovery_requests::ApiDoc::openapi())

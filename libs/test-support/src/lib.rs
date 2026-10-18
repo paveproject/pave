@@ -11,4 +11,4 @@ mod s3;
 
 pub use postgres::{start_test_database, TestDatabase};
 pub use redis::{start_test_redis, TestRedis};
-pub use s3::{start_test_s3, TestS3, PUBLIC_BUCKET};
+pub use s3::{start_test_s3, TestS3, PRIVATE_BUCKET, PUBLIC_BUCKET};

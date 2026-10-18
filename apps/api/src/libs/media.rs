@@ -1,8 +1,14 @@
 use crate::config::ApiConfig;
 
-/// The only media folder pave has today - add more consts here (not a
-/// stringly-typed literal at each call site) the day a second one exists.
+/// Add more consts here (not a stringly-typed literal at each call site)
+/// the day a new media folder is needed.
 pub const AVATARS_FOLDER: &str = "avatars";
+
+/// Lives in the *private* bucket (`s3_bucket_private`), not alongside
+/// `AVATARS_FOLDER` - see `app::me::protest_sessions`. Never resolved
+/// through `resolve_media_url` below, which is public-bucket-only by
+/// construction.
+pub const PROTEST_SESSIONS_FOLDER: &str = "protest-sessions";
 
 /// Resolves a stored media reference (avatar, ...) into a URL the client
 /// can load directly.

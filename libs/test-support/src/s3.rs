@@ -10,6 +10,7 @@ const ACCESS_KEY: &str = "test";
 const SECRET_KEY: &str = "test-secret-key";
 const API_PORT: u16 = 9000;
 pub const PUBLIC_BUCKET: &str = "public";
+pub const PRIVATE_BUCKET: &str = "private";
 
 /// One real RustFS testcontainer (same image `docker-compose.yaml` runs in
 /// dev, pinned to the same tag) - avatar uploads go through the real
@@ -83,6 +84,12 @@ pub async fn start_test_s3() -> TestS3 {
         .send()
         .await
         .expect("failed to create the test public bucket");
+    client
+        .create_bucket()
+        .bucket(PRIVATE_BUCKET)
+        .send()
+        .await
+        .expect("failed to create the test private bucket");
 
     s3
 }

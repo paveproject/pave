@@ -17,6 +17,12 @@ pub struct ApiConfig {
 
     #[serde(default = "default_s3_bucket_public")]
     pub s3_bucket_public: String,
+    /// Protest-mode uploads (encrypted position batches/audio chunks) and
+    /// anything else that must never be served over a public URL - see
+    /// `app::me::protest_sessions`. No `s3_public_endpoint`-style override:
+    /// this bucket is never read back through a URL at all.
+    #[serde(default = "default_s3_bucket_private")]
+    pub s3_bucket_private: String,
     pub s3_public_endpoint: Option<String>,
     pub s3_endpoint: String,
     #[serde(default = "default_s3_region")]
@@ -57,6 +63,10 @@ fn default_api_url() -> String {
 
 fn default_s3_bucket_public() -> String {
     "public".to_string()
+}
+
+fn default_s3_bucket_private() -> String {
+    "private".to_string()
 }
 
 fn default_s3_region() -> String {

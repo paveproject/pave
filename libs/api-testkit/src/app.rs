@@ -276,6 +276,7 @@ pub async fn fresh_app(env: &TestEnv) -> TestApp {
         auth_secret: Some("test-only-secret-at-least-32-characters-long".to_string()),
         api_url: "http://localhost:3002".to_string(),
         s3_bucket_public: test_support::PUBLIC_BUCKET.to_string(),
+        s3_bucket_private: test_support::PRIVATE_BUCKET.to_string(),
         s3_public_endpoint: None,
         s3_endpoint: env.s3.endpoint_url(),
         s3_region: "eu-west-1".to_string(),

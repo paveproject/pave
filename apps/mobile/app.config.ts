@@ -76,10 +76,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // UIDesignRequiresCompatibility: true, // Disable iOS 26 Liquid Glass effect
       NSLocationWhenInUseUsageDescription:
         'Your location is used to show relevant content based on where you are.',
+      NSLocationAlwaysAndWhenInUseUsageDescription:
+        'When protest mode is active and position recording is on, your location is recorded in the background so your trajectory is preserved even while the app is not open - it is encrypted on your device and never readable by us.',
+      NSMicrophoneUsageDescription:
+        'The microphone is used to record audio when you manually start a recording in protest mode, and to upload profile videos.',
       NSCameraUsageDescription:
         'The camera is used to upload profile pictures, playlist covers, story background images, and to scan trusted-contact codes.',
       NSPhotoLibraryUsageDescription:
         'Photos are used to select profile images, playlist covers, and shared story backgrounds.',
+      UIBackgroundModes: ['location'],
     },
     usesAppleSignIn: true,
   },
@@ -104,7 +109,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         category: ['BROWSABLE', 'DEFAULT'],
       },
     ],
-    permissions: ['android.permission.RECORD_AUDIO', 'android.permission.INTERNET'],
+    permissions: [
+      'android.permission.RECORD_AUDIO',
+      'android.permission.INTERNET',
+      'android.permission.ACCESS_BACKGROUND_LOCATION',
+    ],
     blockedPermissions: ['com.google.android.gms.permission.AD_ID'],
     googleServicesFile: process.env.GOOGLE_SERVICES_JSON || getGoogleServicesFilePath(),
   },
@@ -144,6 +153,16 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     'expo-secure-store',
+    'expo-audio',
+    [
+      'expo-location',
+      {
+        locationAlwaysAndWhenInUsePermission:
+          'When protest mode is active and position recording is on, your location is recorded in the background so your trajectory is preserved even while the app is not open - it is encrypted on your device and never readable by us.',
+        isAndroidBackgroundLocationEnabled: true,
+        isAndroidForegroundServiceEnabled: true,
+      },
+    ],
     [
       'expo-notifications',
       {

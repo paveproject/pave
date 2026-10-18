@@ -9,6 +9,8 @@
 pub mod prelude;
 
 pub mod device;
+pub mod protest_session;
+pub mod protest_upload;
 pub mod push_token;
 pub mod recovery_request;
 pub mod recovery_request_contact;

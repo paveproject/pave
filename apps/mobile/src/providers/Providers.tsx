@@ -21,6 +21,8 @@ import { useUserEventsSocket } from '../hooks/websocket/useUserEventsSocket';
 import { useRecoveryKeySync } from '../hooks/sync/useRecoveryKeySync';
 import { useReceiveShares } from '../hooks/sync/useReceiveShares';
 import { useRecoveryRequestCompletion } from '../hooks/sync/useRecoveryRequestCompletion';
+import { useProtestDataSync } from '../hooks/sync/useProtestDataSync';
+import { useProtestLocationTracking } from '../hooks/protestMode/useProtestLocationTracking';
 
 type ProvidersProps = {
   children: React.ReactNode;
@@ -70,6 +72,16 @@ const RecoveryKeyBootstrap = () => {
   return null;
 };
 
+// Same idea, for protest-mode's position recording (see
+// hooks/protestMode/useProtestLocationTracking.ts) and the sync of its
+// session/upload rows (see hooks/sync/useProtestDataSync.ts) - both gate
+// on auth themselves.
+const ProtestModeBootstrap = () => {
+  useProtestLocationTracking();
+  useProtestDataSync();
+  return null;
+};
+
 const Providers = ({ children }: ProvidersProps) => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -94,6 +106,7 @@ const Providers = ({ children }: ProvidersProps) => {
                                   <AppVersionCheckBootstrap />
                                   <UserEventsBootstrap />
                                   <RecoveryKeyBootstrap />
+                                  <ProtestModeBootstrap />
                                 </NotificationsProvider>
                               </BottomSheetModalProvider>
                             </ApiProvider>

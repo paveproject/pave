@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { Host, Icon, Row, Spacer, Switch, FieldGroup, Text as NativeText } from '@expo/ui';
 import {
   background,
@@ -11,22 +11,25 @@ import { useTranslations } from 'use-intl';
 import { useTheme } from '../providers/ThemeProvider';
 import { useModalHeaderOptions } from '../hooks/useModalHeaderOptions';
 import { useProtestMode } from '../hooks/useProtestMode';
+import { useProtestAudioRecording } from '../hooks/protestMode/useProtestAudioRecording';
 import { View } from '../components/ui/view';
 import { Icons } from '../constants/icons';
 
 /**
  * Apple Music mini-player style: the always-visible accessory
  * (`ProtestModeAccessoryContent`, in `(tabs)/_layout.tsx`) only shows
- * status and opens this screen - the actual toggle lives here. Room for
- * more protest-mode-specific controls later (e.g. a shorter recovery
- * delay while it's on, surfaced from here rather than buried in
- * Settings > Recovery) - not built yet.
+ * status and opens this screen - the actual toggle, the manual mic
+ * control, and a link to the recording settings (polling/save frequency,
+ * GPS on/off - see `screens/protestMode/SettingsProtestMode.tsx`) all
+ * live here.
  */
 const ProtestModeScreen = () => {
   const t = useTranslations();
+  const router = useRouter();
   const { theme, colors, mode } = useTheme();
   const modalHeaderOptions = useModalHeaderOptions({ forceCross: true });
   const { enabled, toggle } = useProtestMode();
+  const { isRecording, start, stop } = useProtestAudioRecording();
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -66,6 +69,48 @@ const ProtestModeScreen = () => {
                 {t('pages.protest_mode.description')}
               </NativeText>
             </FieldGroup.SectionFooter>
+          </FieldGroup.Section>
+
+          <FieldGroup.Section>
+            <Row
+              alignment="center"
+              spacing={theme.spaces.md}
+              onPress={isRecording ? () => stop() : () => start()}
+              modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+            >
+              <Icon
+                name={Icons.microphone}
+                size={theme.icons.sizes.md}
+                color={isRecording ? colors.destructive : colors.foreground}
+              />
+              <NativeText
+                textStyle={{ color: isRecording ? colors.destructive : colors.foreground }}
+              >
+                {isRecording
+                  ? t('pages.protest_mode.stop_recording')
+                  : t('pages.protest_mode.start_recording')}
+              </NativeText>
+            </Row>
+          </FieldGroup.Section>
+
+          <FieldGroup.Section>
+            <Row
+              alignment="center"
+              spacing={theme.spaces.md}
+              onPress={() => router.push('/settings/protest-mode')}
+              modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+            >
+              <Icon name={Icons.settings} size={theme.icons.sizes.md} color={colors.foreground} />
+              <NativeText textStyle={{ color: colors.foreground }}>
+                {t('pages.protest_mode.settings')}
+              </NativeText>
+              <Spacer flexible />
+              <Icon
+                name={Icons.chevronRight}
+                size={theme.icons.sizes.sm}
+                color={colors.mutedForeground}
+              />
+            </Row>
           </FieldGroup.Section>
         </FieldGroup>
       </Host>

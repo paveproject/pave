@@ -12,6 +12,7 @@ const config = defineConfig({
     './libs/db/src/lib/schemas/auth.ts',
     './libs/db/src/lib/schemas/device.ts',
     './libs/db/src/lib/schemas/i18n.ts',
+    './libs/db/src/lib/schemas/protestSession.ts',
     './libs/db/src/lib/schemas/recoveryRequest.ts',
     './libs/db/src/lib/schemas/report.ts',
     './libs/db/src/lib/schemas/system.ts',
