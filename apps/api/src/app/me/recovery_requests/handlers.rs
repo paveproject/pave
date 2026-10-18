@@ -33,10 +33,6 @@ use sea_orm::{
 use std::collections::HashMap;
 use uuid::Uuid;
 
-/// Mandatory delay between a recovery request's creation and its sealed
-/// shares becoming fetchable - a blanket policy, not a per-request call.
-const RECOVERY_DELAY: Duration = Duration::hours(24);
-
 fn to_recovery_request_response(
     model: recovery_request::Model,
     total_contacts: i32,
@@ -171,12 +167,17 @@ pub async fn create_recovery_request(
             .into_response();
     }
 
-    let accepted_contacts = trusted_contact::Entity::find()
-        .filter(trusted_contact::Column::OwnerUserId.eq(owner_user_id.clone()))
-        .filter(trusted_contact::Column::Status.eq(TrustedContactStatusEnum::Accepted))
-        .all(&state.db)
-        .await
-        .expect("failed to query accepted trusted contacts");
+    // Independent of each other - resolved concurrently. The owner's own
+    // row is needed now (not just later, for `owner_lang`) to pick which of
+    // the two configured delays applies.
+    let (accepted_contacts, owner_row) = tokio::join!(
+        trusted_contact::Entity::find()
+            .filter(trusted_contact::Column::OwnerUserId.eq(owner_user_id.clone()))
+            .filter(trusted_contact::Column::Status.eq(TrustedContactStatusEnum::Accepted))
+            .all(&state.db),
+        find_pave_user_row(&state.db, &owner_user_id),
+    );
+    let accepted_contacts = accepted_contacts.expect("failed to query accepted trusted contacts");
 
     // Zero accepted contacts means zero quorum, ever - this device's
     // siblings are about to be wiped for a request that could never
@@ -188,6 +189,15 @@ pub async fn create_recovery_request(
         )
             .into_response();
     }
+
+    // "Mode manif" swaps in the shorter delay - see `useProtestMode` on the
+    // mobile side for how this gets toggled (offline-first).
+    let delay_seconds = if owner_row.protest_mode_enabled {
+        owner_row.recovery_delay_protest_seconds
+    } else {
+        owner_row.recovery_delay_seconds
+    };
+    let delay = Duration::seconds(delay_seconds.into());
 
     let now = Utc::now();
     let request_id = Uuid::new_v4();
@@ -235,7 +245,7 @@ pub async fn create_recovery_request(
                         owner_user_id: Set(owner_user_id.clone()),
                         requesting_device_id: Set(this_device_id),
                         status: Set(RecoveryRequestStatusEnum::Pending),
-                        release_at: Set((now + RECOVERY_DELAY).into()),
+                        release_at: Set((now + delay).into()),
                         completed_at: Set(None),
                         cancelled_at: Set(None),
                         failed_at: Set(None),
@@ -274,13 +284,13 @@ pub async fn create_recovery_request(
         .clone()
         .expect("display_username is NOT NULL in db");
 
-    // Four independent lookups, resolved concurrently: the owner's
-    // devices/pave-user row (for `owner_profile`/`owner_lang` below), the
-    // just-inserted contact rows (one batched refetch instead of one per
-    // contact), and the owner's auth row (for the safety-net email).
-    let (owner_devices, owner_row, contact_rows, owner_auth) = tokio::join!(
+    // Three independent lookups, resolved concurrently: the owner's devices
+    // (for `owner_profile`), the just-inserted contact rows (one batched
+    // refetch instead of one per contact), and the owner's auth row (for
+    // the safety-net email). `owner_row` (for `owner_lang` below) is
+    // already in hand from before the transaction.
+    let (owner_devices, contact_rows, owner_auth) = tokio::join!(
         device_summaries_for(&state.db, &owner_user_id),
-        find_pave_user_row(&state.db, &owner_user_id),
         recovery_request_contact::Entity::find()
             .filter(recovery_request_contact::Column::RecoveryRequestId.eq(request_id))
             .all(&state.db),
@@ -367,7 +377,7 @@ pub async fn create_recovery_request(
         // mechanism, enqueued now with a `delay` matching the mandatory
         // wait. All three enqueues are independent, done concurrently.
         let ready_delay = Some(JobOptions {
-            delay: RECOVERY_DELAY.to_std().ok(),
+            delay: delay.to_std().ok(),
             ..Default::default()
         });
         let ready_push = NotifyJob::PushNotification(PushNotifyPayload {

@@ -155,6 +155,13 @@ const RootLayoutNav = () => {
           }}
         />
       </Stack.Protected>
+      {/* PROTEST MODE (see (tabs)/_layout.tsx's always-visible accessory) -
+          no `headerShown: false` here, unlike `welcome`: this is a flat
+          route with no nested layout of its own, so it owns its header
+          directly via `useModalHeaderOptions` inside the screen. */}
+      <Stack.Protected guard={!!user}>
+        <Stack.Screen name="protest-mode" options={{ presentation: 'fullScreenModal' }} />
+      </Stack.Protected>
       <Stack.Screen
         name="onboarding"
         options={{ headerShown: false, animation: 'slide_from_bottom', animationDuration: 250 }}

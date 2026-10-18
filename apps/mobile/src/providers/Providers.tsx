@@ -1,5 +1,5 @@
 import { ActionSheetProvider } from '@expo/react-native-action-sheet';
-import { AuthProvider } from './AuthProvider';
+import { AuthProvider, useAuth } from './AuthProvider';
 import { ReactQueryProvider } from './ReactQueryProvider';
 import { ThemeProvider } from './ThemeProvider';
 import { BottomSheetManager } from '../components/bottom-sheets/BottomSheetManager';
@@ -15,13 +15,12 @@ import { ToastProvider } from '../components/Toast';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { ApiProvider } from './ApiProvider';
 import { useReportSync } from '../hooks/sync/useReportSync';
-import { useLanguageSync } from '../hooks/sync/useLanguageSync';
+import { useMeSync } from '../hooks/sync/useMeSync';
 import { useAppVersionCheck } from '../hooks/useAppVersionCheck';
 import { useUserEventsSocket } from '../hooks/websocket/useUserEventsSocket';
 import { useRecoveryKeySync } from '../hooks/sync/useRecoveryKeySync';
 import { useReceiveShares } from '../hooks/sync/useReceiveShares';
 import { useRecoveryRequestCompletion } from '../hooks/sync/useRecoveryRequestCompletion';
-import { useAuth } from './AuthProvider';
 
 type ProvidersProps = {
   children: React.ReactNode;
@@ -34,10 +33,11 @@ const ReportSyncBootstrap = () => {
   return null;
 };
 
-// Same idea, for a locally-picked language that couldn't be pushed to the
-// account yet (see lib/i18n/index.ts's getPendingLanguage).
-const LanguageSyncBootstrap = () => {
-  useLanguageSync();
+// Same idea, for every offline-first `/me` field (language, protest mode,
+// ...) that couldn't be pushed to the account yet - see
+// `stores/useMeSyncStore.ts`'s own doc comment for the full mechanism.
+const MeSyncBootstrap = () => {
+  useMeSync();
   return null;
 };
 
@@ -90,7 +90,7 @@ const Providers = ({ children }: ProvidersProps) => {
                                   {children}
                                   <BottomSheetManager />
                                   <ReportSyncBootstrap />
-                                  <LanguageSyncBootstrap />
+                                  <MeSyncBootstrap />
                                   <AppVersionCheckBootstrap />
                                   <UserEventsBootstrap />
                                   <RecoveryKeyBootstrap />

@@ -62,6 +62,11 @@
     "invalid_email": "Invalid email address",
     "min_count_characters": "Must be at least {count} characters",
     "max_count_characters": "Must be at most {count} characters",
+    "minutes_count": "{count, plural, one {{count} minute} other {{count} minutes}}",
+    "hours_count": "{count, plural, one {{count} hour} other {{count} hours}}",
+    "days_count": "{count, plural, one {{count} day} other {{count} days}}",
+    "on": "On",
+    "off": "Off",
     "username_format": "Only letters, numbers, underscores and dots are allowed",
     "username_unavailable": "This username is already taken",
     "code_sent": "Code sent",
@@ -89,6 +94,10 @@
     },
     "welcome": {
       "description": "We've picked a username for you - keep it, or make it yours."
+    },
+    "protest_mode": {
+      "title": "Protest mode",
+      "description": "Shortens the mandatory delay before your trusted contacts can help you recover your account - for when losing a device matters more urgently than usual."
     },
     "pending_actions": {
       "device": {
@@ -139,7 +148,9 @@
         "active_body": "This device already has access to your recovery key.",
         "declined_title": "Not approved",
         "declined_body": "This device's request was declined, or it was removed from your account. Register it again to ask once more.",
-        "register_again": "Register again"
+        "register_again": "Register again",
+        "delay": "Recovery delay",
+        "protest_delay": "Protest mode delay"
       },
       "trusted_contacts": {
         "empty": {

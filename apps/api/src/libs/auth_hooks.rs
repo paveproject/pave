@@ -52,6 +52,10 @@ impl SeaOrmHooks<AppAuthSchema> for CreatePaveUserRowHook {
             language: Set("en-US".to_string()),
             welcomed_at: Set(None),
             username_updated_at: Set(None),
+            // Matches the column defaults in `libs/db/src/lib/schemas/user.ts`.
+            protest_mode_enabled: Set(false),
+            recovery_delay_seconds: Set(86400),
+            recovery_delay_protest_seconds: Set(3600),
         };
 
         match ctx.tx {

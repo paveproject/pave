@@ -15,6 +15,12 @@ pub struct MeResponse {
     pub language: String,
     pub welcomed_at: Option<String>,
     pub username_updated_at: Option<String>,
+    /// "Mode manif" - toggled from the map screen, offline-first on the
+    /// client. Swaps which of the two delays below applies to a new
+    /// recovery request (see `recovery_requests::handlers::create_recovery_request`).
+    pub protest_mode_enabled: bool,
+    pub recovery_delay_seconds: i32,
+    pub recovery_delay_protest_seconds: i32,
 }
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
@@ -25,6 +31,12 @@ pub struct MeUpdateRequest {
     pub language: Option<String>,
     /// Set to `true` once to mark the post-signup welcome flow as seen.
     pub welcomed: Option<bool>,
+    pub protest_mode_enabled: Option<bool>,
+    /// Must stay strictly greater than `recovery_delay_protest_seconds`
+    /// (whichever of the two is in effect after this update) - enforced in
+    /// `update_me`, same invariant as the DB's own check constraint.
+    pub recovery_delay_seconds: Option<i32>,
+    pub recovery_delay_protest_seconds: Option<i32>,
 }
 
 /// Just enough about a registered device for ANOTHER user to seal

@@ -7,6 +7,7 @@ use crate::state::AppState;
 use auth::schema::user as auth_user;
 use auth::AppAuthSchema;
 use axum::extract::{Query, State};
+use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use better_auth::integrations::axum::{CurrentSession, OptionalSession};
@@ -45,6 +46,9 @@ pub(crate) fn to_me_response(
         language: pave_user.language,
         welcomed_at: pave_user.welcomed_at.map(|d| d.to_rfc3339()),
         username_updated_at: pave_user.username_updated_at.map(|d| d.to_rfc3339()),
+        protest_mode_enabled: pave_user.protest_mode_enabled,
+        recovery_delay_seconds: pave_user.recovery_delay_seconds,
+        recovery_delay_protest_seconds: pave_user.recovery_delay_protest_seconds,
     }
 }
 
@@ -117,7 +121,28 @@ pub async fn update_me(
     let (auth_user_row, pave_user_row) =
         tokio::join!(auth_update, find_pave_user_row(&state.db, &user_id));
 
-    // Language/welcome flow/username cooldown are Pave's own fields.
+    // Protest mode must stay strictly faster than the normal delay - check
+    // against the EFFECTIVE values (whichever of the two this request is
+    // also changing, else whatever's already stored), same invariant the
+    // DB's own check constraint enforces.
+    let effective_delay = body
+        .recovery_delay_seconds
+        .unwrap_or(pave_user_row.recovery_delay_seconds);
+    let effective_protest_delay = body
+        .recovery_delay_protest_seconds
+        .unwrap_or(pave_user_row.recovery_delay_protest_seconds);
+    if (body.recovery_delay_seconds.is_some() || body.recovery_delay_protest_seconds.is_some())
+        && effective_protest_delay >= effective_delay
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            "protest mode delay must be shorter than the normal delay",
+        )
+            .into_response();
+    }
+
+    // Language/welcome flow/username cooldown/recovery delays are Pave's
+    // own fields.
     let mut pave_active = pave_user_row.into_active_model();
     let mut pave_changed = false;
     if let Some(language) = body.language {
@@ -132,6 +157,18 @@ pub async fn update_me(
         pave_active.username_updated_at = Set(Some(Utc::now().into()));
         pave_changed = true;
     }
+    if let Some(protest_mode_enabled) = body.protest_mode_enabled {
+        pave_active.protest_mode_enabled = Set(protest_mode_enabled);
+        pave_changed = true;
+    }
+    if let Some(recovery_delay_seconds) = body.recovery_delay_seconds {
+        pave_active.recovery_delay_seconds = Set(recovery_delay_seconds);
+        pave_changed = true;
+    }
+    if let Some(recovery_delay_protest_seconds) = body.recovery_delay_protest_seconds {
+        pave_active.recovery_delay_protest_seconds = Set(recovery_delay_protest_seconds);
+        pave_changed = true;
+    }
     let pave_user_row = if pave_changed {
         pave_active
             .update(&state.db)
@@ -143,7 +180,7 @@ pub async fn update_me(
             .expect("active model missing fields")
     };
 
-    Json(to_me_response(auth_user_row, pave_user_row, &state.config))
+    Json(to_me_response(auth_user_row, pave_user_row, &state.config)).into_response()
 }
 
 #[utoipa::path(

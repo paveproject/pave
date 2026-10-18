@@ -1,5 +1,6 @@
 use api_testkit::{fresh_app, register_device, setup_recovery_scenario, shared_test_env};
 use axum::http::StatusCode;
+use chrono::{DateTime, Utc};
 use sea_orm::{ConnectionTrait, Database};
 use serde_json::json;
 
@@ -276,6 +277,86 @@ async fn create_recovery_request_asks_every_accepted_contact() {
         .await;
     assert_eq!(status, StatusCode::OK, "{request}");
     assert_eq!(request["totalContacts"], 3);
+}
+
+/// `releaseAt` must reflect the owner's own configured delay, not the old
+/// hardcoded 24h - and protest mode must swap in the shorter one.
+#[tokio::test]
+#[serial_test::serial]
+async fn release_at_reflects_the_owners_configured_delay() {
+    let env = shared_test_env().await;
+    let app = fresh_app(env).await;
+
+    let setup = setup_recovery_scenario(&app, "owner@example.com", &["contact@example.com"]).await;
+    app.request(
+        "PATCH",
+        "/me",
+        Some(&setup.owner_token),
+        Some(json!({ "recoveryDelaySeconds": 7200, "recoveryDelayProtestSeconds": 300 })),
+    )
+    .await;
+
+    let before = Utc::now();
+    let (status, request) = app
+        .request(
+            "POST",
+            "/me/recovery-requests",
+            Some(&setup.owner_token),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{request}");
+    let release_at: DateTime<Utc> = request["releaseAt"]
+        .as_str()
+        .expect("releaseAt should be a string")
+        .parse()
+        .expect("releaseAt should be a valid timestamp");
+    let delta = (release_at - before).num_seconds();
+    assert!(
+        (7190..=7200).contains(&delta),
+        "expected ~7200s delay, got {delta}s"
+    );
+}
+
+#[tokio::test]
+#[serial_test::serial]
+async fn release_at_uses_the_protest_delay_when_protest_mode_is_on() {
+    let env = shared_test_env().await;
+    let app = fresh_app(env).await;
+
+    let setup = setup_recovery_scenario(&app, "owner@example.com", &["contact@example.com"]).await;
+    app.request(
+        "PATCH",
+        "/me",
+        Some(&setup.owner_token),
+        Some(json!({
+            "protestModeEnabled": true,
+            "recoveryDelaySeconds": 7200,
+            "recoveryDelayProtestSeconds": 300,
+        })),
+    )
+    .await;
+
+    let before = Utc::now();
+    let (status, request) = app
+        .request(
+            "POST",
+            "/me/recovery-requests",
+            Some(&setup.owner_token),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{request}");
+    let release_at: DateTime<Utc> = request["releaseAt"]
+        .as_str()
+        .expect("releaseAt should be a string")
+        .parse()
+        .expect("releaseAt should be a valid timestamp");
+    let delta = (release_at - before).num_seconds();
+    assert!(
+        (290..=300).contains(&delta),
+        "expected ~300s protest delay, got {delta}s"
+    );
 }
 
 /// Starting a recovery request hard-deletes every *other* device on the

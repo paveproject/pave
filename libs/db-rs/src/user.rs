@@ -12,6 +12,9 @@ pub struct Model {
     #[sea_orm(column_type = "Text")]
     pub language: String,
     pub username_updated_at: Option<DateTimeWithTimeZone>,
+    pub protest_mode_enabled: bool,
+    pub recovery_delay_seconds: i32,
+    pub recovery_delay_protest_seconds: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

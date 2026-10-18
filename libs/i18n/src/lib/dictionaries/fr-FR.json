@@ -62,6 +62,11 @@
     "invalid_email": "Adresse email invalide",
     "min_count_characters": "Doit contenir au moins {count} caractères",
     "max_count_characters": "Doit contenir au maximum {count} caractères",
+    "minutes_count": "{count} minute{count, plural, one {} other {s}}",
+    "hours_count": "{count} heure{count, plural, one {} other {s}}",
+    "days_count": "{count} jour{count, plural, one {} other {s}}",
+    "on": "Activé",
+    "off": "Désactivé",
     "username_format": "Seules les lettres, chiffres, underscores et points sont autorisés",
     "username_unavailable": "Ce nom d'utilisateur est déjà pris",
     "code_sent": "Code envoyé",
@@ -89,6 +94,10 @@
     },
     "welcome": {
       "description": "On vous a choisi un nom d'utilisateur - gardez-le, ou faites-le vôtre."
+    },
+    "protest_mode": {
+      "title": "Mode manif",
+      "description": "Raccourcit le délai obligatoire avant que vos contacts de confiance puissent vous aider à récupérer votre compte - pour quand perdre un appareil compte plus que d'habitude."
     },
     "pending_actions": {
       "device": {
@@ -139,7 +148,9 @@
         "active_body": "Cet appareil a déjà accès à votre clé de récupération.",
         "declined_title": "Non approuvé",
         "declined_body": "La demande de cet appareil a été refusée, ou il a été retiré de votre compte. Enregistrez-le à nouveau pour refaire une demande.",
-        "register_again": "Enregistrer à nouveau"
+        "register_again": "Enregistrer à nouveau",
+        "delay": "Délai de récupération",
+        "protest_delay": "Délai en mode manif"
       },
       "trusted_contacts": {
         "empty": {

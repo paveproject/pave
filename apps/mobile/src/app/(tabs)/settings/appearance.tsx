@@ -11,8 +11,7 @@ import { useTranslations } from 'use-intl';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { useAuth } from '../../../providers/AuthProvider';
 import { useLocaleContext } from '../../../providers/LocaleProvider';
-import { useMeUpdateMutation } from '@libs/query-client';
-import { setPendingLanguage } from '../../../lib/i18n';
+import { usePushMeField } from '../../../hooks/usePushMeField';
 import { View } from '../../../components/ui/view';
 import { Icons } from '../../../constants/icons';
 import useLocalizedLanguageName from '../../../hooks/useLocalizedLanguageName';
@@ -23,7 +22,7 @@ const AppearanceScreen = () => {
   const { colors, theme, mode, themePreference, setThemePreference } = useTheme();
   const { locale, setLocale } = useLocaleContext();
   const { user } = useAuth();
-  const { mutateAsync: updateMe } = useMeUpdateMutation();
+  const pushMeField = usePushMeField();
   const localizedLanguageNames = useLocalizedLanguageName();
   const themes = useThemes();
 
@@ -31,16 +30,9 @@ const AppearanceScreen = () => {
     async (newLocale: string) => {
       setLocale(newLocale);
       if (!user) return;
-      await setPendingLanguage(newLocale);
-      try {
-        await updateMe({ language: newLocale });
-        await setPendingLanguage(null);
-      } catch {
-        // Offline (or the request otherwise failed) - stays pending,
-        // `useLanguageSync` picks it up on the next reconnect.
-      }
+      await pushMeField({ language: newLocale });
     },
-    [setLocale, updateMe, user],
+    [setLocale, pushMeField, user],
   );
 
   return (

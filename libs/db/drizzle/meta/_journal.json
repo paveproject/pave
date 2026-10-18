@@ -183,6 +183,13 @@
       "when": 1792276442454,
       "tag": "0025_hesitant_namorita",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792319286162,
+      "tag": "0026_shocking_famine",
+      "breakpoints": true
     }
   ]
 }

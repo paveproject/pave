@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { ActivityIndicator, Alert, Platform } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { Host, Icon, Row, FieldGroup, Text as NativeText } from '@expo/ui';
+import { Host, Icon, Picker, Row, Spacer, FieldGroup, Text as NativeText } from '@expo/ui';
 import {
   background,
   listRowBackground,
@@ -17,12 +17,14 @@ import {
   recoveryRequestCurrentOptions,
   trustedContactsOptions,
   useCreateRecoveryRequestMutation,
+  useMeUpdateMutation,
   useSetDeviceMutation,
 } from '@libs/query-client';
 import type { MePendingAction } from '@libs/api-js';
 import { RecoveryProgressSection } from './components/RecoveryProgressSection';
 import { getIdentityPublicKeyHex } from '../../lib/recoveryKey';
 import { useDeviceId } from '../../hooks/useDeviceId';
+import { DURATION_OPTIONS_SECONDS, useDurationLabel } from '../../hooks/useDurationLabel';
 import { View } from '../../components/ui/view';
 import Empty from '../../components/ui/empty';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -63,6 +65,16 @@ const SettingsRecovery = () => {
 
   const setDevice = useSetDeviceMutation();
   const createRecovery = useCreateRecoveryRequestMutation();
+  const { mutateAsync: updateMe } = useMeUpdateMutation();
+  const durationLabel = useDurationLabel();
+
+  const normalDelay = user?.recoveryDelaySeconds ?? 86400;
+  const protestDelay = user?.recoveryDelayProtestSeconds ?? 3600;
+  // Neither picker can even offer a combination that violates "protest
+  // delay < normal delay" - the backend's own check constraint stays the
+  // real source of truth for anything calling the API directly.
+  const normalDelayOptions = DURATION_OPTIONS_SECONDS.filter((seconds) => seconds > protestDelay);
+  const protestDelayOptions = DURATION_OPTIONS_SECONDS.filter((seconds) => seconds < normalDelay);
 
   const pendingActions = pendingActionsQuery.data;
   const devices = devicesQuery.data;
@@ -174,6 +186,47 @@ const SettingsRecovery = () => {
           : undefined
       }
     >
+      <FieldGroup.Section>
+        <Row
+          alignment="center"
+          spacing={theme.spaces.md}
+          modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+        >
+          <Icon name={Icons.clock} size={theme.icons.sizes.md} color={colors.foreground} />
+          <NativeText textStyle={{ color: colors.foreground }}>
+            {t('pages.settings.recovery.delay')}
+          </NativeText>
+          <Spacer flexible />
+          <Picker
+            selectedValue={String(normalDelay)}
+            onValueChange={(value) => updateMe({ recoveryDelaySeconds: Number(value) })}
+          >
+            {normalDelayOptions.map((seconds) => (
+              <Picker.Item key={seconds} label={durationLabel(seconds)} value={String(seconds)} />
+            ))}
+          </Picker>
+        </Row>
+        <Row
+          alignment="center"
+          spacing={theme.spaces.md}
+          modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+        >
+          <Icon name={Icons.warning} size={theme.icons.sizes.md} color={colors.foreground} />
+          <NativeText textStyle={{ color: colors.foreground }}>
+            {t('pages.settings.recovery.protest_delay')}
+          </NativeText>
+          <Spacer flexible />
+          <Picker
+            selectedValue={String(protestDelay)}
+            onValueChange={(value) => updateMe({ recoveryDelayProtestSeconds: Number(value) })}
+          >
+            {protestDelayOptions.map((seconds) => (
+              <Picker.Item key={seconds} label={durationLabel(seconds)} value={String(seconds)} />
+            ))}
+          </Picker>
+        </Row>
+      </FieldGroup.Section>
+
       {ownPending ? (
         isRecovering && recoveryRequest ? (
           <RecoveryProgressSection request={recoveryRequest} />

@@ -96,6 +96,10 @@ export const Icons = {
   }),
   link: Icon.select({ ios: 'link', android: import('@expo/material-symbols/link.xml') }),
   clock: Icon.select({ ios: 'clock', android: import('@expo/material-symbols/schedule.xml') }),
+  megaphone: Icon.select({
+    ios: 'megaphone',
+    android: import('@expo/material-symbols/campaign.xml'),
+  }),
   calendar: Icon.select({
     ios: 'calendar',
     android: import('@expo/material-symbols/calendar_month.xml'),

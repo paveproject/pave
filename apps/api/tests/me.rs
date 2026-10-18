@@ -199,3 +199,120 @@ async fn username_available_requires_authentication() {
         .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
+
+// ---------------------------------------------------------------------------
+// recovery delay / protest mode (PATCH /me)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+#[serial_test::serial]
+async fn fresh_account_gets_the_default_recovery_delays() {
+    let env = shared_test_env().await;
+    let app = fresh_app(env).await;
+
+    let token = app.sign_in("owner@example.com").await;
+    let (_, me) = app.request("GET", "/me", Some(&token), None).await;
+    assert_eq!(me["protestModeEnabled"], false);
+    assert_eq!(me["recoveryDelaySeconds"], 86400);
+    assert_eq!(me["recoveryDelayProtestSeconds"], 3600);
+}
+
+#[tokio::test]
+#[serial_test::serial]
+async fn recovery_delay_settings_round_trip() {
+    let env = shared_test_env().await;
+    let app = fresh_app(env).await;
+
+    let token = app.sign_in("owner@example.com").await;
+    let (status, updated) = app
+        .request(
+            "PATCH",
+            "/me",
+            Some(&token),
+            Some(json!({
+                "protestModeEnabled": true,
+                "recoveryDelaySeconds": 259_200,
+                "recoveryDelayProtestSeconds": 900,
+            })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{updated}");
+    assert_eq!(updated["protestModeEnabled"], true);
+    assert_eq!(updated["recoveryDelaySeconds"], 259_200);
+    assert_eq!(updated["recoveryDelayProtestSeconds"], 900);
+
+    let (_, me) = app.request("GET", "/me", Some(&token), None).await;
+    assert_eq!(me["protestModeEnabled"], true);
+    assert_eq!(me["recoveryDelaySeconds"], 259_200);
+    assert_eq!(me["recoveryDelayProtestSeconds"], 900);
+}
+
+/// Protest mode exists precisely to be a *shorter* delay - a combination
+/// that doesn't satisfy that must be rejected, not silently stored.
+#[tokio::test]
+#[serial_test::serial]
+async fn protest_delay_must_stay_shorter_than_the_normal_delay() {
+    let env = shared_test_env().await;
+    let app = fresh_app(env).await;
+
+    let token = app.sign_in("owner@example.com").await;
+
+    // Equal to the (still-default) normal delay.
+    let (status, _) = app
+        .request(
+            "PATCH",
+            "/me",
+            Some(&token),
+            Some(json!({ "recoveryDelayProtestSeconds": 86_400 })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    // Greater than it.
+    let (status, _) = app
+        .request(
+            "PATCH",
+            "/me",
+            Some(&token),
+            Some(json!({ "recoveryDelayProtestSeconds": 100_000 })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    // Nothing from either rejected call should have been stored.
+    let (_, me) = app.request("GET", "/me", Some(&token), None).await;
+    assert_eq!(me["recoveryDelaySeconds"], 86400);
+    assert_eq!(me["recoveryDelayProtestSeconds"], 3600);
+}
+
+/// Lowering the normal delay below the *already-stored* protest delay must
+/// also be rejected - the invariant is checked against effective values,
+/// not just the field(s) actually present in this request.
+#[tokio::test]
+#[serial_test::serial]
+async fn lowering_the_normal_delay_below_the_stored_protest_delay_is_rejected() {
+    let env = shared_test_env().await;
+    let app = fresh_app(env).await;
+
+    let token = app.sign_in("owner@example.com").await;
+    app.request(
+        "PATCH",
+        "/me",
+        Some(&token),
+        Some(json!({ "recoveryDelayProtestSeconds": 3600 })),
+    )
+    .await;
+
+    let (status, _) = app
+        .request(
+            "PATCH",
+            "/me",
+            Some(&token),
+            Some(json!({ "recoveryDelaySeconds": 1800 })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    let (_, me) = app.request("GET", "/me", Some(&token), None).await;
+    assert_eq!(me["recoveryDelaySeconds"], 86400);
+}
