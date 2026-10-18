@@ -35,12 +35,11 @@ enum HubCommand {
     },
 }
 
-/// A user's personal realtime channel - same per-pod actor + cross-pod
-/// Redis pub/sub fan-out shape as `reports::hub::ReportsHub`, simplified:
-/// each connection is tied to exactly one user id for its whole lifetime
-/// (the authenticated session's own, see `handlers::user_events_ws`), so
-/// there's no dynamic interest set to manage, just one subscribe at
-/// connect and one unsubscribe at disconnect.
+/// Same per-pod actor + cross-pod Redis fan-out shape as
+/// `reports::hub::ReportsHub`, simplified: each connection is tied to
+/// exactly one user id for its whole lifetime, so there's no dynamic
+/// interest set - just one subscribe at connect, one unsubscribe at
+/// disconnect.
 #[derive(Clone)]
 pub struct UserEventsHub {
     cmd_tx: mpsc::UnboundedSender<HubCommand>,

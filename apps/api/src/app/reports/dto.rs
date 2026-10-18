@@ -1,5 +1,5 @@
-use crate::libs::entities::sea_orm_active_enums::ReportTypeEnum;
 use chrono::{DateTime, Utc};
+use db_rs::sea_orm_active_enums::ReportTypeEnum;
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 

@@ -1,10 +1,6 @@
-//! Mirrors Recomend's `AppHeaders`/`readAppVersionHeaders`
-//! (`apps/api/src/app/system/app-headers.decorator.ts` and
-//! `libs/rules/src/lib/app-version.rules.ts`), minus the enforcement side -
-//! there is no `AppVersionMiddleware` here. These headers are read on
-//! `/status` only; the mobile app sends them on every request anyway (see
-//! `apps/mobile/src/lib/api/init.ts`) purely so the API already has them
-//! available if it ever needs to log/report per-version traffic later.
+//! Read on `/status` only, no enforcement middleware here - the mobile app
+//! sends these headers on every request anyway, so the API already has
+//! them available for future per-version logging.
 
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;

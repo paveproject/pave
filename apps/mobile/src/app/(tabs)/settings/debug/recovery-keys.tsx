@@ -12,12 +12,7 @@ import {
 import { PullToRefreshBox } from '@expo/ui/jetpack-compose';
 import { setStringAsync } from 'expo-clipboard';
 import { useTranslations } from 'use-intl';
-import {
-  devicesOptions,
-  trustedByOptions,
-  trustedContactsOptions,
-  useRevokeDeviceMutation,
-} from '@libs/query-client';
+import { devicesOptions, trustedByOptions, trustedContactsOptions } from '@libs/query-client';
 import {
   getDebugSnapshot,
   getReceivedShareDebugInfo,
@@ -26,6 +21,7 @@ import {
 } from '../../../../lib/recoveryKey';
 import { View } from '../../../../components/ui/view';
 import { useTheme } from '../../../../providers/ThemeProvider';
+import { useAuth } from '../../../../providers/AuthProvider';
 import { useDeviceId } from '../../../../hooks/useDeviceId';
 import { useToast } from '../../../../components/Toast';
 import { Icons } from '../../../../constants/icons';
@@ -96,6 +92,7 @@ const InfoRow = ({
  */
 const RecoveryKeysDebugScreen = () => {
   const { theme, colors, mode } = useTheme();
+  const { user } = useAuth();
   const deviceId = useDeviceId();
   const [snapshot, setSnapshot] = useState<RecoveryKeyDebugSnapshot | null>(null);
   const [receivedShares, setReceivedShares] = useState<Record<string, string>>({});
@@ -104,21 +101,23 @@ const RecoveryKeysDebugScreen = () => {
   const asContact = useQuery({ ...trustedByOptions(deviceId ?? undefined), enabled: !!deviceId });
   const devices = useQuery(devicesOptions());
   const asContactRows = asContact.data;
-  const revokeDevice = useRevokeDeviceMutation();
 
   const reload = useCallback(async () => {
-    setSnapshot(await getDebugSnapshot());
+    if (!user) return;
+    setSnapshot(await getDebugSnapshot(user.id));
     const entries = await Promise.all(
       (asContactRows ?? []).map(async (row) => {
-        const info = await getReceivedShareDebugInfo(row.owner.id);
+        const info = await getReceivedShareDebugInfo(user.id, row.owner.id);
         const value = info.present ? `gen ${info.generation}, t=${info.threshold}` : 'none';
         return [row.owner.id, value] as const;
       }),
     );
     setReceivedShares(Object.fromEntries(entries));
-  }, [asContactRows]);
+  }, [asContactRows, user]);
 
   useEffect(() => {
+    // Fetch-on-mount/dependency-change; `reload` sets state after awaiting.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     reload();
   }, [reload]);
 
@@ -128,27 +127,23 @@ const RecoveryKeysDebugScreen = () => {
   }, [mine, asContact, devices]);
 
   const handleWipe = useCallback(() => {
+    if (!user) return;
     Alert.alert(
       'Wipe local recovery state?',
-      'Simulates losing this device - revokes its device row server-side, then clears its identity keypair, DEK, device id and sync state. Force-quit and relaunch the app afterward to re-register as a fresh device.',
+      "Simulates losing this device - clears its identity keypair, DEK, device id and sync state locally. Doesn't revoke its device row server-side: a device can no longer revoke itself (see handlers::revoke_device) - only an already-active sibling can - which is actually the realistic case, since a genuinely lost device could never clean up after itself either. Force-quit and relaunch the app afterward to re-register as a fresh (orphaned) device row.",
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Wipe',
           style: 'destructive',
           onPress: async () => {
-            // Revoke server-side first, while we still know our own device
-            // id - otherwise this same physical device re-registers as a
-            // brand new row on relaunch, leaving the old one orphaned
-            // (two rows for what's actually one phone).
-            if (deviceId) await revokeDevice.mutateAsync(deviceId);
-            await wipeOwnRecoveryState();
+            await wipeOwnRecoveryState(user.id);
             await reload();
           },
         },
       ],
     );
-  }, [deviceId, revokeDevice, reload]);
+  }, [reload, user]);
 
   if (!snapshot) {
     return (
@@ -268,7 +263,7 @@ const RecoveryKeysDebugScreen = () => {
         {(asContactRows ?? []).map((row) => (
           <InfoRow
             key={row.id}
-            label={row.owner.username ?? row.id}
+            label={row.owner.username}
             value={`share:${row.encryptedShare ? 'yes' : 'no'} · decrypted:${receivedShares[row.owner.id] ?? 'none'}`}
             theme={theme}
             colors={colors}

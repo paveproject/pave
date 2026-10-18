@@ -75,4 +75,26 @@ impl PushSender {
             tracing::error!(%err, ?provider, "failed to send push notification");
         }
     }
+
+    /// One provider, one language group, many tokens - fired concurrently
+    /// per token, same as the Firebase Admin SDK's `sendEachForMulticast`
+    /// and `node-apn`'s `provider.send(note, tokens)` actually do under the
+    /// hood: neither FCM's HTTP v1 API nor APNs has a true wire-level batch
+    /// endpoint, so "batching" here means one aggregated result over many
+    /// concurrent requests, not one HTTP call.
+    pub async fn send_batch(
+        &self,
+        provider: PushProvider,
+        tokens: &[String],
+        title: &str,
+        body: &str,
+        data: &serde_json::Value,
+    ) {
+        futures_util::future::join_all(
+            tokens
+                .iter()
+                .map(|token| self.send(provider, token, title, body, data)),
+        )
+        .await;
+    }
 }

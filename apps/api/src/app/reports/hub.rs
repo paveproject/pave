@@ -184,7 +184,7 @@ async fn run(redis_url: String, mut cmd_rx: mpsc::UnboundedReceiver<HubCommand>)
         }
     };
 
-    let mut publish_conn = match client.get_connection_manager().await {
+    let publish_conn = match client.get_connection_manager().await {
         Ok(conn) => conn,
         Err(err) => {
             tracing::error!(%err, "reports hub: failed to open redis connection for publishing");
@@ -210,13 +210,26 @@ async fn run(redis_url: String, mut cmd_rx: mpsc::UnboundedReceiver<HubCommand>)
                     }
                     HubCommand::Publish { cells, message } => {
                         let Ok(payload) = serde_json::to_string(&message) else { continue };
-                        for cell in cells {
-                            let res: redis::RedisResult<i64> =
-                                publish_conn.publish(channel_name(&cell), payload.clone()).await;
-                            if let Err(err) = res {
-                                tracing::warn!(cell, %err, "failed to publish report event");
+                        // Up to 9 cells (the point's own plus its 8
+                        // neighbors - see `geohash_util::cells_for_point`) -
+                        // published concurrently rather than one round
+                        // trip at a time, since this actor is the only
+                        // thing handling fan-out for the whole pod and
+                        // would otherwise block on each in turn.
+                        // `ConnectionManager` clones are cheap and share
+                        // the same underlying connection.
+                        let publishes = cells.into_iter().map(|cell| {
+                            let mut conn = publish_conn.clone();
+                            let payload = payload.clone();
+                            async move {
+                                let res: redis::RedisResult<i64> =
+                                    conn.publish(channel_name(&cell), payload).await;
+                                if let Err(err) = res {
+                                    tracing::warn!(cell, %err, "failed to publish report event");
+                                }
                             }
-                        }
+                        });
+                        futures_util::future::join_all(publishes).await;
                     }
                 }
             }

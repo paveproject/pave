@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, RefreshControl, ScrollView } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { AnimatedLegendList } from '@legendapp/list/reanimated';
 import Animated, {
   LinearTransition,
@@ -9,7 +10,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { devicesOptions, useRevokeDeviceMutation } from '@libs/query-client';
+import { Host, Button as UIButton } from '@expo/ui';
+import { devicesOptions, pendingActionsOptions, useRevokeDeviceMutation } from '@libs/query-client';
 import type { MeDevicesResponse } from '@libs/api-js';
 import { useFormatter, useTranslations } from 'use-intl';
 import { Text } from '../../../../components/ui/text';
@@ -24,6 +26,7 @@ import { useTheme } from '../../../../providers/ThemeProvider';
 import { useToast } from '../../../../components/Toast';
 import { useDeviceId } from '../../../../hooks/useDeviceId';
 import { logger } from '../../../../logger';
+import { DEVICE_TYPE_LABEL } from '../../../../utils/deviceTypeLabel';
 import tw from '../../../../lib/tw';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -31,21 +34,29 @@ interface Row {
   readonly device: MeDevicesResponse;
   readonly isThisDevice: boolean;
   readonly isLeaving: boolean;
+  // Whether the caller (this device) can currently approve/decline this
+  // one - i.e. it's still showing up as a `device_registration` pending
+  // action for us, not just `status === 'pending'` (which `isThisDevice`'s
+  // own row can be too, and which this caller might not have standing to
+  // act on at all - see `pending_actions::get_pending_actions`).
+  readonly canApprove: boolean;
 }
 
 const DeviceRow = ({
   row,
   onLeft,
   onRequestRemove,
+  onReview,
 }: {
   row: Row;
   onLeft: (id: string) => void;
   onRequestRemove: (id: string) => void;
+  onReview: (id: string) => void;
 }) => {
-  const { device, isThisDevice, isLeaving } = row;
+  const { device, isThisDevice, isLeaving, canApprove } = row;
   const t = useTranslations();
   const format = useFormatter();
-  const { theme, colors } = useTheme();
+  const { theme, colors, mode } = useTheme();
   const insets = useSafeAreaInsets();
 
   const visibility = useSharedValue(1);
@@ -98,15 +109,21 @@ const DeviceRow = ({
           <Text style={{ flex: 1, fontWeight: '600' }}>
             {isThisDevice
               ? t('pages.settings.devices.this_device')
-              : device.deviceType === 'ios'
-                ? 'iOS'
-                : device.deviceType === 'android'
-                  ? 'Android'
-                  : 'Web'}
+              : DEVICE_TYPE_LABEL[device.deviceType]}
           </Text>
-          <Text textColor="muted">
-            {format.dateTime(new Date(device.createdAt), { dateStyle: 'medium' })}
-          </Text>
+          {canApprove ? (
+            <Host matchContents seedColor={colors.warning} colorScheme={mode}>
+              <UIButton
+                variant="outlined"
+                label={t('messages.review')}
+                onPress={() => onReview(device.id)}
+              />
+            </Host>
+          ) : (
+            <Text textColor="muted">
+              {format.dateTime(new Date(device.createdAt), { dateStyle: 'medium' })}
+            </Text>
+          )}
         </View>
       </SwipeableActionsRow>
     </Animated.View>
@@ -119,11 +136,28 @@ const MyDevicesScreen = () => {
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const thisDeviceId = useDeviceId();
+  const router = useRouter();
 
   const { data, isPending, isRefetching, refetch } = useQuery(devicesOptions());
+  // Same source `usePendingActionsGate` reads - a device only shows up
+  // here as a `device_registration` item once the server has confirmed
+  // this caller actually has standing to approve/decline it (see
+  // `pending_actions::get_pending_actions`), so this is the one place
+  // that's safe to read instead of re-deriving "is this caller active"
+  // client-side.
+  const { data: pendingActions } = useQuery(pendingActionsOptions());
   const revoke = useRevokeDeviceMutation();
 
   const devices = useMemo(() => data ?? [], [data]);
+  const approvableIds = useMemo(
+    () =>
+      new Set(
+        (pendingActions ?? [])
+          .filter((action) => action.kind === 'device_registration')
+          .map((action) => action.id),
+      ),
+    [pendingActions],
+  );
 
   const [leavingIds, setLeavingIds] = useState<Set<string>>(new Set());
 
@@ -133,8 +167,16 @@ const MyDevicesScreen = () => {
         device,
         isThisDevice: device.id === thisDeviceId,
         isLeaving: leavingIds.has(device.id),
+        canApprove: approvableIds.has(device.id),
       })),
-    [devices, thisDeviceId, leavingIds],
+    [devices, thisDeviceId, leavingIds, approvableIds],
+  );
+
+  const handleReview = useCallback(
+    (id: string) => {
+      router.push({ pathname: '/validation/device/[id]', params: { id } });
+    },
+    [router],
   );
 
   const handleRequestRemove = useCallback(
@@ -183,9 +225,14 @@ const MyDevicesScreen = () => {
 
   const renderItem = useCallback(
     ({ item }: { item: Row }) => (
-      <DeviceRow row={item} onLeft={handleRowLeft} onRequestRemove={handleRequestRemove} />
+      <DeviceRow
+        row={item}
+        onLeft={handleRowLeft}
+        onRequestRemove={handleRequestRemove}
+        onReview={handleReview}
+      />
     ),
-    [handleRowLeft, handleRequestRemove],
+    [handleRowLeft, handleRequestRemove, handleReview],
   );
 
   if (isPending) {

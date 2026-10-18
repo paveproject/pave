@@ -12,6 +12,7 @@ aws-sdk-s3 = "1.152.0"
 axum = { version = "0.8.9", features = ["multipart", "ws"] }
 bullmq-rs = "2.2.0"
 chrono = "0.4"
+db-rs = { path = "../../libs/db-rs" }
 env-rs = { path = "../../libs/env-rs" }
 notify-contracts = { path = "../../libs/notify-contracts" }
 better-auth = { git = "https://github.com/better-auth-rs/better-auth-rs", branch = "master", version = "1.0.0-alpha.3", default-features = false, features = ["axum", "seaorm2", "rustls"] }
@@ -39,6 +40,15 @@ reqwest = { version = "0.12.28", default-features = false, features = ["json", "
 hmac = "0.12.1"
 sha2 = "0.10.9"
 hex = "0.4.3"
+# Constant-time secret comparisons (internal/version_policy/guard.rs).
+subtle = "2.6.1"
+# Local GeoIP lookup (apps/api/src/libs/geoip.rs) - reads a MaxMind
+# GeoLite2 .mmdb file, no per-request call to a third party.
+maxminddb = "0.26.0"
+
+[dev-dependencies]
+api-testkit = { path = "../../libs/api-testkit" }
+serial_test = "4.0.1"
 
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

@@ -9,9 +9,7 @@ use crate::state::AppState;
 use axum::routing::get;
 use axum::Router;
 
-/// This module's own slice of the OpenAPI doc - merged into the top-level
-/// one in `main.rs`, so adding a path/schema here never requires touching
-/// that file.
+/// Merged into the top-level OpenAPI doc in `main.rs`.
 #[derive(utoipa::OpenApi)]
 #[openapi(
     paths(handlers::create_report, handlers::list_reports),

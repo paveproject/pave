@@ -20,6 +20,13 @@ COPY libs/auth/Cargo.toml libs/auth/Cargo.toml
 COPY libs/auth/src libs/auth/src
 COPY libs/notify-contracts/Cargo.toml libs/notify-contracts/Cargo.toml
 COPY libs/notify-contracts/src libs/notify-contracts/src
+COPY libs/db-rs/Cargo.toml libs/db-rs/Cargo.toml
+COPY libs/db-rs/src libs/db-rs/src
+COPY libs/env-rs/Cargo.toml libs/env-rs/Cargo.toml
+COPY libs/env-rs/src libs/env-rs/src
+COPY libs/assets-rs/Cargo.toml libs/assets-rs/Cargo.toml
+COPY libs/assets-rs/build.rs libs/assets-rs/build.rs
+COPY libs/assets-rs/src libs/assets-rs/src
 
 RUN cargo build --release --locked --bin api
 

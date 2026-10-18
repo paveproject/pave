@@ -224,11 +224,13 @@ export const SwipeableActionsRow = ({
     .failOffsetY([-10, 10])
     .onBegin(() => {
       startX.value = translateX.value;
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value mutation
       backgroundVisible.value = withTiming(1, { duration: theme.animations.durations.xl });
     })
     .onUpdate((event) => {
       const raw = startX.value + event.translationX;
       if (raw < -right.totalWidth) {
+        // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value mutation
         translateX.value = -right.totalWidth - rubberBand(-right.totalWidth - raw);
       } else if (raw > left.totalWidth) {
         translateX.value = left.totalWidth + rubberBand(raw - left.totalWidth);
@@ -252,6 +254,7 @@ export const SwipeableActionsRow = ({
       ) {
         target = left.totalWidth;
       }
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value mutation
       pendingOpenTarget.value = target;
       if (target !== 0) {
         scheduleOnRN(notifyOpened);
@@ -269,6 +272,7 @@ export const SwipeableActionsRow = ({
         // instead of relying on the settle spring's own (clamped) overshoot,
         // which by design never goes past its target.
         const bumpTarget = target + Math.sign(event.velocityX) * bumpDistance;
+        // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value mutation
         translateX.value = withSequence(
           withTiming(bumpTarget, { duration: 90 }),
           withSpring(target, SPRING_CONFIG),
@@ -278,6 +282,7 @@ export const SwipeableActionsRow = ({
       }
     })
     .onFinalize(() => {
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value mutation
       backgroundVisible.value = withTiming(pendingOpenTarget.value !== 0 ? 1 : 0, {
         duration: theme.animations.durations.sm,
       });

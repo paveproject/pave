@@ -1,8 +1,6 @@
-//! Pure version-comparison logic, no I/O. Rust port of Recomend's
-//! `libs/rules/src/lib/app-version.rules.ts` - kept here rather than in a
-//! shared lib since nothing else in this Rust API needs it, and (unlike
-//! Recomend) the mobile app is TypeScript, not Rust, so there is no
-//! language-boundary-crossing lib to share this with anyway.
+//! Pure version-comparison logic, no I/O. Kept here rather than in a
+//! shared lib since nothing else in this Rust API needs it, and the
+//! mobile app is TypeScript, not Rust.
 
 use super::dto::VersionStatus;
 use std::cmp::Ordering;

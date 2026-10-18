@@ -6,8 +6,11 @@ members = [
 	'apps/notify',
 	'libs/assets-rs',
 	'libs/auth',
+	'libs/db-rs',
 	'libs/env-rs',
 	'libs/notify-contracts',
+	'libs/test-support',
+	'libs/api-testkit',
 ]
 
 [profile.release]

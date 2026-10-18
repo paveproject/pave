@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Platform } from 'react-native';
-import { Host, Button, Icon, Row, Text as NativeText } from '@expo/ui';
+import { Host, Button as UIButton, Icon, Row, Text as NativeText } from '@expo/ui';
 import {
   buttonStyle,
   controlSize,
@@ -13,6 +13,7 @@ import { useTheme } from '../../providers/ThemeProvider';
 import { Stack, useRouter } from 'expo-router';
 import tw from '../../lib/tw';
 import { Input } from '../../components/ui/Input';
+import { Button } from '../../components/ui/Button';
 import { NativeButton } from '../../components/ui/NativeButton';
 import { Icons as LegacyIcons } from '../../constants/IconsOld';
 import { useTranslations } from 'use-intl';
@@ -30,7 +31,7 @@ import { useModalHeaderOptions } from '../../hooks/useModalHeaderOptions';
 import { useAuth } from '../../providers/AuthProvider';
 import { useLocaleContext } from '../../providers/LocaleProvider';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { isIpad } from '../../platform/detection';
+import { isAndroid, isIpad } from '../../platform/detection';
 
 const OTP_LENGTH = 6;
 
@@ -53,7 +54,7 @@ const AuthScreen = () => {
   const navigationHeaderHeight = useHeaderHeight();
   const [showOtp, setShowOtp] = useState(false);
   const [otp, setOtp] = useState('');
-  const bottomInset = isIpad ? insets.bottom : 0;
+  const bottomInset = isIpad || isAndroid ? insets.bottom : 0;
 
   const { mutateAsync: sendOtp, isPending: isSending } = useSendOtpMutation();
   const { mutateAsync: verifyOtp, isPending: isVerifying } = useVerifyOtpMutation();
@@ -119,7 +120,34 @@ const AuthScreen = () => {
 
   return (
     <>
-      <Stack.Screen options={modalHeaderOptions} />
+      <Stack.Screen options={isAndroid ? { headerShown: false } : modalHeaderOptions} />
+      {isAndroid && (
+        <View
+          style={[
+            tw`flex-row items-center`,
+            {
+              paddingTop: theme.spaces.sm,
+              paddingBottom: theme.spaces.sm,
+              paddingLeft: insets.left + theme.spaces.horizontal,
+              paddingRight: insets.right + theme.spaces.horizontal,
+            },
+          ]}
+        >
+          <Button
+            variant="muted"
+            size="icon"
+            icon={LegacyIcons.X}
+            disabled={isLoading}
+            onPress={() => router.dismiss()}
+            style={tw`rounded-full`}
+          />
+          <View pointerEvents="none" style={tw`items-center justify-center absolute inset-0`}>
+            <Text variant="title" numberOfLines={1}>
+              {t('messages.sign_in')}
+            </Text>
+          </View>
+        </View>
+      )}
       <View
         style={[
           tw`flex-1 justify-start items-center`,
@@ -280,7 +308,7 @@ const AuthScreen = () => {
             <View style={tw`items-center`}>
               <Text textColor="muted">{t('messages.not_received_code')} </Text>
               <Host matchContents>
-                <Button
+                <UIButton
                   variant="text"
                   label={t('messages.resend_code')}
                   disabled={isLoading}

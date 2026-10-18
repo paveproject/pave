@@ -9,6 +9,10 @@ const EN_AUTH_JSON: &str = include_str!("assets/i18n/en-US/auth.json");
 const FR_AUTH_JSON: &str = include_str!("assets/i18n/fr-FR/auth.json");
 const EN_TRUSTED_CONTACT_JSON: &str = include_str!("assets/i18n/en-US/trusted_contact.json");
 const FR_TRUSTED_CONTACT_JSON: &str = include_str!("assets/i18n/fr-FR/trusted_contact.json");
+const EN_RECOVERY_REQUEST_JSON: &str = include_str!("assets/i18n/en-US/recovery_request.json");
+const FR_RECOVERY_REQUEST_JSON: &str = include_str!("assets/i18n/fr-FR/recovery_request.json");
+const EN_DEVICE_JSON: &str = include_str!("assets/i18n/en-US/device.json");
+const FR_DEVICE_JSON: &str = include_str!("assets/i18n/fr-FR/device.json");
 
 #[derive(Clone)]
 pub struct Dictionaries {
@@ -22,6 +26,10 @@ impl Dictionaries {
         let mut fr = flatten_dict("auth", FR_AUTH_JSON);
         en.extend(flatten_dict("trusted_contact", EN_TRUSTED_CONTACT_JSON));
         fr.extend(flatten_dict("trusted_contact", FR_TRUSTED_CONTACT_JSON));
+        en.extend(flatten_dict("recovery_request", EN_RECOVERY_REQUEST_JSON));
+        fr.extend(flatten_dict("recovery_request", FR_RECOVERY_REQUEST_JSON));
+        en.extend(flatten_dict("device", EN_DEVICE_JSON));
+        fr.extend(flatten_dict("device", FR_DEVICE_JSON));
         Self { en, fr }
     }
 

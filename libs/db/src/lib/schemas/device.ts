@@ -1,7 +1,22 @@
 import { relations, sql } from 'drizzle-orm';
-import { pgTable, text, timestamp, uuid, index, unique } from 'drizzle-orm/pg-core';
+import { pgTable, text, pgEnum, timestamp, uuid, index, unique } from 'drizzle-orm/pg-core';
 import { user, deviceTypeEnum } from './user';
 import { trustedContact } from './trustedContact';
+
+/**
+ * `pending`: just registered, hasn't been approved yet by another already-
+ * `active` device or (via a recovery request) a quorum of trusted contacts
+ * - see `recoveryRequest.ts`. Never eligible to receive a sealed DEK copy
+ * or be treated as a Shamir recipient while in this state (every query that
+ * resolves "my devices"/"a contact's devices" for key material must filter
+ * to `active` only) - that's the whole point: a device existing in this
+ * table is no longer enough on its own to receive key material, unlike the
+ * earlier silent-auto-sync behavior this status replaces.
+ * `active`: approved (or never needed approval - the very first device on
+ * an account with nothing yet to protect goes straight to `active`, see
+ * `set_device`).
+ */
+export const deviceStatusEnum = pgEnum('device_status_enum', ['pending', 'active']);
 
 /**
  * One row per (user, physical device) the recovery-key scheme knows
@@ -30,7 +45,25 @@ export const device = pgTable(
     sessionId: text('session_id').notNull(),
     publicKey: text('public_key').notNull(),
     deviceType: deviceTypeEnum('device_type').notNull().default('web'),
+    // Default 'active' only backfills pre-existing rows at migration time -
+    // every new insert sets this explicitly (see `deviceStatusEnum`'s own
+    // doc comment), never relies on the column default.
+    status: deviceStatusEnum('status').notNull().default('active'),
     encryptedDek: text('encrypted_dek'),
+    // Coarse (city/country), resolved once from the registering request's
+    // IP via a local GeoIP lookup (see `apps/api/src/libs/geoip.rs`) - shown
+    // to an approving sibling so a bank-style "new sign-in from Paris,
+    // France" prompt is possible, the same idea as Amazon/Google's own
+    // device-approval emails. Deliberately not the raw IP itself (never
+    // stored at all, discarded right after the lookup) and deliberately
+    // nulled out the moment this device is approved (see
+    // `devices::handlers::approve_device`) - once trusted, there's no
+    // remaining security reason to keep a location on file, so it doesn't
+    // linger as a permanent record of where this device first connected
+    // from. Approximate by nature (VPNs/carrier NAT can be wildly off) -
+    // never treat this as ground truth, only ever label it as such in the UI.
+    locationCity: text('location_city'),
+    locationCountry: text('location_country'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
       .defaultNow()
       .notNull(),

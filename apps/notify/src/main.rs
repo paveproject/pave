@@ -3,6 +3,7 @@ mod dispatch;
 mod email;
 mod i18n;
 mod push;
+mod recipients;
 
 use bullmq_rs::{RedisConnection, WorkerBuilder};
 use config::NotifyConfig;
@@ -47,7 +48,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.apns_production,
     ));
 
+    // `notify` owns resolving push tokens/language itself (see
+    // `recipients.rs`) - unlike `api`'s `auth::database_url()`, no
+    // `auth,public,extensions` search_path override is needed, since this
+    // process only ever touches `public.device`/`public.push_token`/
+    // `public.user` (already on the default search path).
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let db = sea_orm::Database::connect(database_url)
+        .await
+        .expect("failed to connect to database");
+
     let state = State {
+        db,
         resend: Resend::new(&config.resend_api_key),
         dictionaries: i18n::Dictionaries::load(),
         from_email: config.resend_from_email,

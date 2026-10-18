@@ -4,10 +4,17 @@ import { useAuth } from './AuthProvider';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '../components/Toast';
-import { usePushTokenUpdateMutation } from '@libs/query-client';
+import {
+  devicesOptions,
+  pendingActionsOptions,
+  recoveryRequestCurrentOptions,
+  trustedContactsOptions,
+  usePushTokenUpdateMutation,
+} from '@libs/query-client';
 import { useTranslations } from 'use-intl';
-import { PushNotificationPayload } from '@libs/api-js';
+import type { PushContent } from '@libs/api-js';
 
 type NotificationsContextType = {
   permissionStatus: Notifications.PermissionStatus | null;
@@ -28,6 +35,7 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
   const toast = useToast();
   const t = useTranslations();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user, pushToken, setPushToken } = useAuth();
   const [permissionStatus, setPermissionStatus] = useState<Notifications.PermissionStatus | null>(
     null,
@@ -76,42 +84,75 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
     }
   }, []);
 
-  const handleRedirect = useCallback(
-    (data: PushNotificationPayload) => {
-      switch (data.type) {
-        case 'reco:received':
-          if (data.mediaType === 'movie') {
-            router.push({
-              pathname: '/film/[film_id]',
-              params: { film_id: data.mediaId },
-            });
-          }
-          if (data.mediaType === 'tv_series') {
-            router.push({
-              pathname: '/tv-series/[tv_series_id]',
-              params: { tv_series_id: data.mediaId },
-            });
-          }
+  /**
+   * Keeps the react-query cache honest the moment a push actually tells us
+   * something changed server-side - same events `useUserEventsSocket`
+   * reacts to live over the websocket, but that's only connected while the
+   * app is foregrounded. A push is the only signal left once it isn't (or
+   * once a query that matters, e.g. `recoveryRequestCurrentOptions` on
+   * `settings/recovery`, isn't even mounted to pick up a focus refetch) -
+   * without this, e.g. `recovery-request:ready` would leave the "recovery
+   * in progress" screen stuck showing stale data until something else
+   * happened to refetch it. Runs on *every* receipt (foreground or not),
+   * not just a tap - `data.kind` is the only thing read here, so this
+   * never needs updating when a new field is added to a variant, only
+   * when a whole new kind is.
+   */
+  const invalidateForNotification = useCallback(
+    (data: PushContent) => {
+      switch (data.kind) {
+        case 'trusted-contact-accepted':
+          queryClient.invalidateQueries({ queryKey: trustedContactsOptions().queryKey });
           break;
-        case 'follow:new':
-          router.push({
-            pathname: '/user/[username]',
-            params: { username: data.actorUsername },
-          });
+        case 'recovery-request-created':
+          queryClient.invalidateQueries({ queryKey: pendingActionsOptions().queryKey });
           break;
-        case 'follow:request':
-          router.push({
-            pathname: '/follow-requests',
-          });
+        case 'recovery-request-contact-responded':
+        case 'recovery-request-ready':
+        case 'recovery-request-failed':
+          queryClient.invalidateQueries({ queryKey: recoveryRequestCurrentOptions().queryKey });
           break;
-        case 'follow:accepted':
-          router.push({
-            pathname: '/user/[username]',
-            params: { username: data.actorUsername },
-          });
+        case 'device-approval-requested':
+          queryClient.invalidateQueries({ queryKey: pendingActionsOptions().queryKey });
+          queryClient.invalidateQueries({ queryKey: devicesOptions().queryKey });
+          break;
+        case 'device-approved':
+        case 'device-declined':
+          queryClient.invalidateQueries({ queryKey: pendingActionsOptions().queryKey });
+          queryClient.invalidateQueries({ queryKey: devicesOptions().queryKey });
+          queryClient.invalidateQueries({ queryKey: recoveryRequestCurrentOptions().queryKey });
           break;
         default:
+          data satisfies never;
+      }
+    },
+    [queryClient],
+  );
+
+  /** Where tapping the notification (or its in-app toast) actually takes
+   * you - the screen that already shows whatever just changed, picked
+   * fresh by `invalidateForNotification` above by the time this runs. */
+  const handleRedirect = useCallback(
+    (data: PushContent) => {
+      switch (data.kind) {
+        case 'trusted-contact-accepted':
+          router.push('/settings/trusted-contacts');
           break;
+        case 'recovery-request-created':
+          router.push('/settings/trusted-contacts/as-contact');
+          break;
+        case 'recovery-request-contact-responded':
+        case 'recovery-request-ready':
+        case 'recovery-request-failed':
+        case 'device-approved':
+        case 'device-declined':
+          router.push('/settings/recovery');
+          break;
+        case 'device-approval-requested':
+          router.push('/settings/devices');
+          break;
+        default:
+          data satisfies never;
       }
     },
     [router],
@@ -122,29 +163,29 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
       // iOS APNs : data in response.notification.request.trigger.payload.data
       // Android FCM : data in response.notification.request.content.data
       const data = (response.notification.request.content.data ||
-        (response.notification.request.trigger as any).payload.data) as
-        | PushNotificationPayload
-        | undefined;
+        (response.notification.request.trigger as any).payload.data) as PushContent | undefined;
       if (data) {
+        invalidateForNotification(data);
         handleRedirect(data);
       }
     },
-    [handleRedirect],
+    [invalidateForNotification, handleRedirect],
   );
 
   const handleToast = useCallback(
     (notification: Notifications.Notification) => {
       const data = (notification.request.content.data ||
-        (notification.request.trigger as any).payload.data) as PushNotificationPayload | undefined;
+        (notification.request.trigger as any).payload.data) as PushContent | undefined;
+      if (data) invalidateForNotification(data);
       toast.info(
         notification.request.content.title || t('messages.new_notification', { count: 1 }),
         {
           description: notification.request.content.body ?? undefined,
-          onPress: data && data.type ? () => handleRedirect(data) : undefined,
+          onPress: data ? () => handleRedirect(data) : undefined,
         },
       );
     },
-    [toast, t, handleRedirect],
+    [toast, t, invalidateForNotification, handleRedirect],
   );
 
   useEffect(() => {

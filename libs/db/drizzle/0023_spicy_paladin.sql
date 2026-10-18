@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "idx_trusted_contact_one_pending_invite_per_owner" ON "trusted_contact" USING btree ("owner_user_id") WHERE contact_user_id IS NULL AND status = 'pending';--> statement-breakpoint
+ALTER TABLE "trusted_contact" ADD CONSTRAINT "check_trusted_contact_contact_user_id" CHECK (status IN ('pending', 'revoked') OR contact_user_id IS NOT NULL);

@@ -42,6 +42,56 @@ pub enum TrustedContactStatusEnum {
     Revoked,
 }
 
+// Hand-added (not sea-orm-codegen output, same reasoning as the enums
+// above it): mirrors Postgres `device_status_enum` (see
+// libs/db/src/lib/schemas/device.ts).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "Enum", db_type = "Enum", enum_name = "device_status_enum")]
+pub enum DeviceStatusEnum {
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "active")]
+    Active,
+}
+
+// Hand-added (not sea-orm-codegen output, same reasoning as the enums
+// above it): mirrors Postgres `recovery_request_status_enum` (see
+// libs/db/src/lib/schemas/recoveryRequest.ts).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "Enum",
+    db_type = "Enum",
+    enum_name = "recovery_request_status_enum"
+)]
+pub enum RecoveryRequestStatusEnum {
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "completed")]
+    Completed,
+    #[sea_orm(string_value = "cancelled")]
+    Cancelled,
+    #[sea_orm(string_value = "failed")]
+    Failed,
+}
+
+// Hand-added (not sea-orm-codegen output, same reasoning as the enums
+// above it): mirrors Postgres `recovery_request_contact_status_enum` (see
+// libs/db/src/lib/schemas/recoveryRequest.ts).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "Enum",
+    db_type = "Enum",
+    enum_name = "recovery_request_contact_status_enum"
+)]
+pub enum RecoveryRequestContactStatusEnum {
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "approved")]
+    Approved,
+    #[sea_orm(string_value = "declined")]
+    Declined,
+}
+
 // Hand-added (not sea-orm-codegen output, unlike the rest of this file):
 // mirrors Postgres `system.platform`/`system.version_release_state` (see
 // libs/db/src/lib/schemas/system.ts) the same way `ReportTypeEnum` below

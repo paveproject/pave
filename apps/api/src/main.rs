@@ -1,39 +1,19 @@
-mod app;
-mod config;
-mod libs;
-mod state;
-
-use app::{auth_otp, health, internal, me, reports, system, webhooks};
+use api::app::me;
+use api::app::reports;
+use api::config::ApiConfig;
+use api::libs;
+use api::state::{build_s3_client, AppState};
+use api::{build_app, build_openapi};
 use auth::{database_url, AppAuthSchema, OtpPlugin};
-use axum::Router;
 use better_auth::config::BearerConfig;
-use better_auth::integrations::axum::AxumIntegration;
 use better_auth::plugins::SessionManagementPlugin;
 use better_auth::seaorm::{Database, SeaOrmStore};
 use better_auth::{AuthConfig, BetterAuth};
 use bullmq_rs::{QueueBuilder, RedisConnection};
-use config::ApiConfig;
 use env_rs::RedisConfig;
 use libs::otp_sender;
 use notify_contracts::NOTIFY_QUEUE;
-use state::{build_s3_client, AppState};
 use std::sync::Arc;
-use tower_http::cors::CorsLayer;
-use utoipa::OpenApi;
-use utoipa_swagger_ui::SwaggerUi;
-
-/// The full API's OpenAPI doc, assembled from each top-level module's own
-/// slice (each of which may itself be assembled from its own
-/// sub-modules' - see `me::openapi`) - this function is the *only* place
-/// that needs to change when a whole new top-level module is added; a new
-/// path/schema inside an existing one never touches this file at all.
-fn build_openapi() -> utoipa::openapi::OpenApi {
-    health::ApiDoc::openapi()
-        .merge_from(system::ApiDoc::openapi())
-        .merge_from(auth_otp::ApiDoc::openapi())
-        .merge_from(me::openapi())
-        .merge_from(reports::ApiDoc::openapi())
-}
 
 fn emit_openapi_and_exit(path: &str) {
     let json = build_openapi()
@@ -85,7 +65,9 @@ async fn main() {
     // and `/me`'s `CurrentSession`/`OptionalSession` extractors alike) must
     // accept it too.
     config.session.bearer = Some(BearerConfig::default());
-    let store = SeaOrmStore::<AppAuthSchema>::new(config.clone(), database.clone());
+    let store = SeaOrmStore::<AppAuthSchema>::new(config.clone(), database.clone())
+        .hook(libs::auth_hooks::GenerateUsernameHook)
+        .hook(libs::auth_hooks::CreatePaveUserRowHook);
     let otp_sender = Arc::new(otp_sender::BullmqOtpSender::connect(&redis_config.url()).await);
     let auth = Arc::new(
         BetterAuth::<AppAuthSchema>::new(config)
@@ -107,7 +89,8 @@ async fn main() {
     let app_store_connect = Arc::new(libs::app_store_connect::AppStoreConnectClient::new(
         &api_config,
     ));
-    let reports_hub = app::reports::hub::ReportsHub::spawn(redis_config.url());
+    let geoip = libs::geoip::GeoIp::open(api_config.geoip_db_path.as_deref()).map(Arc::new);
+    let reports_hub = reports::hub::ReportsHub::spawn(redis_config.url());
     let user_events_hub = me::events::hub::UserEventsHub::spawn(redis_config.url());
 
     let notify_queue = Arc::new(
@@ -120,7 +103,7 @@ async fn main() {
 
     let state = AppState {
         config: Arc::new(api_config),
-        auth: auth.clone(),
+        auth,
         db: database,
         s3,
         reports_hub,
@@ -128,25 +111,10 @@ async fn main() {
         notify_queue,
         redis,
         app_store_connect,
+        geoip,
     };
 
-    let app = Router::new()
-        .merge(SwaggerUi::new("/docs").url("/openapi.json", build_openapi()))
-        .route("/health", axum::routing::get(health::health_check))
-        .route("/status", axum::routing::get(system::handlers::get_status))
-        .nest("/auth", auth.axum_router_with_state::<AppState>())
-        .nest("/me", me::router())
-        .nest("/reports", reports::router())
-        .nest(
-            "/internal/version-policy",
-            internal::version_policy::router(),
-        )
-        .nest(
-            "/webhooks/app-store-connect",
-            webhooks::app_store_connect::router(),
-        )
-        .with_state(state)
-        .layer(CorsLayer::permissive());
+    let app = build_app(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3002")
         .await

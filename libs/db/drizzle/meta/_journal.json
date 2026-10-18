@@ -127,6 +127,62 @@
       "when": 1791983814319,
       "tag": "0017_yellow_supreme_intelligence",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792142391324,
+      "tag": "0018_nappy_mandarin",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792222108148,
+      "tag": "0019_polite_vindicator",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792242609516,
+      "tag": "0020_strong_zeigeist",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792243793335,
+      "tag": "0021_married_tempest",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792245348922,
+      "tag": "0022_shiny_nuke",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792249270082,
+      "tag": "0023_spicy_paladin",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792273642196,
+      "tag": "0024_good_emma_frost",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792276442454,
+      "tag": "0025_hesitant_namorita",
+      "breakpoints": true
     }
   ]
 }

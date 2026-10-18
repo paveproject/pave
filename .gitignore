@@ -32,6 +32,11 @@ node_modules
 .env.production.local
 .env.local
 
+# GeoLite2 database (apps/api/src/libs/geoip.rs) - never committed, this
+# repo is public and MaxMind's license forbids redistributing it. Local
+# dev points GEOIP_DB_PATH at wherever you download it.
+*.mmdb
+
 # misc
 /.sass-cache
 /connect.lock

@@ -81,6 +81,10 @@ const SettingsScreen = () => {
     router.push('/settings/devices');
   }, [router]);
 
+  const handleRecovery = useCallback(() => {
+    router.push('/settings/recovery');
+  }, [router]);
+
   const handleDebug = useCallback(() => {
     router.push('/settings/debug');
   }, [router]);
@@ -204,6 +208,23 @@ const SettingsScreen = () => {
                   <Icon name={Icons.device} size={theme.icons.sizes.md} color={colors.foreground} />
                   <NativeText textStyle={{ color: colors.foreground }}>
                     {t('messages.devices')}
+                  </NativeText>
+                  <Spacer flexible />
+                  <Icon
+                    name={Icons.chevronRight}
+                    size={theme.icons.sizes.sm}
+                    color={colors.mutedForeground}
+                  />
+                </Row>
+                <Row
+                  spacing={theme.spaces.md}
+                  alignment="center"
+                  onPress={handleRecovery}
+                  modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+                >
+                  <Icon name={Icons.lock} size={theme.icons.sizes.md} color={colors.foreground} />
+                  <NativeText textStyle={{ color: colors.foreground }}>
+                    {t('messages.recovery')}
                   </NativeText>
                   <Spacer flexible />
                   <Icon

@@ -4,6 +4,7 @@
 //! error on whichever side wasn't updated, instead of a runtime mismatch.
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 pub const NOTIFY_QUEUE: &str = "notify_queue";
 
@@ -14,10 +15,12 @@ pub mod job_names {
     pub const AUTH_SIGN_IN_OTP_EMAIL: &str = "auth:sign-in-otp-email";
     pub const AUTH_VERIFICATION_OTP_EMAIL: &str = "auth:verification-otp-email";
     pub const AUTH_PASSWORD_RESET_OTP_EMAIL: &str = "auth:password-reset-otp-email";
+    pub const RECOVERY_REQUEST_CREATED_EMAIL: &str = "recovery-request:created-email";
+    pub const RECOVERY_REQUEST_READY_EMAIL: &str = "recovery-request:ready-email";
     pub const PUSH_NOTIFICATION: &str = "push:notification";
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Lang {
     #[default]
@@ -63,7 +66,7 @@ pub struct OtpEmailPayload {
 /// `fcm`/`apns` only - the one-time `expo` value this project briefly used
 /// is gone, see `apps/notify/src/push` for why (throttling, and APNs/FCM
 /// credentials were already set up elsewhere).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PushProvider {
     Fcm,
@@ -76,36 +79,113 @@ pub enum PushProvider {
 /// does for the email jobs above; add a variant here, and a matching
 /// dictionary entry under `apps/notify/src/assets/i18n`, the next time a
 /// new call site needs to send a push.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// This is also, verbatim, the `data` payload the device actually
+/// receives over APNs/FCM (see `apps/notify/src/dispatch.rs`'s
+/// `send_push_notification`, which serializes `content` directly) -
+/// `ToSchema` lets `api` register it as an OpenAPI component with no path
+/// of its own purely so the generated TS SDK carries the exact same type,
+/// and the mobile `NotificationsProvider` can switch on `data.kind`
+/// instead of hand-duplicating this enum's shape and drifting out of sync
+/// with it. Fields are renamed individually to camelCase rather than via
+/// a container-level `rename_all_fields` - utoipa 6.0.0's `ToSchema`
+/// derive doesn't pick that attribute up, so the generated schema would
+/// silently keep the snake_case Rust names otherwise (confirmed against
+/// both serde's own output and utoipa's schema output directly).
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum PushContent {
     /// `actor_username` is `None` for a contact with no username set -
     /// `notify` substitutes its own translated "Someone" fallback, not a
     /// hardcoded-language one baked in by the producer.
-    TrustedContactAccepted { actor_username: Option<String> },
+    TrustedContactAccepted {
+        #[serde(rename = "actorUsername")]
+        actor_username: Option<String>,
+    },
+    /// Sent to every one of the owner's currently-accepted trusted
+    /// contacts the moment a recovery request is created - asking them to
+    /// release the Shamir share they're already holding.
+    RecoveryRequestCreated {
+        #[serde(rename = "ownerUsername")]
+        owner_username: Option<String>,
+    },
+    /// Sent to the owner's requesting device each time a contact responds -
+    /// carries running totals so the notification itself can say "2 of 3"
+    /// without the device needing to be foregrounded to know that.
+    /// `declined` is separate from `approved`/`total` (not derived as
+    /// `total - approved`, since some contacts may still be `pending`) so
+    /// the rendered text can distinguish "no one has answered yet" from
+    /// "everyone answered, but declined."
+    RecoveryRequestContactResponded {
+        approved: u32,
+        declined: u32,
+        total: u32,
+    },
+    /// Sent to the owner's requesting device when every asked contact has
+    /// responded and none approved - zero shares exist, so reconstruction
+    /// is guaranteed impossible regardless of the (server-unknown) Shamir
+    /// threshold. See `recovery_requests::handlers::fail_if_unrecoverable`.
+    RecoveryRequestFailed,
+    /// Sent to every one of this user's *other*, already-`active` devices
+    /// the moment a new one registers and needs approval - see
+    /// `devices::handlers::set_device`. Never sent to the new device
+    /// itself (it has nothing to approve, including itself).
+    DeviceApprovalRequested,
+    /// Sent to the specific device that was just approved - see
+    /// `devices::handlers::approve_device`.
+    DeviceApproved,
+    /// Sent to the specific device that was just declined, before its row
+    /// is deleted - see `devices::handlers::decline_device`.
+    DeviceDeclined,
+    /// Sent to the requesting device the moment its recovery request's
+    /// mandatory delay elapses - enqueued with a matching `delay` at
+    /// `create_recovery_request` time, not triggered by anything watching
+    /// the clock. Tells the owner it's worth opening the app again; the
+    /// device's own background poll (`useRecoveryRequestCompletion`)
+    /// handles the actual fetch-and-complete once it does, so this is
+    /// purely a wake-up call, carrying no data of its own.
+    RecoveryRequestReady,
 }
 
-/// One push notification, one device token - a user with several devices
-/// means several of these, one job each (simpler than looping over tokens,
-/// and partial failure, inside a single job). The producer (`apps/api`)
-/// resolves `token`/`provider` from its own `push_token` table and the
-/// recipient's `lang` from its own `user` table - `notify` has no database
-/// access, but does do the i18n lookup/rendering itself from `content`,
-/// same as the email jobs above.
+/// Who a `PushNotifyPayload` goes to - resolved by `notify` itself (see
+/// `apps/notify/src/recipients.rs`), never by the producer. `notify` has
+/// its own database access specifically so `api` only ever has to say
+/// *who* (in terms it already has in hand from the request it's handling)
+/// and *what happened*, never a token, provider, or language.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PushNotificationPayload {
-    pub provider: PushProvider,
-    pub token: String,
-    #[serde(default)]
-    pub lang: Lang,
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum PushTarget {
+    /// Every device of every one of these users - e.g. every currently-
+    /// accepted trusted contact asked by one recovery request, notified
+    /// with a single job instead of one per contact per token. A named
+    /// field, not a bare newtype (`Users(Vec<String>)`) - internally
+    /// tagged enums (`#[serde(tag = "kind")]`) can only ever merge the tag
+    /// into a map, and a newtype wrapping a sequence has no map to merge
+    /// it into - serde panics at serialize time for that shape, caught the
+    /// hard way via `NotifyJob::data()`'s own `.expect(...)`.
+    Users { user_ids: Vec<String> },
+    /// One specific device only, resolved via `device.session_id` ==
+    /// `push_token.session_id` correlation (both already kept fresh on
+    /// every `PUT /me/devices` / `PUT /me/push-token` call).
+    Device { user_id: String, device_id: String },
+    /// Every one of this user's *other* already-`active` devices -
+    /// excludes one specific device id (the one that just registered).
+    OtherActiveDevices {
+        user_id: String,
+        excluding_device_id: String,
+    },
+}
+
+/// One push notification, possibly many recipients/devices - `notify`
+/// resolves `target` into tokens/providers/languages itself (see
+/// `apps/notify/src/recipients.rs`), groups by `(provider, language)`, and
+/// sends one batch per group. The producer (`apps/api`) never touches a
+/// token, provider, or language - just `target` (ids it already has from
+/// the request it's handling) and `content` (what happened).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PushNotifyPayload {
+    pub target: PushTarget,
     pub content: PushContent,
-    /// Deep-link data for the mobile client's notification-response handler
-    /// (see apps/mobile's `NotificationsProvider`), e.g.
-    /// `{"type": "follow:new", "actorUsername": "..."}`. FCM only accepts
-    /// string values here (see `apps/notify/src/push/fcm.rs`), so keep this
-    /// flat - one level of string/number/bool fields, no nesting.
-    #[serde(default)]
-    pub data: serde_json::Value,
 }
 
 /// Every job that can be dequeued from [`NOTIFY_QUEUE`]. A producer builds
@@ -120,7 +200,20 @@ pub enum NotifyJob {
     AuthSignInOtpEmail(OtpEmailPayload),
     AuthVerificationOtpEmail(OtpEmailPayload),
     AuthPasswordResetOtpEmail(OtpEmailPayload),
-    PushNotification(PushNotificationPayload),
+    /// The recovery-request safety net: sent to the account's registered
+    /// email - a channel independent of whatever device/session the
+    /// request itself was made from - the moment a recovery request is
+    /// created, linking to the cancel endpoint. The server can't tell a
+    /// legitimate re-login after really losing every device apart from an
+    /// attacker who simply stole the session, so this goes out every time,
+    /// not just when something looks suspicious.
+    RecoveryRequestCreatedEmail(LinkEmailPayload),
+    /// The "come back and finish" nudge - sent the moment the mandatory
+    /// delay elapses, same independent-channel reasoning as the email
+    /// above. Enqueued alongside `PushContent::RecoveryRequestReady` with
+    /// a matching `delay`, not triggered by anything watching the clock.
+    RecoveryRequestReadyEmail(LinkEmailPayload),
+    PushNotification(PushNotifyPayload),
 }
 
 impl NotifyJob {
@@ -133,6 +226,8 @@ impl NotifyJob {
             NotifyJob::AuthSignInOtpEmail(_) => AUTH_SIGN_IN_OTP_EMAIL,
             NotifyJob::AuthVerificationOtpEmail(_) => AUTH_VERIFICATION_OTP_EMAIL,
             NotifyJob::AuthPasswordResetOtpEmail(_) => AUTH_PASSWORD_RESET_OTP_EMAIL,
+            NotifyJob::RecoveryRequestCreatedEmail(_) => RECOVERY_REQUEST_CREATED_EMAIL,
+            NotifyJob::RecoveryRequestReadyEmail(_) => RECOVERY_REQUEST_READY_EMAIL,
             NotifyJob::PushNotification(_) => PUSH_NOTIFICATION,
         }
     }
@@ -141,7 +236,9 @@ impl NotifyJob {
         match self {
             NotifyJob::AuthVerificationEmail(p)
             | NotifyJob::AuthDeleteAccountEmail(p)
-            | NotifyJob::AuthResetPassword(p) => serde_json::to_value(p),
+            | NotifyJob::AuthResetPassword(p)
+            | NotifyJob::RecoveryRequestCreatedEmail(p)
+            | NotifyJob::RecoveryRequestReadyEmail(p) => serde_json::to_value(p),
             NotifyJob::AuthSignInOtpEmail(p)
             | NotifyJob::AuthVerificationOtpEmail(p)
             | NotifyJob::AuthPasswordResetOtpEmail(p) => serde_json::to_value(p),
@@ -172,8 +269,53 @@ impl NotifyJob {
             AUTH_PASSWORD_RESET_OTP_EMAIL => {
                 NotifyJob::AuthPasswordResetOtpEmail(serde_json::from_value(data)?)
             }
+            RECOVERY_REQUEST_CREATED_EMAIL => {
+                NotifyJob::RecoveryRequestCreatedEmail(serde_json::from_value(data)?)
+            }
+            RECOVERY_REQUEST_READY_EMAIL => {
+                NotifyJob::RecoveryRequestReadyEmail(serde_json::from_value(data)?)
+            }
             PUSH_NOTIFICATION => NotifyJob::PushNotification(serde_json::from_value(data)?),
             _ => return Ok(None),
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression test for `PushTarget::Users(Vec<String>)` panicking at
+    /// `NotifyJob::data()`'s `.expect(...)` - a newtype variant wrapping a
+    /// sequence has no map for an internally-tagged enum's `kind` field to
+    /// merge into, so serde refuses to serialize it at all. Every variant
+    /// must round-trip through `data()`/`from_raw()` exactly like a real
+    /// producer -> queue -> consumer hop would.
+    #[test]
+    fn push_target_variants_round_trip() {
+        let targets = [
+            PushTarget::Users {
+                user_ids: vec!["u1".to_string(), "u2".to_string()],
+            },
+            PushTarget::Device {
+                user_id: "u1".to_string(),
+                device_id: "d1".to_string(),
+            },
+            PushTarget::OtherActiveDevices {
+                user_id: "u1".to_string(),
+                excluding_device_id: "d1".to_string(),
+            },
+        ];
+
+        for target in targets {
+            let job = NotifyJob::PushNotification(PushNotifyPayload {
+                target,
+                content: PushContent::DeviceApproved,
+            });
+            let data = job.data();
+            let rebuilt =
+                NotifyJob::from_raw(job.name(), data).expect("push notification job must parse");
+            assert!(matches!(rebuilt, Some(NotifyJob::PushNotification(_))));
+        }
     }
 }

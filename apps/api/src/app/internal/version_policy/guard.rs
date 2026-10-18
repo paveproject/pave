@@ -1,12 +1,10 @@
 use crate::state::AppState;
 use axum::extract::FromRequestParts;
 use axum::http::{header, request::Parts, StatusCode};
+use subtle::ConstantTimeEq;
 
-/// `Authorization: Bearer <API_INTERNAL_VERSION_POLICY_SECRET>`, nothing
-/// fancier - this is called by CD (see
-/// `.github/workflows/mobile-router.yml`), not reachable from the mobile
-/// app or the public internet's intended surface. Same convention as
-/// Recomend's `InternalVersionPolicyGuard`.
+/// `Authorization: Bearer <API_INTERNAL_VERSION_POLICY_SECRET>` - called
+/// by CD, not meant for the mobile app or public use.
 pub struct InternalSecretGuard;
 
 impl FromRequestParts<AppState> for InternalSecretGuard {
@@ -28,7 +26,8 @@ impl FromRequestParts<AppState> for InternalSecretGuard {
             .and_then(|v| v.to_str().ok())
             .ok_or(StatusCode::UNAUTHORIZED)?;
 
-        if provided != format!("Bearer {secret}") {
+        let expected = format!("Bearer {secret}");
+        if !bool::from(provided.as_bytes().ct_eq(expected.as_bytes())) {
             return Err(StatusCode::UNAUTHORIZED);
         }
 

@@ -2,6 +2,7 @@ use crate::app::me::events::hub::UserEventsHub;
 use crate::app::reports::hub::ReportsHub;
 use crate::config::ApiConfig;
 use crate::libs::app_store_connect::AppStoreConnectClient;
+use crate::libs::geoip::GeoIp;
 use auth::AppAuthSchema;
 use aws_sdk_s3::Client as S3Client;
 use axum::extract::FromRef;
@@ -34,6 +35,10 @@ pub struct AppState {
     /// `AppStoreConnectClient::token`) actually gets reused - see
     /// `app::webhooks::app_store_connect`.
     pub app_store_connect: Arc<AppStoreConnectClient>,
+    /// `None` until `GEOIP_DB_PATH` points at a real `.mmdb` file (see
+    /// `GeoIp::open`'s own doc comment) - `set_device` just skips
+    /// resolving a location when this is `None`.
+    pub geoip: Option<Arc<GeoIp>>,
 }
 
 impl FromRef<AppState> for Arc<BetterAuth<AppAuthSchema>> {

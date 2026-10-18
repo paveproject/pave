@@ -1,5 +1,5 @@
 use crate::app::me::dto::MeResponse;
-use crate::app::me::handlers::{ensure_pave_user_row, to_me_response};
+use crate::app::me::handlers::{find_pave_user_row, to_me_response};
 use crate::libs::media;
 use auth::schema::user as auth_user;
 use auth::AppAuthSchema;
@@ -35,6 +35,9 @@ pub async fn set_avatar(
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     let user_id = session.user.id.clone();
+    // Independent of the upload below - overlaps with it instead of
+    // waiting until after.
+    let pave_user_row_future = find_pave_user_row(&state.db, &user_id);
 
     let Ok(Some(field)) = multipart.next_field().await else {
         return (StatusCode::BAD_REQUEST, "no file uploaded").into_response();
@@ -74,7 +77,9 @@ pub async fn set_avatar(
         .await
         .expect("failed to upload avatar");
 
-    auth_user::Entity::update(auth_user::ActiveModel {
+    // `.exec()` already returns the full updated model (Postgres
+    // RETURNING) - no need to re-fetch it.
+    let auth_user_row = auth_user::Entity::update(auth_user::ActiveModel {
         id: Set(user_id.clone()),
         image: Set(Some(filename)),
         ..Default::default()
@@ -82,13 +87,7 @@ pub async fn set_avatar(
     .exec(&state.db)
     .await
     .expect("failed to update user avatar");
-
-    let auth_user_row = auth_user::Entity::find_by_id(user_id.clone())
-        .one(&state.db)
-        .await
-        .expect("failed to query user")
-        .expect("user not found");
-    let pave_user_row = ensure_pave_user_row(&state.db, &user_id).await;
+    let pave_user_row = pave_user_row_future.await;
 
     Json(to_me_response(auth_user_row, pave_user_row, &state.config)).into_response()
 }
@@ -104,6 +103,8 @@ pub async fn delete_avatar(
     session: CurrentSession<AppAuthSchema>,
 ) -> impl IntoResponse {
     let user_id = session.user.id.clone();
+    // Independent of the S3 delete below - overlaps with it.
+    let pave_user_row_future = find_pave_user_row(&state.db, &user_id);
 
     // Only delete from our own bucket when the stored value is actually
     // one of our filenames - an OAuth-provided avatar (Google/Apple) is a
@@ -121,7 +122,7 @@ pub async fn delete_avatar(
         }
     }
 
-    auth_user::Entity::update(auth_user::ActiveModel {
+    let auth_user_row = auth_user::Entity::update(auth_user::ActiveModel {
         id: Set(user_id.clone()),
         image: Set(None),
         ..Default::default()
@@ -129,13 +130,7 @@ pub async fn delete_avatar(
     .exec(&state.db)
     .await
     .expect("failed to clear user avatar");
-
-    let auth_user_row = auth_user::Entity::find_by_id(user_id.clone())
-        .one(&state.db)
-        .await
-        .expect("failed to query user")
-        .expect("user not found");
-    let pave_user_row = ensure_pave_user_row(&state.db, &user_id).await;
+    let pave_user_row = pave_user_row_future.await;
 
     Json(to_me_response(auth_user_row, pave_user_row, &state.config))
 }

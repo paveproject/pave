@@ -1,0 +1,31 @@
+{
+  "created_email": {
+    "subject": "Une demande de récupération a été lancée sur votre compte",
+    "title": "Demande de récupération lancée",
+    "text": "Quelqu'un vient de lancer une demande pour récupérer la clé de votre compte Pavé via vos contacts de confiance. Si c'est vous, aucune action n'est requise - elle ne prendra effet qu'après le délai d'attente. Si ce n'est pas vous, annulez-la maintenant.",
+    "button": "Annuler cette demande"
+  },
+  "created": {
+    "title": "Pavé",
+    "body": "{ownerName} vous demande de l'aider à récupérer sa clé"
+  },
+  "contact_responded": {
+    "title": "Pavé",
+    "body": "{approved} approuvé(s), {declined} refusé(s) ({total} contacts sollicités)"
+  },
+  "failed": {
+    "title": "Pavé",
+    "body": "Tous vos contacts de confiance ont refusé - votre demande de récupération ne peut plus réussir. Ouvrez l'app pour en lancer une nouvelle."
+  },
+  "ready_email": {
+    "subject": "Votre récupération Pavé est prête à être terminée",
+    "title": "Récupération prête",
+    "text": "Le délai d'attente de votre demande de récupération est passé. Ouvrez Pavé pour terminer la récupération de votre clé.",
+    "button": "Ouvrir Pavé"
+  },
+  "ready": {
+    "title": "Pavé",
+    "body": "Votre récupération est prête - ouvrez l'app pour terminer"
+  },
+  "someone": "Quelqu'un"
+}

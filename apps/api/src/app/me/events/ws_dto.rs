@@ -1,63 +1,54 @@
-use crate::app::me::devices::dto::MeDevicesResponse;
+use crate::app::me::devices::dto::{MeDevicesDeclinedResponse, MeDevicesResponse};
+use crate::app::me::recovery_requests::dto::{
+    MeRecoveryRequestsContactResponse, MeRecoveryRequestsResponse,
+};
 use crate::app::me::trusted_contacts::dto::{
     MeTrustedContactsAsContactResponse, MeTrustedContactsResponse,
 };
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-/// Every event a user's personal channel (`/me/ws`) can push. One entry
-/// per domain that needs to notify a specific user in realtime - add a
-/// variant here, not a whole new hub, the next time one does (e.g. a
-/// future manif-mode recovery-request notification).
+/// Every event a user's personal channel (`/me/ws`) can push - one per
+/// domain that needs to notify a specific user in realtime.
 ///
-/// Variants carry the same response shape the REST list endpoint would
-/// return for that row (`MeTrustedContactsResponse` here) rather than a
-/// bespoke "something changed" payload, so the mobile client can merge the
-/// row directly into its query cache (`setQueryData`) instead of
-/// invalidating and refetching the whole list. Building that payload must
-/// stay cheap/already-in-hand at the call site (no extra query beyond
-/// what the mutation already touched) - see `redeem_invite`, which has
-/// every field from the row it just updated plus `session.user.username`
-/// for free - since it's built whether or not the owner is currently
-/// connected to this channel.
-///
-/// Also `Deserialize`: round-trips through Redis pub/sub in plain JSON
-/// between pods (see `hub.rs`), same reasoning as
-/// `reports::ws_dto::ReportsServerMessage`.
-// The shared `TrustedContact*` prefix is deliberate, not an oversight -
-// each variant's name is also its wire-format `event` tag (snake_case),
-// read on its own by the mobile client with no enclosing `MeEventsUserEvent::`
-// path in sight, so it needs to stay self-describing rather than leaning
-// on a shortened name real glob-import ergonomics would reward.
+/// Variants carry the same shape the REST list endpoint would return for
+/// that row, so the mobile client can merge it directly into its query
+/// cache instead of invalidating and refetching. Also `Deserialize`:
+/// round-trips through Redis pub/sub in plain JSON between pods.
+// `event` tag (snake_case) is read standalone by the mobile client, with
+// no enclosing `MeEventsUserEvent::` in sight - names stay self-describing
+// rather than shortened for Rust-side ergonomics, hence the shared prefix.
 #[allow(clippy::enum_variant_names)]
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum MeEventsUserEvent {
     TrustedContactAccepted(MeTrustedContactsResponse),
-    /// Pushed to a *contact* (not the owner) when the owner rotates their
-    /// recovery key and this contact's share changes as a result. Silent
-    /// background sync, not a user-facing notification - no push job is
-    /// enqueued alongside this one (unlike `TrustedContactAccepted`), or
-    /// every rotation would spam every remaining contact.
+    /// To the *contact*: their share changed after the owner rotated the
+    /// recovery key. Silent sync, no push job (would spam every contact).
     TrustedContactShareUpdated(MeTrustedContactsAsContactResponse),
-    /// Pushed to a *contact* (not the owner) when the owner revokes them -
-    /// carries the now-`revoked` row so the contact's "as-contact" list
-    /// (and its locally decrypted share, see `useUserEventsSocket`) can be
-    /// cleared live. `list_as_contact` only ever returns `accepted` rows,
-    /// so without this the contact's cache would just silently keep the
-    /// stale row until their next unrelated refetch happens to drop it.
-    /// Same "no push job" reasoning as `TrustedContactShareUpdated`.
+    /// To the *contact*: the owner revoked them - clears their
+    /// "as-contact" row live, since `list_as_contact` only returns
+    /// `accepted` ones.
     TrustedContactRevoked(MeTrustedContactsAsContactResponse),
-    /// Pushed to a user's *other* devices when a new one registers (see
-    /// `devices::handlers::set_device`) - prompts an immediate
-    /// reconciliation pass instead of waiting for their next launch to
-    /// notice the sibling and seal it a copy of the recovery key.
+    /// To a user's *other* devices: a new one registered - triggers an
+    /// immediate reconciliation pass to seal it a key copy.
     DeviceRegistered(MeDevicesResponse),
-    /// Pushed to a user's own device(s) when any of them deposits a
-    /// sealed recovery-key copy for one of them (see
-    /// `devices::handlers::set_device_dek`) - the target device checks
-    /// `message.id` against its own locally-cached device id before
-    /// acting, same filter-by-id pattern `useReceiveShares` already uses
-    /// for `TrustedContactShareUpdated`.
+    /// To a user's own devices: one of them deposited a sealed recovery-key
+    /// copy for a specific device - the target filters by `message.id`.
     DeviceDekUpdated(MeDevicesResponse),
+    /// To a user's *other* devices: one of them approved a pending
+    /// sibling - drops the row from every pending-approvals list live.
+    DeviceApproved(MeDevicesResponse),
+    /// To a user's *other* devices: one of them declined a pending
+    /// sibling - same live drop, plus the declined device sees "declined".
+    DeviceApprovalDeclined(MeDevicesDeclinedResponse),
+    /// To every accepted trusted contact: the owner started a recovery
+    /// request - shows up in their pending-approvals inbox live.
+    RecoveryRequestCreated(MeRecoveryRequestsContactResponse),
+    /// To the *owner's requesting device*: a contact approved or declined -
+    /// drives the waiting screen's live "N of M responded" progress.
+    RecoveryRequestContactResponded(MeRecoveryRequestsResponse),
+    /// To every contact with a pending row: the owner cancelled the
+    /// request - same live-drop reasoning as `TrustedContactRevoked`.
+    RecoveryRequestCancelled(MeRecoveryRequestsContactResponse),
 }

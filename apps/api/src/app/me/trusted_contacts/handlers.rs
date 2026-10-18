@@ -5,11 +5,8 @@ use super::dto::{
 };
 use crate::app::me::dto::{MeDeviceSummary, MeProfile};
 use crate::app::me::events::ws_dto::MeEventsUserEvent;
+use crate::app::me::recovery_requests::handlers as recovery_requests_handlers;
 use crate::config::ApiConfig;
-use crate::libs::entities::device;
-use crate::libs::entities::sea_orm_active_enums::TrustedContactStatusEnum;
-use crate::libs::entities::trusted_contact;
-use crate::libs::entities::trusted_contact_share;
 use crate::libs::media;
 use crate::state::AppState;
 use auth::schema::user as auth_user;
@@ -20,7 +17,12 @@ use axum::response::IntoResponse;
 use axum::Json;
 use better_auth::integrations::axum::CurrentSession;
 use chrono::{Duration, Utc};
-use notify_contracts::{Lang, NotifyJob, PushContent, PushNotificationPayload, PushProvider};
+use db_rs::device;
+use db_rs::sea_orm_active_enums::{DeviceStatusEnum, TrustedContactStatusEnum};
+use db_rs::trusted_contact;
+use db_rs::trusted_contact_share;
+use notify_contracts::{NotifyJob, PushContent, PushNotifyPayload, PushTarget};
+use sea_orm::sea_query::{Expr, OnConflict};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
 };
@@ -31,9 +33,7 @@ use uuid::Uuid;
 const INVITE_CODE_TTL_HOURS: i64 = 24;
 
 fn generate_code() -> String {
-    // 8 hex chars (32 bits of entropy) from a fresh v4 UUID - hex avoids
-    // visually ambiguous characters (no O/0/I/1/L confusion, unlike some
-    // base32 alphabets) without pulling in a new dependency for this.
+    // 8 hex chars (32 bits of entropy) - no ambiguous O/0/I/1/L like base32.
     Uuid::new_v4().simple().to_string()[..8].to_uppercase()
 }
 
@@ -43,17 +43,15 @@ fn hash_code(code: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
-/// One user's registered devices, as `MeDeviceSummary`s (id + public key
-/// only - see its own doc comment) - every device gets its own sealed
-/// copy of whatever's meant for that user (a Shamir share, as a contact;
-/// a full recovery-key copy, as a sibling device), keyed on the device
-/// id, so callers always need the whole list, never a single key.
+/// `active` only - a `pending` device hasn't been approved yet, and
+/// including it here would hand it a share/DEK copy before that.
 pub(crate) async fn device_summaries_for(
     db: &sea_orm::DatabaseConnection,
     user_id: &str,
 ) -> Vec<MeDeviceSummary> {
     device::Entity::find()
         .filter(device::Column::UserId.eq(user_id.to_string()))
+        .filter(device::Column::Status.eq(DeviceStatusEnum::Active))
         .all(db)
         .await
         .expect("failed to query devices")
@@ -66,12 +64,10 @@ pub(crate) async fn device_summaries_for(
 }
 
 /// Batch-fetches a minimal public `MeProfile` for a set of user ids - avoids
-/// N+1 queries when listing several trusted-contact rows at once.
-///
-/// Two queries, not a join: `username`/`image` live on better-auth's own
-/// `auth.users` table, devices on Pave's own `device` table (see
-/// `libs/entities/device.rs`) - the two are only ever joined in
-/// application code, never in SQL, elsewhere in this codebase either.
+/// N+1 queries when listing several trusted-contact rows at once. Two
+/// queries, not a join (`username`/`image` live on better-auth's own
+/// `auth.users` table, devices on Pave's own `device` table), run
+/// concurrently since neither depends on the other.
 pub(crate) async fn profiles_for(
     db: &sea_orm::DatabaseConnection,
     user_ids: Vec<String>,
@@ -81,13 +77,18 @@ pub(crate) async fn profiles_for(
         return HashMap::new();
     }
 
-    let mut devices: HashMap<String, Vec<MeDeviceSummary>> = HashMap::new();
-    for row in device::Entity::find()
+    let device_rows = device::Entity::find()
         .filter(device::Column::UserId.is_in(user_ids.clone()))
-        .all(db)
-        .await
-        .expect("failed to query device rows")
-    {
+        .filter(device::Column::Status.eq(DeviceStatusEnum::Active))
+        .all(db);
+    let user_rows = auth_user::Entity::find()
+        .filter(auth_user::Column::Id.is_in(user_ids))
+        .all(db);
+    let (device_rows, user_rows) =
+        tokio::try_join!(device_rows, user_rows).expect("failed to query profiles");
+
+    let mut devices: HashMap<String, Vec<MeDeviceSummary>> = HashMap::new();
+    for row in device_rows {
         devices
             .entry(row.user_id.clone())
             .or_default()
@@ -97,11 +98,7 @@ pub(crate) async fn profiles_for(
             });
     }
 
-    auth_user::Entity::find()
-        .filter(auth_user::Column::Id.is_in(user_ids))
-        .all(db)
-        .await
-        .expect("failed to query profiles")
+    user_rows
         .into_iter()
         .map(|row| {
             let devices = devices.remove(&row.id).unwrap_or_default();
@@ -109,7 +106,9 @@ pub(crate) async fn profiles_for(
                 row.id.clone(),
                 MeProfile {
                     id: row.id,
-                    username: row.username,
+                    username: row
+                        .display_username
+                        .expect("display_username is NOT NULL in db"),
                     image: media::resolve_media_url(
                         row.image.as_deref(),
                         media::AVATARS_FOLDER,
@@ -123,10 +122,8 @@ pub(crate) async fn profiles_for(
 }
 
 /// `GET`, not `POST`: deliberately not idempotent - every call rotates the
-/// code (see the "at most one pending invite" cleanup below), so the
-/// mobile client treats "my current invite" as a plain query it can
-/// refetch/invalidate (e.g. the instant its `trusted_contact_accepted`
-/// event fires) instead of juggling mutation state by hand.
+/// code, so the mobile client treats "my current invite" as a plain query
+/// it can refetch/invalidate instead of juggling mutation state by hand.
 #[utoipa::path(
     get,
     path = "/me/trusted-contacts/invite",
@@ -140,20 +137,12 @@ pub async fn generate_invite(
     let code = generate_code();
     let expires_at = Utc::now() + Duration::hours(INVITE_CODE_TTL_HOURS);
 
-    // At most one unredeemed invite per owner - generating a new one makes
-    // any previously shared (but never scanned) code stop working, instead
-    // of piling up dead "pending" rows every time "add" is tapped.
-    trusted_contact::Entity::delete_many()
-        .filter(trusted_contact::Column::OwnerUserId.eq(session.user.id.clone()))
-        .filter(trusted_contact::Column::ContactUserId.is_null())
-        .filter(trusted_contact::Column::Status.eq(TrustedContactStatusEnum::Pending))
-        .exec(&state.db)
-        .await
-        .expect("failed to clear previous pending invites");
-
-    let id = Uuid::new_v4();
-    trusted_contact::ActiveModel {
-        id: Set(id),
+    // Upserts against `idx_trusted_contact_one_pending_invite_per_owner`
+    // (the partial unique index enforcing "at most one pending invite" -
+    // see `trustedContact.ts`) instead of delete-then-insert: one round
+    // trip, no race window.
+    let model = trusted_contact::Entity::insert(trusted_contact::ActiveModel {
+        id: Set(Uuid::new_v4()),
         owner_user_id: Set(session.user.id.clone()),
         contact_user_id: Set(None),
         status: Set(TrustedContactStatusEnum::Pending),
@@ -161,13 +150,26 @@ pub async fn generate_invite(
         invite_code_expires_at: Set(expires_at.into()),
         created_at: Set(Utc::now().into()),
         updated_at: Set(Utc::now().into()),
-    }
-    .insert(&state.db)
+    })
+    .on_conflict(
+        OnConflict::column(trusted_contact::Column::OwnerUserId)
+            // Must be a literal matching the index predicate exactly -
+            // Postgres won't infer a partial-index arbiter from a bound
+            // parameter, even with an identical value.
+            .target_and_where(Expr::cust("contact_user_id IS NULL AND status = 'pending'"))
+            .update_columns([
+                trusted_contact::Column::InviteCodeHash,
+                trusted_contact::Column::InviteCodeExpiresAt,
+                trusted_contact::Column::UpdatedAt,
+            ])
+            .to_owned(),
+    )
+    .exec_with_returning(&state.db)
     .await
-    .expect("failed to create trusted contact invite");
+    .expect("failed to upsert trusted contact invite");
 
     Json(MeTrustedContactsGenerateInviteResponse {
-        id: id.to_string(),
+        id: model.id.to_string(),
         code,
         expires_at: expires_at.to_rfc3339(),
     })
@@ -210,47 +212,42 @@ pub async fn redeem_invite(
 
     let invite_id = model.id;
     let owner_user_id = model.owner_user_id.clone();
-    // Fetched now, before `owner_user_id` is moved into the push-token
-    // query below - the caller gets back the same "as contact" shape
-    // `GET .../as-contact` would return for this row, rather than an
-    // empty 200, so they don't need a separate refetch to see who they
-    // just connected with.
-    let owner_profile = profiles_for(&state.db, vec![owner_user_id.clone()], &state.config)
-        .await
-        .remove(&owner_user_id)
-        .expect("owner profile missing for a just-redeemed invite");
 
-    // A contact who already has history with this owner (most commonly:
-    // was revoked, then re-invited) would otherwise collide with the
-    // `unique_owner_contact` constraint the instant this invite's
-    // `contact_user_id` gets set - revive that existing row instead of
-    // creating a second one for the same pair, and drop this now-redundant
-    // invite. Excludes this invite's own id: a concurrent duplicate
-    // request for the same code (e.g. the camera firing `onBarcodeScanned`
-    // more than once before the first redeem commits) must never see
-    // itself here and try to delete the very row it just accepted.
-    let existing = trusted_contact::Entity::find()
+    // Three independent lookups, resolved concurrently: the owner's
+    // profile, any existing relationship to revive (see below), and the
+    // contact's own devices (for the realtime event further down).
+    let owner_profile_future = profiles_for(&state.db, vec![owner_user_id.clone()], &state.config);
+    let existing_future = trusted_contact::Entity::find()
         .filter(trusted_contact::Column::OwnerUserId.eq(owner_user_id.clone()))
         .filter(trusted_contact::Column::ContactUserId.eq(session.user.id.clone()))
         .filter(trusted_contact::Column::Id.ne(invite_id))
-        .one(&state.db)
-        .await
-        .expect("failed to query existing trusted contact relationship");
+        .one(&state.db);
+    let contact_devices_future = device_summaries_for(&state.db, &session.user.id);
+    let (mut owner_profiles, existing, contact_devices) = tokio::join!(
+        owner_profile_future,
+        existing_future,
+        contact_devices_future
+    );
+    let owner_profile = owner_profiles
+        .remove(&owner_user_id)
+        .expect("owner profile missing for a just-redeemed invite");
+    let existing = existing.expect("failed to query existing trusted contact relationship");
 
+    // A contact with existing history (revoked, then re-invited) would
+    // collide with `unique_owner_contact` once `contact_user_id` is set -
+    // revive that row instead, dropping this now-redundant invite
+    // (deleted concurrently with the revive). Excludes this invite's own
+    // id so a concurrent duplicate redeem never deletes the row it just
+    // accepted.
     let updated = if let Some(existing) = existing {
         let mut active = existing.into_active_model();
         active.status = Set(TrustedContactStatusEnum::Accepted);
         active.updated_at = Set(Utc::now().into());
-        let updated = active
-            .update(&state.db)
-            .await
-            .expect("failed to revive existing trusted contact relationship");
-
-        trusted_contact::Entity::delete_by_id(invite_id)
-            .exec(&state.db)
-            .await
-            .expect("failed to clean up redundant invite row");
-
+        let (updated, _) = tokio::try_join!(
+            active.update(&state.db),
+            trusted_contact::Entity::delete_by_id(invite_id).exec(&state.db)
+        )
+        .expect("failed to revive existing trusted contact relationship");
         updated
     } else {
         let mut active = model.into_active_model();
@@ -263,17 +260,11 @@ pub async fn redeem_invite(
             .expect("failed to accept trusted contact invite")
     };
 
-    let contact_username = session.user.username.clone();
-
-    // Almost everything below is already in hand from the update above and
-    // the caller's own session - no extra query, whether or not the owner
-    // is actually connected to `/me/ws` right now (see `ws_dto::MeEventsUserEvent`'s
-    // own doc comment on why that matters). The contact's devices are the
-    // one exception: they live on Pave's own `device` table, not
-    // better-auth's session, so the owner can seal a share to each of them
-    // the instant they see this event instead of waiting on a separate
-    // list refetch.
-    let contact_devices = device_summaries_for(&state.db, &session.user.id).await;
+    let contact_username = session
+        .user
+        .display_username
+        .clone()
+        .expect("display_username is NOT NULL in db");
     let contact_profile = MeProfile {
         id: session.user.id.clone(),
         username: contact_username.clone(),
@@ -294,40 +285,19 @@ pub async fn redeem_invite(
         }),
     );
 
-    let owner_row = crate::app::me::handlers::ensure_pave_user_row(&state.db, &owner_user_id).await;
-    let owner_lang = match owner_row.language.as_str() {
-        "fr-FR" => Lang::Fr,
-        _ => Lang::En,
-    };
-
-    let push_tokens = crate::libs::entities::push_token::Entity::find()
-        .filter(crate::libs::entities::push_token::Column::UserId.eq(owner_user_id))
-        .all(&state.db)
+    let job = NotifyJob::PushNotification(PushNotifyPayload {
+        target: PushTarget::Users {
+            user_ids: vec![owner_user_id],
+        },
+        content: PushContent::TrustedContactAccepted {
+            actor_username: Some(contact_username.clone()),
+        },
+    });
+    state
+        .notify_queue
+        .add(job.name(), job.data(), None)
         .await
-        .expect("failed to query owner's push tokens");
-
-    for token in push_tokens {
-        let provider = match token.provider {
-            crate::libs::entities::sea_orm_active_enums::PushProviderEnum::Fcm => PushProvider::Fcm,
-            crate::libs::entities::sea_orm_active_enums::PushProviderEnum::Apns => {
-                PushProvider::Apns
-            }
-        };
-        let job = NotifyJob::PushNotification(PushNotificationPayload {
-            provider,
-            token: token.token,
-            lang: owner_lang,
-            content: PushContent::TrustedContactAccepted {
-                actor_username: contact_username.clone(),
-            },
-            data: serde_json::json!({ "type": "trusted_contact:accepted" }),
-        });
-        state
-            .notify_queue
-            .add(job.name(), job.data(), None)
-            .await
-            .expect("failed to enqueue trusted-contact-accepted push");
-    }
+        .expect("failed to enqueue trusted-contact-accepted push");
 
     Json(MeTrustedContactsAsContactResponse {
         id: updated.id.to_string(),
@@ -399,28 +369,33 @@ pub async fn list_as_contact(
         .expect("failed to query trusted-by relationships");
 
     let owner_ids: Vec<String> = rows.iter().map(|r| r.owner_user_id.clone()).collect();
-    let profiles = profiles_for(&state.db, owner_ids, &state.config).await;
-
-    // Each row's one relevant share (sealed for *this* device specifically)
-    // lives in `trusted_contact_share`, not a column on `trusted_contact`
-    // itself - resolved in one batched query, keyed by relationship id.
-    let mut shares_by_trusted_contact: HashMap<Uuid, String> = HashMap::new();
-    if let Some(device_id) = query
+    let device_id = query
         .device_id
         .as_deref()
-        .and_then(|id| Uuid::parse_str(id).ok())
-    {
-        let trusted_contact_ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
-        shares_by_trusted_contact = trusted_contact_share::Entity::find()
-            .filter(trusted_contact_share::Column::TrustedContactId.is_in(trusted_contact_ids))
-            .filter(trusted_contact_share::Column::DeviceId.eq(device_id))
-            .all(&state.db)
-            .await
-            .expect("failed to query trusted contact shares")
-            .into_iter()
-            .map(|row| (row.trusted_contact_id, row.encrypted_share))
-            .collect();
-    }
+        .and_then(|id| Uuid::parse_str(id).ok());
+    let trusted_contact_ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
+
+    // Independent of each other - run concurrently. Each row's one
+    // relevant share (sealed for *this* device specifically) lives in
+    // `trusted_contact_share`, not a column on `trusted_contact` itself,
+    // resolved in one batched query keyed by relationship id.
+    let profiles_future = profiles_for(&state.db, owner_ids, &state.config);
+    let shares_future = async {
+        match device_id {
+            Some(device_id) => trusted_contact_share::Entity::find()
+                .filter(trusted_contact_share::Column::TrustedContactId.is_in(trusted_contact_ids))
+                .filter(trusted_contact_share::Column::DeviceId.eq(device_id))
+                .all(&state.db)
+                .await
+                .expect("failed to query trusted contact shares"),
+            None => Vec::new(),
+        }
+    };
+    let (profiles, share_rows) = tokio::join!(profiles_future, shares_future);
+    let mut shares_by_trusted_contact: HashMap<Uuid, String> = share_rows
+        .into_iter()
+        .map(|row| (row.trusted_contact_id, row.encrypted_share))
+        .collect();
 
     Json(
         rows.into_iter()
@@ -464,22 +439,32 @@ pub async fn revoke_trusted_contact(
     };
 
     let contact_user_id = model.contact_user_id.clone();
+    let trusted_contact_id = model.id;
 
     let mut active = model.into_active_model();
     active.status = Set(TrustedContactStatusEnum::Revoked);
     active.updated_at = Set(Utc::now().into());
-    let updated = active
-        .update(&state.db)
-        .await
-        .expect("failed to revoke trusted contact");
+
+    // Independent of each other: the update itself, withdrawing any
+    // standing ask on an in-flight recovery request (can't recall an
+    // already-sealed share, but can pull back the request), and the
+    // owner's devices (only needed below, if there's a contact to notify).
+    let (updated, (), owner_devices) = tokio::join!(
+        active.update(&state.db),
+        recovery_requests_handlers::decline_pending_response_on_revoke(&state, trusted_contact_id,),
+        device_summaries_for(&state.db, &session.user.id),
+    );
+    let updated = updated.expect("failed to revoke trusted contact");
 
     // Only a genuinely accepted relationship has a contact to notify -
     // nothing else can have reached this point with a `contact_user_id` set.
     if let Some(contact_user_id) = contact_user_id {
-        let owner_devices = device_summaries_for(&state.db, &session.user.id).await;
         let owner_profile = MeProfile {
             id: session.user.id,
-            username: session.user.username,
+            username: session
+                .user
+                .display_username
+                .expect("display_username is NOT NULL in db"),
             image: media::resolve_media_url(
                 session.user.image.as_deref(),
                 media::AVATARS_FOLDER,
@@ -553,16 +538,30 @@ pub async fn set_shares(
     }
 
     let trusted_contact_ids: HashSet<Uuid> = uploads.iter().map(|u| u.trusted_contact_id).collect();
-    let trusted_contacts: HashMap<Uuid, trusted_contact::Model> = trusted_contact::Entity::find()
+    let device_ids: HashSet<Uuid> = uploads.iter().map(|u| u.device_id).collect();
+
+    // Three independent lookups, resolved concurrently: the trusted
+    // contacts/devices validated below, and the owner's own devices
+    // (only needed for the notification built after validation).
+    let trusted_contacts_future = trusted_contact::Entity::find()
         .filter(trusted_contact::Column::Id.is_in(trusted_contact_ids.iter().copied()))
         .filter(trusted_contact::Column::OwnerUserId.eq(owner_id.clone()))
-        .all(&state.db)
-        .await
+        .all(&state.db);
+    let devices_future = device::Entity::find()
+        .filter(device::Column::Id.is_in(device_ids.iter().copied()))
+        .all(&state.db);
+    let owner_devices_future = device_summaries_for(&state.db, &owner_id);
+    let (trusted_contacts, devices, owner_devices) = tokio::join!(
+        trusted_contacts_future,
+        devices_future,
+        owner_devices_future
+    );
+
+    let trusted_contacts: HashMap<Uuid, trusted_contact::Model> = trusted_contacts
         .expect("failed to query trusted contacts for share update")
         .into_iter()
         .map(|row| (row.id, row))
         .collect();
-
     if trusted_contacts.len() != trusted_contact_ids.len() {
         return (
             StatusCode::BAD_REQUEST,
@@ -570,12 +569,7 @@ pub async fn set_shares(
         )
             .into_response();
     }
-
-    let device_ids: HashSet<Uuid> = uploads.iter().map(|u| u.device_id).collect();
-    let devices: HashMap<Uuid, device::Model> = device::Entity::find()
-        .filter(device::Column::Id.is_in(device_ids.iter().copied()))
-        .all(&state.db)
-        .await
+    let devices: HashMap<Uuid, device::Model> = devices
         .expect("failed to query devices for share update")
         .into_iter()
         .map(|row| (row.id, row))
@@ -599,10 +593,12 @@ pub async fn set_shares(
         }
     }
 
-    let owner_devices = device_summaries_for(&state.db, &owner_id).await;
     let owner_profile = MeProfile {
         id: owner_id,
-        username: session.user.username,
+        username: session
+            .user
+            .display_username
+            .expect("display_username is NOT NULL in db"),
         image: media::resolve_media_url(
             session.user.image.as_deref(),
             media::AVATARS_FOLDER,
@@ -611,37 +607,37 @@ pub async fn set_shares(
         devices: owner_devices,
     };
 
+    // One batched upsert instead of a find-then-write loop (2 round trips
+    // per upload). A conflicting row keeps its own `id`/`created_at`.
+    let now = Utc::now();
+    let models = uploads
+        .iter()
+        .map(|upload| trusted_contact_share::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            trusted_contact_id: Set(upload.trusted_contact_id),
+            device_id: Set(upload.device_id),
+            encrypted_share: Set(upload.encrypted_share.clone()),
+            created_at: Set(now.into()),
+            updated_at: Set(now.into()),
+        })
+        .collect::<Vec<_>>();
+    trusted_contact_share::Entity::insert_many(models)
+        .on_conflict(
+            OnConflict::columns([
+                trusted_contact_share::Column::TrustedContactId,
+                trusted_contact_share::Column::DeviceId,
+            ])
+            .update_columns([
+                trusted_contact_share::Column::EncryptedShare,
+                trusted_contact_share::Column::UpdatedAt,
+            ])
+            .to_owned(),
+        )
+        .exec(&state.db)
+        .await
+        .expect("failed to upsert trusted contact shares");
+
     for upload in uploads {
-        let existing = trusted_contact_share::Entity::find()
-            .filter(trusted_contact_share::Column::TrustedContactId.eq(upload.trusted_contact_id))
-            .filter(trusted_contact_share::Column::DeviceId.eq(upload.device_id))
-            .one(&state.db)
-            .await
-            .expect("failed to query trusted contact share");
-
-        let updated = match existing {
-            Some(model) => {
-                let mut active = model.into_active_model();
-                active.encrypted_share = Set(upload.encrypted_share);
-                active.updated_at = Set(Utc::now().into());
-                active
-                    .update(&state.db)
-                    .await
-                    .expect("failed to update trusted contact share")
-            }
-            None => trusted_contact_share::ActiveModel {
-                id: Set(Uuid::new_v4()),
-                trusted_contact_id: Set(upload.trusted_contact_id),
-                device_id: Set(upload.device_id),
-                encrypted_share: Set(upload.encrypted_share),
-                created_at: Set(Utc::now().into()),
-                updated_at: Set(Utc::now().into()),
-            }
-            .insert(&state.db)
-            .await
-            .expect("failed to create trusted contact share"),
-        };
-
         // Only a genuinely accepted relationship has a contact to notify -
         // nothing else can have reached this point anyway, since an
         // owner's reconciliation only ever splits shares for contacts it
@@ -656,7 +652,7 @@ pub async fn set_shares(
                     status: trusted_contact.status.into(),
                     owner: owner_profile.clone(),
                     created_at: trusted_contact.created_at.to_rfc3339(),
-                    encrypted_share: Some(updated.encrypted_share),
+                    encrypted_share: Some(upload.encrypted_share),
                 }),
             );
         }

@@ -3,7 +3,9 @@ pub mod devices;
 pub mod dto;
 pub mod events;
 pub mod handlers;
+pub mod pending_actions;
 pub mod push_token;
+pub mod recovery_requests;
 pub mod trusted_contacts;
 
 use crate::state::AppState;
@@ -23,8 +25,10 @@ pub fn router() -> Router<AppState> {
         )
         .nest("/avatar", avatar::router())
         .nest("/devices", devices::router())
+        .nest("/pending-actions", pending_actions::router())
         .nest("/push-token", push_token::router())
         .nest("/trusted-contacts", trusted_contacts::router())
+        .nest("/recovery-requests", recovery_requests::router())
         .merge(events::router())
 }
 
@@ -42,7 +46,12 @@ pub fn router() -> Router<AppState> {
         dto::MeUpdateRequest,
         dto::MeUsernameAvailableResponse,
         dto::MeProfile,
-        dto::MeDeviceSummary
+        dto::MeDeviceSummary,
+        // Not a response body anywhere - registered purely so the
+        // generated TS SDK carries the exact push `data` shape the
+        // mobile `NotificationsProvider` switches on (see `PushContent`'s
+        // own doc comment).
+        notify_contracts::PushContent
     ))
 )]
 struct ApiDoc;
@@ -54,7 +63,9 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     ApiDoc::openapi()
         .merge_from(avatar::ApiDoc::openapi())
         .merge_from(devices::ApiDoc::openapi())
+        .merge_from(pending_actions::ApiDoc::openapi())
         .merge_from(push_token::ApiDoc::openapi())
         .merge_from(trusted_contacts::ApiDoc::openapi())
+        .merge_from(recovery_requests::ApiDoc::openapi())
         .merge_from(events::ApiDoc::openapi())
 }

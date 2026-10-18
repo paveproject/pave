@@ -1,5 +1,6 @@
 import {
   boolean,
+  check,
   foreignKey,
   index,
   pgSchema,
@@ -8,6 +9,7 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm/relations';
+import { sql } from 'drizzle-orm';
 
 /**
  * The `auth` Postgres schema, used at runtime by the Rust auth service
@@ -30,14 +32,23 @@ export const authUsers = authSchema.table(
     image: varchar(),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull(),
-    username: varchar(),
-    displayUsername: varchar('display_username'),
+    username: varchar().notNull(),
+    displayUsername: varchar('display_username').notNull(),
   },
   (table) => [
     uniqueIndex('idx_users_email').using('btree', table.email.asc().nullsLast().op('text_ops')),
     uniqueIndex('idx_users_username').using(
       'btree',
       table.username.asc().nullsLast().op('text_ops'),
+    ),
+    // `username` is the canonical lowercase form used for uniqueness,
+    // `display_username` whatever casing the user actually typed - this
+    // is what keeps them from drifting apart (see
+    // `GenerateUsernameHook`/`update_me`, the only two places that ever
+    // write either column).
+    check(
+      'check_users_username_is_lower_display_username',
+      sql`username = lower(display_username)`,
     ),
   ],
 );

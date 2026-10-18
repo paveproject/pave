@@ -3,7 +3,6 @@ use super::geohash_util;
 use super::hub::{self, ReportsHub};
 use super::rate_limit;
 use super::ws_dto::{ReportsClientMessage, ReportsServerMessage};
-use crate::libs::entities::sea_orm_active_enums::ReportTypeEnum;
 use crate::state::AppState;
 use auth::AppAuthSchema;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
@@ -13,6 +12,7 @@ use axum::response::IntoResponse;
 use axum::Json;
 use better_auth::integrations::axum::CurrentSession;
 use chrono::Duration;
+use db_rs::sea_orm_active_enums::ReportTypeEnum;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::{ActiveEnum, ConnectionTrait, DatabaseBackend, FromQueryResult, Statement};
 use std::collections::HashSet;
@@ -103,10 +103,9 @@ pub async fn create_report(
         expires_at: expires_at.to_rfc3339(),
     };
 
-    // Fans out over Redis to every pod with a connection currently watching
-    // this area - see `hub.rs`. A repeat of the same id (see the
-    // `ON CONFLICT (id) DO NOTHING` above) still republishes; harmless,
-    // since client-side merging by id is idempotent.
+    // Fans out over Redis to every pod watching this area (see `hub.rs`) -
+    // a repeat id still republishes, harmless since client-side merging
+    // by id is idempotent.
     let cells = geohash_util::cells_for_point(response.lat, response.lng);
     state
         .reports_hub
@@ -161,11 +160,10 @@ pub async fn list_reports(
     )
 }
 
-/// Live feed of newly created reports for whatever viewport the client is
-/// currently looking at. Not part of the OpenAPI `paths` (there's no REST
-/// representation for a websocket) - `ReportsClientMessage`/`ReportsServerMessage` are
-/// still registered as OpenAPI schemas (see `main.rs`) purely so the
-/// generated TS client stays type-safe for both ends of this socket.
+/// Live feed of newly created reports for the client's current viewport.
+/// Not part of the OpenAPI `paths` (no REST shape for a websocket) -
+/// `ReportsClientMessage`/`ReportsServerMessage` are still registered as
+/// schemas so the generated TS client stays type-safe for both ends.
 pub async fn reports_ws(State(state): State<AppState>, ws: WebSocketUpgrade) -> impl IntoResponse {
     ws.on_upgrade(move |socket| handle_socket(socket, state.reports_hub))
 }

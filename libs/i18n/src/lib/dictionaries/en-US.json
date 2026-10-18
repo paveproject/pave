@@ -14,6 +14,7 @@
     "account": "My account",
     "trusted_contacts": "Trusted contacts",
     "devices": "Devices",
+    "recovery": "Recovery",
     "language": "Language",
     "theme": "Theme",
     "system": "System",
@@ -42,6 +43,7 @@
     "remove": "Remove",
     "refresh": "Refresh",
     "redeem": "Redeem",
+    "review": "Review",
     "open_settings": "Open settings",
     "code_copied": "Code copied",
     "copied": "Copied",
@@ -85,7 +87,60 @@
         "description": "Pick a username to finish setting up your account."
       }
     },
+    "welcome": {
+      "description": "We've picked a username for you - keep it, or make it yours."
+    },
+    "pending_actions": {
+      "device": {
+        "title": "New device",
+        "body": "A new device wants access to your recovery key. Only approve this if you recognize it.",
+        "location": "{city}, {country}",
+        "location_approximate": "Approximate location, based on IP address",
+        "approve": "Approve",
+        "approve_confirm_title": "Approve this device?",
+        "approve_confirm_message": "It will be able to receive a copy of your recovery key.",
+        "decline": "Decline"
+      },
+      "recovery_request": {
+        "title": "Recovery request",
+        "body": "{ownerName} lost access to all their devices and is asking you, as a trusted contact, to help them recover their key.",
+        "approve": "Approve",
+        "approve_confirm_title": "Release your share?",
+        "approve_confirm_message": "This can't be undone. Only do this if you're sure it's really {ownerName} asking.",
+        "decline": "Decline",
+        "someone": "Someone"
+      },
+      "own_device": {
+        "title": "Waiting for approval",
+        "body": "This device is waiting for one of your other devices to approve it before it can receive your recovery key.",
+        "approvers_label": "Can be approved from:",
+        "recovery": {
+          "start": "I don't have access to any of my other devices",
+          "start_short": "No access? start recovery",
+          "start_confirm_title": "Start account recovery?",
+          "start_confirm_message": "This permanently removes every other device from your account and asks your trusted contacts to help you recover access instead. This can't be undone.",
+          "no_contacts": "You'll need at least one accepted trusted contact before you can recover access this way.",
+          "title": "Recovery in progress",
+          "delay_body": "For your security, your trusted contacts' responses won't be usable until {releaseAt}.",
+          "waiting_shares_body": "Waiting for enough of your trusted contacts to respond.",
+          "progress": "{approved} approved, {declined} declined ({total} contacts asked)",
+          "cancel": "Cancel recovery",
+          "cancel_confirm_title": "Cancel recovery?",
+          "cancel_confirm_message": "Your trusted contacts will be notified that this is no longer needed.",
+          "impossible": "Not enough of your trusted contacts can still approve this request. Cancel it and start a new one."
+        }
+      }
+    },
     "settings": {
+      "recovery": {
+        "resend": "Resend request",
+        "resend_success": "Request sent again",
+        "active_title": "Recovery key active",
+        "active_body": "This device already has access to your recovery key.",
+        "declined_title": "Not approved",
+        "declined_body": "This device's request was declined, or it was removed from your account. Register it again to ask once more.",
+        "register_again": "Register again"
+      },
       "trusted_contacts": {
         "empty": {
           "mine": "No trusted contacts yet",
@@ -104,6 +159,7 @@
       "devices": {
         "empty": "No devices registered yet",
         "this_device": "This device",
+        "pending": "Pending",
         "revoke_confirm_title": "Remove this device?",
         "revoke_confirm_message": "It will stop receiving updates to your recovery key."
       }

@@ -20,6 +20,7 @@ import { useAppVersionCheck } from '../hooks/useAppVersionCheck';
 import { useUserEventsSocket } from '../hooks/websocket/useUserEventsSocket';
 import { useRecoveryKeySync } from '../hooks/sync/useRecoveryKeySync';
 import { useReceiveShares } from '../hooks/sync/useReceiveShares';
+import { useRecoveryRequestCompletion } from '../hooks/sync/useRecoveryRequestCompletion';
 import { useAuth } from './AuthProvider';
 
 type ProvidersProps = {
@@ -65,6 +66,7 @@ const UserEventsBootstrap = () => {
 const RecoveryKeyBootstrap = () => {
   useRecoveryKeySync();
   useReceiveShares();
+  useRecoveryRequestCompletion();
   return null;
 };
 

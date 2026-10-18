@@ -1,4 +1,4 @@
-use crate::libs::entities::sea_orm_active_enums::{DeviceTypeEnum, PushProviderEnum};
+use db_rs::sea_orm_active_enums::{DeviceTypeEnum, PushProviderEnum};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 

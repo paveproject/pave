@@ -1,6 +1,7 @@
 import { createContext, use, useCallback, useEffect, useRef, useState } from 'react';
 import { useSplashScreen } from './SplashScreenProvider';
 import { useLocaleContext } from './LocaleProvider';
+import { clearPersistedQueryCache } from './ReactQueryProvider';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MeResponse, client } from '@libs/api-js';
 import { meKeys, meOptions } from '@libs/query-client';
@@ -38,6 +39,11 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
       // fresh, authenticated fetch can land.
       await queryClient.cancelQueries();
       await setSessionToken(token);
+      // Not just the in-memory cache - the persisted MMKV blob (see
+      // `clearPersistedQueryCache`'s own doc comment) can still carry
+      // whichever account was last active on this device, since it isn't
+      // actually scoped per-user today.
+      clearPersistedQueryCache();
       await queryClient.resetQueries();
     },
     [queryClient],
@@ -57,6 +63,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
     // setting `/me` straight to `null`, removes the window for that.
     await queryClient.cancelQueries();
     await clearSessionToken();
+    clearPersistedQueryCache();
     queryClient.setQueryData(meKeys.details(), null);
     await queryClient.resetQueries();
   }, [queryClient]);

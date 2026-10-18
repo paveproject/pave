@@ -8,13 +8,9 @@ use axum::response::IntoResponse;
 use better_auth::integrations::axum::CurrentSession;
 use tokio::sync::mpsc;
 
-/// Personal realtime channel for the current user - unlike
-/// `reports::handlers::reports_ws` (intentionally unauthenticated, public
-/// geo data), this one requires a session: the hub registers the
-/// connection under the session's own `user.id`, never anything
-/// client-supplied. Not part of the OpenAPI `paths` (no REST shape for a
-/// websocket) - `MeEventsUserEvent` is still registered as an OpenAPI schema (see
-/// `main.rs`) purely so the generated TS client stays type-safe.
+/// Unlike `reports::handlers::reports_ws` (unauthenticated, public geo
+/// data), this one requires a session - registered under the session's
+/// own `user.id`, never anything client-supplied.
 pub async fn user_events_ws(
     State(state): State<AppState>,
     session: CurrentSession<AppAuthSchema>,

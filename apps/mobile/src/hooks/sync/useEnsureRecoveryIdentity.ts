@@ -27,7 +27,7 @@ import { logger } from '../../logger';
  */
 export const useEnsureRecoveryIdentity = () => {
   const { user } = useAuth();
-  const isAuthenticated = !!user;
+  const userId = user?.id;
   const setDevice = useSetDeviceMutation();
 
   // Kept fresh every render so the effect below can call the current
@@ -38,17 +38,17 @@ export const useEnsureRecoveryIdentity = () => {
   });
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!userId) return;
     const run = async () => {
-      await ensureIdentityKeypair();
-      const publicKey = await getIdentityPublicKeyHex();
+      await ensureIdentityKeypair(userId);
+      const publicKey = await getIdentityPublicKeyHex(userId);
       if (!publicKey) return;
       const device = await mutateRef.current({
         publicKey,
         deviceType: Platform.OS === 'ios' ? 'ios' : 'android',
       });
-      await setDeviceId(device.id);
+      await setDeviceId(userId, device.id);
     };
     run().catch((error) => logger.error('ensure recovery identity failed', { error }));
-  }, [isAuthenticated]);
+  }, [userId]);
 };

@@ -2,7 +2,7 @@ pub mod dto;
 pub mod handlers;
 
 use crate::state::AppState;
-use axum::routing::{delete, get, put};
+use axum::routing::{delete, get, post, put};
 use axum::Router;
 
 pub fn router() -> Router<AppState> {
@@ -10,23 +10,29 @@ pub fn router() -> Router<AppState> {
         .route("/", get(handlers::list_devices).put(handlers::set_device))
         .route("/{id}", delete(handlers::revoke_device))
         .route("/{id}/dek", put(handlers::set_device_dek))
+        .route("/{id}/approve", post(handlers::approve_device))
+        .route("/{id}/decline", post(handlers::decline_device))
 }
 
-/// This module's own slice of the OpenAPI doc - merged into `me`'s own
-/// (see `me::openapi`), so adding a path/schema here never requires
-/// touching `main.rs`.
+/// Merged into `me::openapi` - no `main.rs` change needed to add a
+/// path/schema here.
 #[derive(utoipa::OpenApi)]
 #[openapi(
     paths(
         handlers::set_device,
         handlers::list_devices,
         handlers::revoke_device,
-        handlers::set_device_dek
+        handlers::set_device_dek,
+        handlers::approve_device,
+        handlers::decline_device
     ),
     components(schemas(
         dto::MeDevicesSetRequest,
         dto::MeDevicesResponse,
-        dto::MeDevicesSetDekRequest
+        dto::MeDevicesStatus,
+        dto::MeDevicesSetDekRequest,
+        dto::MeDevicesDeclinedResponse,
+        dto::MeOwnDeviceRegistrationResponse
     ))
 )]
 pub struct ApiDoc;

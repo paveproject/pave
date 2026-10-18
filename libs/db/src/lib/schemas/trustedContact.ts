@@ -1,5 +1,15 @@
 import { relations, sql } from 'drizzle-orm';
-import { pgTable, pgEnum, text, timestamp, uuid, index, unique } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  pgEnum,
+  text,
+  timestamp,
+  uuid,
+  index,
+  unique,
+  uniqueIndex,
+  check,
+} from 'drizzle-orm/pg-core';
 import { user } from './user';
 
 /**
@@ -52,6 +62,21 @@ export const trustedContact = pgTable(
     index('idx_trusted_contact_contact_user_id').on(table.contactUserId),
     index('idx_trusted_contact_invite_code_hash').on(table.inviteCodeHash),
     unique('unique_owner_contact').on(table.ownerUserId, table.contactUserId),
+    // `unique_owner_contact` doesn't cover this - `contactUserId` is NULL
+    // for every unredeemed invite, and Postgres treats each NULL as
+    // distinct in a unique index. This partial index is what actually
+    // enforces "at most one pending invite per owner" (see
+    // `handlers::generate_invite`, which upserts against it).
+    uniqueIndex('idx_trusted_contact_one_pending_invite_per_owner')
+      .on(table.ownerUserId)
+      .where(sql`contact_user_id IS NULL AND status = 'pending'`),
+    // Only `pending`/`revoked` can have a NULL `contactUserId` (an
+    // unredeemed, or since-revoked-unredeemed, invite) - `accepted` is
+    // only ever reached via `redeem_invite`, which always sets it first.
+    check(
+      'check_trusted_contact_contact_user_id',
+      sql`status IN ('pending', 'revoked') OR contact_user_id IS NOT NULL`,
+    ),
   ],
 );
 

@@ -27,17 +27,19 @@ export const useReceiveShares = () => {
   const { data: devices } = useQuery({ ...devicesOptions(), enabled: !!user });
 
   useEffect(() => {
+    if (!user) return;
     for (const row of trustedBy ?? []) {
       if (row.encryptedShare) {
-        receiveShare(row.owner.id, row.encryptedShare);
+        receiveShare(user.id, row.owner.id, row.encryptedShare);
       }
     }
-  }, [trustedBy]);
+  }, [user, trustedBy]);
 
   useEffect(() => {
+    if (!user) return;
     const mine = devices?.find((device) => device.id === deviceId);
     if (mine?.encryptedDek) {
-      receiveDek(mine.encryptedDek);
+      receiveDek(user.id, mine.encryptedDek);
     }
-  }, [devices, deviceId]);
+  }, [user, devices, deviceId]);
 };

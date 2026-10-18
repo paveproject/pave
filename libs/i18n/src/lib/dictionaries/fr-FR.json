@@ -14,6 +14,7 @@
     "account": "Mon compte",
     "trusted_contacts": "Contacts de confiance",
     "devices": "Appareils",
+    "recovery": "Récupération",
     "language": "Langue",
     "theme": "Thème",
     "system": "Système",
@@ -42,6 +43,7 @@
     "remove": "Retirer",
     "refresh": "Actualiser",
     "redeem": "Valider",
+    "review": "Valider",
     "open_settings": "Ouvrir les réglages",
     "code_copied": "Code copié",
     "copied": "{gender, select, female {{count, plural, one {Copiée} other {Copiées}}} other {{count, plural, one {Copié} other {Copiés}}}}",
@@ -85,7 +87,60 @@
         "description": "Choisissez un nom d'utilisateur pour finaliser la création de votre compte."
       }
     },
+    "welcome": {
+      "description": "On vous a choisi un nom d'utilisateur - gardez-le, ou faites-le vôtre."
+    },
+    "pending_actions": {
+      "device": {
+        "title": "Nouvel appareil",
+        "body": "Un nouvel appareil demande l'accès à votre clé de récupération. N'approuvez que si vous le reconnaissez.",
+        "location": "{city}, {country}",
+        "location_approximate": "Position approximative, basée sur l'adresse IP",
+        "approve": "Approuver",
+        "approve_confirm_title": "Approuver cet appareil ?",
+        "approve_confirm_message": "Il pourra recevoir une copie de votre clé de récupération.",
+        "decline": "Refuser"
+      },
+      "recovery_request": {
+        "title": "Demande de récupération",
+        "body": "{ownerName} a perdu l'accès à tous ses appareils et vous demande, en tant que contact de confiance, de l'aider à récupérer sa clé.",
+        "approve": "Approuver",
+        "approve_confirm_title": "Transmettre votre part ?",
+        "approve_confirm_message": "Cette action est irréversible. Ne le faites que si vous êtes sûr qu'il s'agit bien de {ownerName}.",
+        "decline": "Refuser",
+        "someone": "Quelqu'un"
+      },
+      "own_device": {
+        "title": "En attente d'approbation",
+        "body": "Cet appareil attend qu'un de vos autres appareils l'approuve avant de pouvoir recevoir votre clé de récupération.",
+        "approvers_label": "Peut être approuvé depuis :",
+        "recovery": {
+          "start": "Je n'ai accès à aucun de mes autres appareils",
+          "start_short": "Aucun accès ? démarrer la récupération",
+          "start_confirm_title": "Démarrer la récupération du compte ?",
+          "start_confirm_message": "Cela supprime définitivement tous les autres appareils de votre compte et demande à vos contacts de confiance de vous aider à récupérer l'accès. Cette action est irréversible.",
+          "no_contacts": "Il vous faut au moins un contact de confiance accepté pour récupérer l'accès de cette façon.",
+          "title": "Récupération en cours",
+          "delay_body": "Pour votre sécurité, les réponses de vos contacts de confiance ne pourront être utilisées qu'à partir du {releaseAt}.",
+          "waiting_shares_body": "En attente de réponses suffisantes de vos contacts de confiance.",
+          "progress": "{approved} approuvé(s), {declined} refusé(s) ({total} contacts sollicités)",
+          "cancel": "Annuler la récupération",
+          "cancel_confirm_title": "Annuler la récupération ?",
+          "cancel_confirm_message": "Vos contacts de confiance seront informés que ce n'est plus nécessaire.",
+          "impossible": "Il ne reste plus assez de contacts de confiance pouvant approuver cette demande. Annulez-la et relancez-en une nouvelle."
+        }
+      }
+    },
     "settings": {
+      "recovery": {
+        "resend": "Renvoyer la demande",
+        "resend_success": "Demande renvoyée",
+        "active_title": "Clé de récupération active",
+        "active_body": "Cet appareil a déjà accès à votre clé de récupération.",
+        "declined_title": "Non approuvé",
+        "declined_body": "La demande de cet appareil a été refusée, ou il a été retiré de votre compte. Enregistrez-le à nouveau pour refaire une demande.",
+        "register_again": "Enregistrer à nouveau"
+      },
       "trusted_contacts": {
         "empty": {
           "mine": "Aucun contact de confiance pour l'instant",
@@ -104,6 +159,7 @@
       "devices": {
         "empty": "Aucun appareil enregistré pour l'instant",
         "this_device": "Cet appareil",
+        "pending": "En attente",
         "revoke_confirm_title": "Retirer cet appareil ?",
         "revoke_confirm_message": "Il cessera de recevoir les mises à jour de votre clé de récupération."
       }

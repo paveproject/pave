@@ -72,23 +72,23 @@ export type ReconciliationPlan =
       nextState: RecoveryKeySyncState;
     };
 
-/** Generates this device's identity keypair if it doesn't have one yet.
- * Returns the public key (hex) to upload, or `null` if one already exists
- * and there's nothing new to upload. */
-export async function ensureIdentityKeypair(): Promise<string | null> {
-  const existing = await getIdentityKeypair();
+/** Generates this device's identity keypair for `userId` if it doesn't
+ * have one yet. Returns the public key (hex) to upload, or `null` if one
+ * already exists and there's nothing new to upload. */
+export async function ensureIdentityKeypair(userId: string): Promise<string | null> {
+  const existing = await getIdentityKeypair(userId);
   if (existing) return null;
 
   const keypair = generateIdentityKeypair();
-  await setIdentityKeypair(keypair);
+  await setIdentityKeypair(userId, keypair);
   return bytesToHex(keypair.publicKey);
 }
 
-/** The current identity public key (hex), whether just generated or
- * already existing - not secret, safe to upload/display in full. `null`
- * only if `ensureIdentityKeypair` hasn't run yet. */
-export async function getIdentityPublicKeyHex(): Promise<string | null> {
-  const identity = await getIdentityKeypair();
+/** The current identity public key (hex) for `userId`, whether just
+ * generated or already existing - not secret, safe to upload/display in
+ * full. `null` only if `ensureIdentityKeypair` hasn't run yet. */
+export async function getIdentityPublicKeyHex(userId: string): Promise<string | null> {
+  const identity = await getIdentityKeypair(userId);
   return identity ? bytesToHex(identity.publicKey) : null;
 }
 
@@ -138,6 +138,7 @@ function sameSet(a: string[], b: string[]): boolean {
  * tracked set.
  */
 export async function planReconciliation(
+  userId: string,
   accepted: AcceptedContact[],
   allOwnDevices: OwnDevice[],
   thisDeviceId: string,
@@ -147,7 +148,7 @@ export async function planReconciliation(
   const ownDeviceIds = allOwnDevices.map((device) => device.deviceId);
   const siblingDevices = allOwnDevices.filter((device) => device.deviceId !== thisDeviceId);
 
-  const synced = await getSyncedState();
+  const synced = await getSyncedState(userId);
   const unchanged =
     synced !== null &&
     sameSet(eligibleIds, synced.contactIds) &&
@@ -165,10 +166,10 @@ export async function planReconciliation(
       synced.ownDeviceIds.some((id) => !ownDeviceIds.includes(id)));
   const generation = synced && !removedSomeone ? synced.generation : (synced?.generation ?? 0) + 1;
 
-  let dek = removedSomeone || !synced ? null : await getDek();
+  let dek = removedSomeone || !synced ? null : await getDek(userId);
   if (!dek) {
     dek = crypto.getRandomValues(new Uint8Array(DEK_LENGTH));
-    await setDek(dek);
+    await setDek(userId, dek);
   }
 
   const threshold = eligible.length === 1 ? 1 : Math.max(2, Math.ceil(eligible.length / 2));
@@ -213,23 +214,29 @@ export async function planReconciliation(
   };
 }
 
-export async function commitReconciliation(plan: ReconciliationPlan): Promise<void> {
+export async function commitReconciliation(
+  userId: string,
+  plan: ReconciliationPlan,
+): Promise<void> {
   if (plan.kind === 'noop') return;
-  await setSyncedState(plan.nextState);
+  await setSyncedState(userId, plan.nextState);
 }
 
 /**
  * The other side of `planReconciliation`: when acting as a trusted
  * contact, opens a share an owner has sealed for this device and caches
- * it decrypted - there's no UI consuming it yet (that's the
- * recovery-reconstruction flow, a later phase), just keeping it ready.
- * Silently does nothing on a share that isn't actually ours to open (a
- * stale/foreign blob, or no identity keypair yet) rather than throwing,
- * since this runs opportunistically off list refreshes and realtime
- * events, not a user action.
+ * it decrypted, kept ready for whenever that owner actually needs it back
+ * (see `sealShareForRecoveryRequest`). Silently does nothing on a share
+ * that isn't actually ours to open (a stale/foreign blob, or no identity
+ * keypair yet) rather than throwing, since this runs opportunistically off
+ * list refreshes and realtime events, not a user action.
  */
-export async function receiveShare(ownerId: string, sealedHex: string): Promise<boolean> {
-  const identity = await getIdentityKeypair();
+export async function receiveShare(
+  forUserId: string,
+  ownerId: string,
+  sealedHex: string,
+): Promise<boolean> {
+  const identity = await getIdentityKeypair(forUserId);
   if (!identity) return false;
 
   try {
@@ -239,7 +246,7 @@ export async function receiveShare(ownerId: string, sealedHex: string): Promise<
       threshold: number;
       share: string;
     };
-    await setReceivedShare(ownerId, {
+    await setReceivedShare(forUserId, ownerId, {
       generation: envelope.generation,
       threshold: envelope.threshold,
       share: hexToBytes(envelope.share),
@@ -251,6 +258,31 @@ export async function receiveShare(ownerId: string, sealedHex: string): Promise<
 }
 
 /**
+ * The actual hand-back, when acting as a trusted contact approving a
+ * recovery request: re-seals this device's already-held plaintext share
+ * (cached by `receiveShare`) to the *requesting device's* public key,
+ * in the exact same `{generation, threshold, share}` envelope shape the
+ * owner originally sealed - `completeRecovery` on the other end expects
+ * to find that shape. `null` if this device never actually held a share
+ * for that owner (nothing to approve with).
+ */
+export async function sealShareForRecoveryRequest(
+  forUserId: string,
+  ownerId: string,
+  requestingDevicePublicKeyHex: string,
+): Promise<string | null> {
+  const share = await getReceivedShare(forUserId, ownerId);
+  if (!share) return null;
+
+  const envelope = JSON.stringify({
+    generation: share.generation,
+    threshold: share.threshold,
+    share: bytesToHex(share.share),
+  });
+  return seal(new TextEncoder().encode(envelope), hexToBytes(requestingDevicePublicKeyHex));
+}
+
+/**
  * The own-device counterpart of `receiveShare`: opens a full DEK copy a
  * sibling device has sealed for this one and adopts it directly, no
  * quorum involved. Also adopts the sender's synced state verbatim (same
@@ -258,8 +290,8 @@ export async function receiveShare(ownerId: string, sealedHex: string): Promise<
  * reconciliation pass sees itself as already caught up instead of
  * mistaking a fresh sync for a change that needs rotating again.
  */
-export async function receiveDek(sealedHex: string): Promise<boolean> {
-  const identity = await getIdentityKeypair();
+export async function receiveDek(userId: string, sealedHex: string): Promise<boolean> {
+  const identity = await getIdentityKeypair(userId);
   if (!identity) return false;
 
   try {
@@ -270,8 +302,8 @@ export async function receiveDek(sealedHex: string): Promise<boolean> {
       ownDeviceIds: string[];
       dek: string;
     };
-    await setDek(hexToBytes(envelope.dek));
-    await setSyncedState({
+    await setDek(userId, hexToBytes(envelope.dek));
+    await setSyncedState(userId, {
       contactIds: envelope.contactIds,
       ownDeviceIds: envelope.ownDeviceIds,
       generation: envelope.generation,
@@ -280,6 +312,129 @@ export async function receiveDek(sealedHex: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export interface RecoveryRequestShare {
+  encryptedShare: string;
+}
+
+/**
+ * Unseals every share this device's identity key can open, surfacing each
+ * one's own `{generation, threshold, share}` envelope - shared by
+ * `completeRecovery` (which combines them) and `peekRecoveryThreshold`
+ * (which only needs to read `threshold` off of one, without needing
+ * `threshold`-many to combine anything).
+ */
+async function openShares(
+  userId: string,
+  shares: RecoveryRequestShare[],
+): Promise<{ generation: number; threshold: number; share: Uint8Array }[]> {
+  const identity = await getIdentityKeypair(userId);
+  if (!identity) return [];
+
+  const opened: { generation: number; threshold: number; share: Uint8Array }[] = [];
+  for (const { encryptedShare } of shares) {
+    try {
+      const plaintext = unseal(encryptedShare, identity.privateKey);
+      const envelope = JSON.parse(new TextDecoder().decode(plaintext)) as {
+        generation: number;
+        threshold: number;
+        share: string;
+      };
+      opened.push({
+        generation: envelope.generation,
+        threshold: envelope.threshold,
+        share: hexToBytes(envelope.share),
+      });
+    } catch {
+      // Not sealed to this device, or corrupt - skip rather than abort the
+      // whole batch over one bad entry.
+    }
+  }
+  return opened;
+}
+
+/**
+ * Reads the Shamir threshold off of any one already-approved,
+ * successfully-unsealed share - without needing `threshold`-many of them
+ * to actually reconstruct anything. This is the one thing that lets a
+ * device recognize a recovery request has become impossible to complete
+ * *before* every contact has responded (see `recoveryRequest.ts`'s own
+ * doc comment on why the server can't): once this is known, comparing it
+ * against `approvedContacts + stillPending` tells you whether the
+ * remaining pending contacts could still save it, without waiting for
+ * them to actually respond.
+ *
+ * Returns `null` until at least one share has been approved and
+ * released - nobody (server included) knows the threshold before that,
+ * since it only ever lives inside each sealed envelope.
+ */
+export async function peekRecoveryThreshold(
+  userId: string,
+  shares: RecoveryRequestShare[],
+): Promise<number | null> {
+  const opened = await openShares(userId, shares);
+  return opened[0]?.threshold ?? null;
+}
+
+/**
+ * The trusted-contacts counterpart of `receiveDek`: once the server starts
+ * returning sealed shares for an in-flight recovery request (see
+ * `GET /me/recovery-requests/{id}/shares`, gated server-side by the
+ * mandatory delay), this opens each one with this device's own private
+ * key and, as soon as enough of the same generation are open, reconstructs
+ * the DEK - exactly how the device learns the Shamir threshold, since the
+ * server was never told it (it only ever lives inside each sealed
+ * envelope, same as `receiveShare`).
+ *
+ * A single accepted contact never went through a real Shamir split (see
+ * `planReconciliation`'s own doc comment: `threshold: 1` just means the
+ * raw DEK was sealed directly) - so a lone opened share for that
+ * generation *is* the DEK, no `combine` call needed or correct to make.
+ *
+ * **Critical**: commits `setDek` *and* `setSyncedState` together, exactly
+ * like `receiveDek` does - `planReconciliation` treats "no local synced
+ * state" as license to mint a brand-new random DEK
+ * (`let dek = removedSomeone || !synced ? null : await getDek(userId)`), which on
+ * a freshly-recovered device would silently discard the key this function
+ * just spent a whole recovery request recovering. Setting both first, with
+ * `eligibleContactIds`/`ownDeviceIds` matching the account's *current*
+ * eligible sets (fetched the same way `useRecoveryKeySync` already does),
+ * makes the very next reconciliation pass see "already in sync" - a
+ * correct no-op - instead of rotating away the recovered key.
+ */
+export async function completeRecovery(
+  userId: string,
+  shares: RecoveryRequestShare[],
+  eligibleContactIds: string[],
+  ownDeviceIds: string[],
+): Promise<boolean> {
+  const opened = await openShares(userId, shares);
+
+  // Only same-generation shares combine meaningfully - a mixed batch would
+  // only happen if a rotation somehow raced an in-flight recovery, which
+  // shouldn't be possible (see `recoveryRequest.ts`'s own doc comment), but
+  // grouping defensively costs nothing.
+  const byGeneration = new Map<number, typeof opened>();
+  for (const entry of opened) {
+    byGeneration.set(entry.generation, [...(byGeneration.get(entry.generation) ?? []), entry]);
+  }
+
+  for (const [generation, group] of byGeneration) {
+    const threshold = group[0].threshold;
+    if (group.length < threshold) continue;
+
+    const dek =
+      threshold === 1
+        ? group[0].share
+        : await ShamirSecretSharing.combine(group.slice(0, threshold).map((entry) => entry.share));
+
+    await setDek(userId, dek);
+    await setSyncedState(userId, { contactIds: eligibleContactIds, ownDeviceIds, generation });
+    return true;
+  }
+
+  return false;
 }
 
 export interface RecoveryKeyDebugSnapshot {
@@ -299,11 +454,11 @@ export interface RecoveryKeyDebugSnapshot {
  * ran without digging through Metro logs or the database by hand. Never
  * returns the DEK or private key themselves.
  */
-export async function getDebugSnapshot(): Promise<RecoveryKeyDebugSnapshot> {
+export async function getDebugSnapshot(userId: string): Promise<RecoveryKeyDebugSnapshot> {
   const [identity, dek, syncedState] = await Promise.all([
-    getIdentityKeypair(),
-    getDek(),
-    getSyncedState(),
+    getIdentityKeypair(userId),
+    getDek(userId),
+    getSyncedState(userId),
   ]);
   return {
     hasIdentityKeypair: !!identity,
@@ -323,8 +478,11 @@ export interface ReceivedShareDebugInfo {
 /** Same non-secret-exposure principle as `getDebugSnapshot`, for a share
  * received from a given owner - the share bytes themselves never leave
  * `lib/recoveryKey`. */
-export async function getReceivedShareDebugInfo(ownerId: string): Promise<ReceivedShareDebugInfo> {
-  const share = await getReceivedShare(ownerId);
+export async function getReceivedShareDebugInfo(
+  forUserId: string,
+  ownerId: string,
+): Promise<ReceivedShareDebugInfo> {
+  const share = await getReceivedShare(forUserId, ownerId);
   if (!share) return { present: false, generation: null, threshold: null };
   return { present: true, generation: share.generation, threshold: share.threshold };
 }

@@ -1,0 +1,31 @@
+{
+  "created_email": {
+    "subject": "A recovery request was started on your account",
+    "title": "Recovery request started",
+    "text": "Someone just started a request to recover your Pavé account's key using your trusted contacts. If this was you, no action is needed - it won't take effect until the waiting period passes. If this wasn't you, cancel it now.",
+    "button": "Cancel this request"
+  },
+  "created": {
+    "title": "Pavé",
+    "body": "{ownerName} is asking you to help recover their key"
+  },
+  "contact_responded": {
+    "title": "Pavé",
+    "body": "{approved} approved, {declined} declined ({total} contacts asked)"
+  },
+  "failed": {
+    "title": "Pavé",
+    "body": "All your trusted contacts declined - your recovery request can no longer succeed. Open the app to start a new one."
+  },
+  "ready_email": {
+    "subject": "Your Pavé recovery is ready to complete",
+    "title": "Recovery ready",
+    "text": "The waiting period on your account recovery request has passed. Open Pavé to finish recovering your key.",
+    "button": "Open Pavé"
+  },
+  "ready": {
+    "title": "Pavé",
+    "body": "Your recovery is ready - open the app to finish"
+  },
+  "someone": "Someone"
+}

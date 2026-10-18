@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-/// The current user, merging the auth-owned fields (better-auth-rs, see
-/// libs/auth) with Pave's own `user` row (language, welcome flow, username
-/// cooldown - see libs/db's Drizzle `user` schema for the TS equivalent).
+/// Merges the auth-owned fields (better-auth-rs) with Pave's own `user`
+/// row (language, welcome flow, username cooldown).
 #[derive(Debug, Clone, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MeResponse {
@@ -11,7 +10,7 @@ pub struct MeResponse {
     pub email: Option<String>,
     pub email_verified: bool,
     pub name: Option<String>,
-    pub username: Option<String>,
+    pub username: String,
     pub image: Option<String>,
     pub language: String,
     pub welcomed_at: Option<String>,
@@ -28,13 +27,10 @@ pub struct MeUpdateRequest {
     pub welcomed: Option<bool>,
 }
 
-/// Just enough about one of a user's registered devices for ANOTHER user
-/// to seal something to it - the `id` is required (not just the public
-/// key) so a sealed Shamir share can be attached to the right
-/// `trusted_contact_share` row (see
-/// `trusted_contacts::dto::MeTrustedContactsShareUpdate`). Deliberately
-/// smaller than `devices::dto::MeDevicesResponse` (no `encryptedDek`/
-/// timestamps - none of another user's business).
+/// Just enough about a registered device for ANOTHER user to seal
+/// something to it - `id` is needed to target the right
+/// `trusted_contact_share` row. Deliberately smaller than
+/// `devices::dto::MeDevicesResponse` - no `encryptedDek`/timestamps.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MeDeviceSummary {
@@ -42,28 +38,20 @@ pub struct MeDeviceSummary {
     pub public_key: String,
 }
 
-/// A minimal, public-safe view of ANOTHER user - deliberately small (just
-/// enough to label who someone is to someone else) so a new feature that
-/// needs to reference a user defaults to not leaking more than that. Add
-/// a field here (avatar, display name...) only once a feature actually
-/// needs it, not speculatively - this struct is the one place that grows,
-/// so it stays the single thing to audit for "what do we ever expose
-/// about a user to other users".
+/// A minimal, public-safe view of ANOTHER user - deliberately small, and
+/// the one place to audit for "what do we expose about a user to other
+/// users." Add a field only once a feature actually needs it.
 ///
-/// Also `Deserialize`: embedded in `MeTrustedContactsResponse`, which
-/// round-trips through Redis pub/sub as part of the `trusted_contact_accepted`
-/// realtime event (see `trusted_contacts::dto` and `events::ws_dto`).
+/// Also `Deserialize`: embedded in realtime event payloads that round-trip
+/// through Redis pub/sub (see `events::ws_dto`).
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MeProfile {
     pub id: String,
-    pub username: Option<String>,
+    pub username: String,
     pub image: Option<String>,
-    /// One entry per device this user has registered - empty until their
-    /// first device has generated a recovery-key identity keypair and
-    /// registered it. Exposed here (not just via `/me/devices`) so a
-    /// trusted-contact relationship's other party can seal a Shamir share
-    /// to *every* one of their devices without a separate lookup.
+    /// Lets the other party in a trusted-contact relationship seal a
+    /// Shamir share to every device without a separate lookup.
     pub devices: Vec<MeDeviceSummary>,
 }
 

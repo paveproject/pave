@@ -47,13 +47,26 @@ export const useRecoveryKeySync = () => {
   const runningRef = useRef(false);
 
   useEffect(() => {
-    if (!contacts || !devices || runningRef.current) return;
+    if (!user || !contacts || !devices || runningRef.current) return;
     runningRef.current = true;
+    const userId = user.id;
 
     const run = async () => {
       try {
-        const thisDeviceId = await getDeviceId();
+        const thisDeviceId = await getDeviceId(userId);
         if (!thisDeviceId) return;
+
+        // Never rotate/reseal while this device itself isn't `active` yet -
+        // a device waiting on a sibling's approval, or on a trusted-contact
+        // recovery request, has no synced state and no siblings of its own
+        // (see `create_recovery_request`'s own doc comment: starting one
+        // hard-deletes every other device). Without this guard,
+        // `planReconciliation` would see "no sibling devices, but eligible
+        // contacts" and mint a brand-new DEK, silently overwriting the real
+        // shares those contacts are holding - the exact data a recovery
+        // request exists to reconstruct.
+        const thisDevice = devices.find((device) => device.id === thisDeviceId);
+        if (thisDevice?.status !== 'active') return;
 
         const accepted: AcceptedContact[] = contacts
           .filter(
@@ -74,7 +87,7 @@ export const useRecoveryKeySync = () => {
           publicKey: device.publicKey,
         }));
 
-        const plan = await planReconciliation(accepted, allOwnDevices, thisDeviceId);
+        const plan = await planReconciliation(userId, accepted, allOwnDevices, thisDeviceId);
         if (plan.kind === 'rotate') {
           const uploads: Promise<unknown>[] = plan.deviceDekUploads.map((upload) =>
             setDeviceDek.mutateAsync(upload),
@@ -83,7 +96,7 @@ export const useRecoveryKeySync = () => {
             uploads.push(setShares.mutateAsync(plan.shareUploads));
           }
           await Promise.all(uploads);
-          await commitReconciliation(plan);
+          await commitReconciliation(userId, plan);
         }
       } catch (error) {
         logger.error('recovery key reconciliation failed', { error });
@@ -93,5 +106,5 @@ export const useRecoveryKeySync = () => {
     };
 
     run();
-  }, [contacts, devices, setShares, setDeviceDek]);
+  }, [user, contacts, devices, setShares, setDeviceDek]);
 };

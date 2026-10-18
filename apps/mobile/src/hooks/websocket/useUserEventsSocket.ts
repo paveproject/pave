@@ -3,18 +3,23 @@ import NetInfo from '@react-native-community/netinfo';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   devicesOptions,
+  pendingActionsOptions,
+  recoveryRequestCurrentOptions,
   trustedByOptions,
   trustedContactInviteOptions,
   trustedContactsOptions,
 } from '@libs/query-client';
 import type {
+  MeDevicesResponse,
   MeTrustedContactsAsContactResponse,
   MeTrustedContactsResponse,
   MeEventsUserEvent,
+  MePendingAction,
 } from '@libs/api-js';
 import { getSessionToken } from '../../lib/auth/session';
 import { ME_WS_URL } from '../../env/common';
 import { clearReceivedShare, getDeviceId, receiveDek, receiveShare } from '../../lib/recoveryKey';
+import { useAuth } from '../../providers/AuthProvider';
 
 // React Native's WebSocket accepts a third `headers` option at runtime
 // (unlike the strict browser spec its TS types are modeled on) - this
@@ -83,6 +88,52 @@ const removeTrustedBy = (
   );
 };
 
+/** Mirrors `upsertTrustedContact`, for this user's own device list. */
+const upsertDevice = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  device: MeDevicesResponse,
+) => {
+  queryClient.setQueryData(devicesOptions().queryKey, (old) => {
+    if (!old) return old;
+    const index = old.findIndex((d) => d.id === device.id);
+    if (index === -1) return [device, ...old];
+    const next = [...old];
+    next[index] = device;
+    return next;
+  });
+};
+
+const removeDevice = (queryClient: ReturnType<typeof useQueryClient>, id: string) => {
+  queryClient.setQueryData(devicesOptions().queryKey, (old) => old?.filter((d) => d.id !== id));
+};
+
+/** Drops one pending-actions row by its own `(kind, id)` pair - shared by
+ * every path where this device just learned, via realtime, that an item
+ * someone else is holding has been resolved one way or another. */
+const removePendingAction = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  kind: MePendingAction['kind'],
+  id: string,
+) => {
+  queryClient.setQueryData(pendingActionsOptions().queryKey, (old) =>
+    old?.filter((action) => !(action.kind === kind && action.id === id)),
+  );
+};
+
+const upsertPendingAction = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  action: MePendingAction,
+) => {
+  queryClient.setQueryData(pendingActionsOptions().queryKey, (old) => {
+    if (!old) return old;
+    const index = old.findIndex((a) => a.kind === action.kind && a.id === action.id);
+    if (index === -1) return [...old, action];
+    const next = [...old];
+    next[index] = action;
+    return next;
+  });
+};
+
 /**
  * Personal realtime channel (see `apps/api/src/app/me/events`) - app-wide,
  * not screen-scoped like `useReportsSocket` (reports only matter on the
@@ -91,11 +142,13 @@ const removeTrustedBy = (
  * open for the app's lifetime - see `Providers.tsx`'s `UserEventsBootstrap`.
  */
 export const useUserEventsSocket = (enabled: boolean) => {
+  const { user } = useAuth();
+  const userId = user?.id;
   const queryClient = useQueryClient();
   const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !userId) return;
 
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
     let cancelled = false;
@@ -107,7 +160,7 @@ export const useUserEventsSocket = (enabled: boolean) => {
       // `trustedContactsKeys.asContact`'s own doc comment) or to tell a
       // `device_dek_updated` event meant for a sibling apart from one
       // meant for this device.
-      const deviceId = await getDeviceId();
+      const deviceId = await getDeviceId(userId);
       const token = await getSessionToken();
       if (!token || cancelled) return;
 
@@ -135,11 +188,11 @@ export const useUserEventsSocket = (enabled: boolean) => {
           } else if (message.event === 'trusted_contact_share_updated') {
             upsertTrustedBy(queryClient, deviceId, message);
             if (message.encryptedShare) {
-              receiveShare(message.owner.id, message.encryptedShare);
+              receiveShare(userId, message.owner.id, message.encryptedShare);
             }
           } else if (message.event === 'trusted_contact_revoked') {
             removeTrustedBy(queryClient, deviceId, message.id);
-            clearReceivedShare(message.owner.id);
+            clearReceivedShare(userId, message.owner.id);
           } else if (message.event === 'device_registered') {
             // A sibling device just registered (or refreshed its own
             // registration) - invalidate rather than upsert, since this
@@ -147,10 +200,36 @@ export const useUserEventsSocket = (enabled: boolean) => {
             // enough to merge a single row in blind the way the
             // trusted-contact rows above can.
             queryClient.invalidateQueries({ queryKey: devicesOptions().queryKey });
+            // A brand-new sibling is `pending` until approved (see
+            // `MeDevicesStatus`) - this is what makes it show up in THIS
+            // device's own pending-actions inbox live, instead of only on
+            // its next focus/relaunch.
+            queryClient.invalidateQueries({ queryKey: pendingActionsOptions().queryKey });
           } else if (message.event === 'device_dek_updated') {
             if (message.id === deviceId && message.encryptedDek) {
-              receiveDek(message.encryptedDek);
+              receiveDek(userId, message.encryptedDek);
             }
+          } else if (message.event === 'device_approved') {
+            upsertDevice(queryClient, message);
+            // Removes both kinds this same device id could appear under -
+            // `device_registration` on a sibling that was approving it,
+            // `own_device_registration` on this device itself if it's the
+            // one that was just approved.
+            removePendingAction(queryClient, 'device_registration', message.id);
+            removePendingAction(queryClient, 'own_device_registration', message.id);
+          } else if (message.event === 'device_approval_declined') {
+            removeDevice(queryClient, message.id);
+            removePendingAction(queryClient, 'device_registration', message.id);
+            removePendingAction(queryClient, 'own_device_registration', message.id);
+          } else if (message.event === 'recovery_request_created') {
+            upsertPendingAction(queryClient, {
+              kind: 'recovery_request_contact',
+              ...message,
+            });
+          } else if (message.event === 'recovery_request_contact_responded') {
+            queryClient.setQueryData(recoveryRequestCurrentOptions().queryKey, message);
+          } else if (message.event === 'recovery_request_cancelled') {
+            removePendingAction(queryClient, 'recovery_request_contact', message.id);
           }
         } catch {
           // Malformed frame - ignore rather than crash the socket loop.
@@ -182,5 +261,5 @@ export const useUserEventsSocket = (enabled: boolean) => {
       socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [enabled, queryClient]);
+  }, [enabled, userId, queryClient]);
 };

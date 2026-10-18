@@ -7,17 +7,21 @@ edition = "2021"
 a2 = "0.10.0"
 assets-rs = { path = "../../libs/assets-rs" }
 base64 = "0.22.1"
+db-rs = { path = "../../libs/db-rs" }
 env-rs = { path = "../../libs/env-rs" }
 notify-contracts = { path = "../../libs/notify-contracts" }
 bullmq-rs = "2.2.0"
 chrono = "0.4"
+futures-util = "0.3.34"
 jsonwebtoken = "11.1.0"
 reqwest = { version = "0.12.28", default-features = false, features = ["json", "rustls-tls"] }
 resend-rs = "0.34"
+sea-orm = { version = "2.0.4", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 tokio = { version = "1.53.2", features = ["macros", "rt-multi-thread", "signal"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+uuid = { version = "1", features = ["v4"] }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
