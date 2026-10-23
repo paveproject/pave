@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, text, timestamp, index } from 'drizzle-orm/pg-core';
+import { pgTable, pgEnum, text, timestamp, uuid, index } from 'drizzle-orm/pg-core';
 import { geometryPoint } from '../customTypes/geometryPoint';
 
 export const reportTypeEnum = pgEnum('report_type_enum', [
@@ -17,8 +17,10 @@ export const reportTypeEnum = pgEnum('report_type_enum', [
  * A situation reported at a point in time/space, created offline-first on
  * the device (see the mobile WatermelonDB setup) and pushed here once
  * connectivity allows. `id` is always client-generated (a UUID minted at
- * creation time, before any server round-trip is possible) so a repeated
- * sync push of the same report is a no-op, not a duplicate.
+ * creation time, before any server round-trip is possible - WatermelonDB's
+ * global id generator is pinned to `Crypto.randomUUID()`, see
+ * `apps/mobile/src/lib/watermelon/database.ts`) so a repeated sync push of
+ * the same report is a no-op, not a duplicate.
  *
  * Deliberately has no FK to a user - reports are anonymous by design, for
  * the reporter's own safety.
@@ -26,7 +28,7 @@ export const reportTypeEnum = pgEnum('report_type_enum', [
 export const report = pgTable(
   'report',
   {
-    id: text('id').primaryKey(),
+    id: uuid('id').primaryKey(),
     type: reportTypeEnum('type').notNull(),
     // SRID 4326 = WGS84 (plain lat/lng). `x` is longitude, `y` is latitude.
     location: geometryPoint('location').notNull(),

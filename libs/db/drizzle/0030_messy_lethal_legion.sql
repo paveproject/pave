@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD CONSTRAINT "check_user_recovery_delay_minimums" CHECK ("user"."recovery_delay_seconds" >= 3600 AND "user"."recovery_delay_protest_seconds" >= 900);

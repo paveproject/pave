@@ -15,8 +15,15 @@ import { trustedContact } from './trustedContact';
  * `active`: approved (or never needed approval - the very first device on
  * an account with nothing yet to protect goes straight to `active`, see
  * `set_device`).
+ * `suspended`: every *other* device at the moment a recovery request
+ * starts (see `create_recovery_request`) - reversible, unlike the earlier
+ * hard-delete this replaces: cancelling the request restores them to
+ * `active`, while a completed recovery leaves them here for the owner to
+ * clean up by hand (one might have been a false positive). Excluded from
+ * `resolve_active_caller_device`, so a suspended device can't approve/
+ * decline/revoke a sibling or act as the recovery request's own caller.
  */
-export const deviceStatusEnum = pgEnum('device_status_enum', ['pending', 'active']);
+export const deviceStatusEnum = pgEnum('device_status_enum', ['pending', 'active', 'suspended']);
 
 /**
  * One row per (user, physical device) the recovery-key scheme knows

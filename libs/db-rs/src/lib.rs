@@ -9,9 +9,9 @@
 pub mod prelude;
 
 pub mod device;
-pub mod protest_session;
-pub mod protest_upload;
 pub mod push_token;
+pub mod recovery_dek_generation;
+pub mod recovery_key_mnemonic;
 pub mod recovery_request;
 pub mod recovery_request_contact;
 pub mod sea_orm_active_enums;

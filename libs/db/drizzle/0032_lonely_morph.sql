@@ -1,0 +1,1 @@
+ALTER TYPE "public"."device_status_enum" ADD VALUE 'suspended';

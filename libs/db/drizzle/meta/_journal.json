@@ -197,6 +197,55 @@
       "when": 1792341847377,
       "tag": "0027_free_warlock",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792358483724,
+      "tag": "0028_chunky_microchip",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792361648830,
+      "tag": "0029_new_sleeper",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792659699288,
+      "tag": "0030_messy_lethal_legion",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1792662213495,
+      "tag": "0031_colossal_harry_osborn",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792679236900,
+      "tag": "0032_lonely_morph",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792686962318,
+      "tag": "0033_special_lionheart",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792773191976,
+      "tag": "0034_flaky_next_avengers",
+      "breakpoints": true
     }
   ]
 }

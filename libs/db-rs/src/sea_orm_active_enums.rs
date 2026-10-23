@@ -52,6 +52,8 @@ pub enum DeviceStatusEnum {
     Pending,
     #[sea_orm(string_value = "active")]
     Active,
+    #[sea_orm(string_value = "suspended")]
+    Suspended,
 }
 
 // Hand-added (not sea-orm-codegen output, same reasoning as the enums
@@ -150,20 +152,4 @@ pub enum ReportTypeEnum {
     Kettling,
     #[sea_orm(string_value = "other")]
     Other,
-}
-
-// Hand-added (not sea-orm-codegen output): mirrors Postgres
-// `protest_upload_kind_enum` (see
-// libs/db/src/lib/schemas/protestSession.ts).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(
-    rs_type = "Enum",
-    db_type = "Enum",
-    enum_name = "protest_upload_kind_enum"
-)]
-pub enum ProtestUploadKindEnum {
-    #[sea_orm(string_value = "position_batch")]
-    PositionBatch,
-    #[sea_orm(string_value = "audio_chunk")]
-    AudioChunk,
 }

@@ -46,6 +46,15 @@ export const user = pgTable(
       'check_user_recovery_delay_protest_shorter',
       sql`${table.recoveryDelayProtestSeconds} < ${table.recoveryDelaySeconds}`,
     ),
+    // Defense in depth alongside the app-level floor (see
+    // `MIN_RECOVERY_DELAY_SECONDS`/`MIN_RECOVERY_DELAY_PROTEST_SECONDS` in
+    // `apps/api/src/app/me/handlers.rs`) - a stolen session token that
+    // somehow bypassed the handler's own check still can't write a value
+    // the database itself will accept.
+    check(
+      'check_user_recovery_delay_minimums',
+      sql`${table.recoveryDelaySeconds} >= 3600 AND ${table.recoveryDelayProtestSeconds} >= 900`,
+    ),
   ],
 );
 
