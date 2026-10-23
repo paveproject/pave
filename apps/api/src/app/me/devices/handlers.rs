@@ -10,6 +10,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use better_auth::integrations::axum::CurrentSession;
+use better_auth::prelude::AuthSession;
 use chrono::Utc;
 use db_rs::device;
 use db_rs::sea_orm_active_enums::{DeviceStatusEnum, TrustedContactStatusEnum};
@@ -73,6 +74,34 @@ pub(crate) async fn resolve_active_caller_device(
         .expect("failed to query caller device")
 }
 
+/// Best-effort: revoking a device's row is pointless as a security
+/// boundary if its bearer token still works against every other endpoint
+/// afterwards. `device.session_id` is only ever a snapshot of the id the
+/// session had when last registered (see `device.ts`'s own doc comment on
+/// `sessionId`) - a silent no-op if it already rotated since (the common
+/// "actually fine" case: the user just re-logged-in on that device, which
+/// is a different bearer token than the one being revoked here anyway).
+async fn revoke_devices_session(state: &AppState, user_id: &str, stored_session_id: &str) {
+    let sessions = state
+        .auth
+        .store()
+        .get_user_sessions(user_id)
+        .await
+        .expect("failed to list sessions for revocation");
+    let Some(session) = sessions
+        .iter()
+        .find(|s| s.id().as_ref() == stored_session_id)
+    else {
+        return;
+    };
+    state
+        .auth
+        .store()
+        .delete_session(session.token())
+        .await
+        .expect("failed to revoke device session");
+}
+
 /// Enqueues a `PushNotification` job - `notify` resolves tokens/providers/
 /// language itself from `target`.
 async fn enqueue_push(state: &AppState, target: PushTarget, content: PushContent) {
@@ -82,6 +111,22 @@ async fn enqueue_push(state: &AppState, target: PushTarget, content: PushContent
         .add(job.name(), job.data(), None)
         .await
         .expect("failed to enqueue device push notification");
+}
+
+/// Best-effort geoip lookup, shown to the siblings asked to approve a
+/// `Pending` device - shared by both the brand-new-device case and the
+/// re-pending-after-suspension case in `set_device`.
+fn lookup_pending_location(
+    state: &AppState,
+    headers: &axum::http::HeaderMap,
+) -> (Option<String>, Option<String>) {
+    state
+        .geoip
+        .as_ref()
+        .and_then(|geoip| {
+            geoip::client_ip_from_headers(headers).and_then(|ip| geoip.lookup_city_country(ip))
+        })
+        .map_or((None, None), |(city, country)| (Some(city), Some(country)))
 }
 
 /// Registers (or refreshes) the caller's current device. Upserts by
@@ -113,14 +158,61 @@ pub async fn set_device(
 
     let model = match existing {
         Some(model) => {
+            // A device suspended by `create_recovery_request` or
+            // `activate_via_recovery_key_mnemonic` re-announcing itself is
+            // in exactly the same position as a brand-new device: it needs
+            // to be trusted again before it can do anything. Routing it
+            // back through the ordinary `Pending` machinery - sibling
+            // approval, a fresh trusted-contacts recovery request, or the
+            // recovery phrase, same as any new device - means there's no
+            // separate "un-suspend" path to reason about, and no dead end
+            // requiring another device to explicitly remove it first.
+            let was_suspended = model.status == DeviceStatusEnum::Suspended;
+            let device_id = model.id;
+            let old_session_id = model.session_id.clone();
+            // Only ever a different value here if this device genuinely
+            // re-authenticated (OTP creates a new session id; the sliding-
+            // expiry refresh this library also has never changes it) - see
+            // `revoke_devices_session`'s own doc comment on why a *stale*
+            // snapshot elsewhere can't be trusted to clean this up on its
+            // own: the device's own re-registration is the one guaranteed
+            // moment the old session is both known and safe to retire,
+            // rather than leaving it to linger until some other device
+            // happens to revoke this one later (by which point the snapshot
+            // revoked there may itself already be stale).
+            let session_rotated = old_session_id != session.session.id;
+
             let mut active = model.into_active_model();
             active.session_id = Set(session.session.id.clone());
             active.device_type = Set(device_type);
             active.updated_at = Set(Utc::now().into());
-            active
-                .update(&state.db)
-                .await
-                .expect("failed to update device")
+            if was_suspended {
+                active.status = Set(DeviceStatusEnum::Pending);
+                let (location_city, location_country) = lookup_pending_location(&state, &headers);
+                active.location_city = Set(location_city);
+                active.location_country = Set(location_country);
+            }
+
+            let (updated, ()) = tokio::join!(active.update(&state.db), async {
+                if session_rotated {
+                    revoke_devices_session(&state, &user_id, &old_session_id).await;
+                }
+            });
+            let updated = updated.expect("failed to update device");
+
+            if was_suspended {
+                enqueue_push(
+                    &state,
+                    PushTarget::OtherActiveDevices {
+                        user_id: user_id.clone(),
+                        excluding_device_id: device_id.to_string(),
+                    },
+                    PushContent::DeviceApprovalRequested,
+                )
+                .await;
+            }
+
+            updated
         }
         None => {
             // Only the account's genuine first device skips straight to
@@ -134,17 +226,10 @@ pub async fn set_device(
 
             // Only read for the pending case - nothing uses it once
             // approved (see `approve_device`, which nulls it out).
-            let location = if status == DeviceStatusEnum::Pending {
-                state.geoip.as_ref().and_then(|geoip| {
-                    geoip::client_ip_from_headers(&headers)
-                        .and_then(|ip| geoip.lookup_city_country(ip))
-                })
+            let (location_city, location_country) = if status == DeviceStatusEnum::Pending {
+                lookup_pending_location(&state, &headers)
             } else {
-                None
-            };
-            let (location_city, location_country) = match location {
-                Some((city, country)) => (Some(city), Some(country)),
-                None => (None, None),
+                (None, None)
             };
 
             let inserted = device::ActiveModel {
@@ -247,14 +332,16 @@ pub async fn revoke_device(
     if caller_device.is_none() {
         return StatusCode::FORBIDDEN.into_response();
     }
+    let target_session_id = model.session_id.clone();
 
     // Hard delete, unlike `trusted_contact`'s soft `Revoked` status -
     // nothing reads a device's history, and the FK cascade on
     // `trusted_contact_share`/dependents cleans up on its own.
-    model
-        .delete(&state.db)
-        .await
-        .expect("failed to revoke device");
+    let (delete_result, ()) = tokio::join!(
+        model.delete(&state.db),
+        revoke_devices_session(&state, &session.user.id, &target_session_id),
+    );
+    delete_result.expect("failed to revoke device");
 
     StatusCode::OK.into_response()
 }
@@ -262,6 +349,15 @@ pub async fn revoke_device(
 /// Deposits a sealed copy of the caller's own recovery key for one of
 /// their *other* devices - a direct seal, no Shamir split (not a quorum
 /// problem), opaque to the server.
+///
+/// Restricted to a target that's already `active` - the mobile client's
+/// own reconciliation logic (`planReconciliation`) already excludes
+/// `pending`/`suspended` devices from the set it ever seals to, but that's
+/// a client-side intent, not a server-side gate. Without this check here
+/// too, a buggy or malicious client could hand the DEK straight to a
+/// device still waiting on approval (or one a recovery path just locked
+/// out), making "pending"/"suspended" purely cosmetic for confidentiality
+/// instead of an actual boundary.
 #[utoipa::path(
     put,
     path = "/me/devices/{id}/dek",
@@ -270,7 +366,7 @@ pub async fn revoke_device(
     request_body = MeDevicesSetDekRequest,
     responses(
         (status = 200, description = "Recovery key copy deposited", body = MeDevicesResponse),
-        (status = 404, description = "Not found, or not yours")
+        (status = 404, description = "Not found, not yours, or not active")
     )
 )]
 pub async fn set_device_dek(
@@ -283,6 +379,7 @@ pub async fn set_device_dek(
 
     let Some(model) = device::Entity::find_by_id(id)
         .filter(device::Column::UserId.eq(user_id.clone()))
+        .filter(device::Column::Status.eq(DeviceStatusEnum::Active))
         .one(&state.db)
         .await
         .expect("failed to query device")
@@ -422,10 +519,12 @@ pub async fn decline_device(
     )
     .await;
 
-    model
-        .delete(&state.db)
-        .await
-        .expect("failed to decline device");
+    let target_session_id = model.session_id.clone();
+    let (delete_result, ()) = tokio::join!(
+        model.delete(&state.db),
+        revoke_devices_session(&state, &user_id, &target_session_id),
+    );
+    delete_result.expect("failed to decline device");
 
     state.user_events_hub.publish(
         user_id,

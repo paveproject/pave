@@ -21,6 +21,11 @@ pub struct MeResponse {
     pub protest_mode_enabled: bool,
     pub recovery_delay_seconds: i32,
     pub recovery_delay_protest_seconds: i32,
+    /// Whether this account has set up the 3rd recovery path (a 24-word
+    /// phrase - see `recovery_key_mnemonic::handlers`) - never the blob
+    /// itself, just its presence, so the mobile welcome flow knows whether
+    /// to generate a new one or skip straight through on a retry.
+    pub has_recovery_phrase: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]

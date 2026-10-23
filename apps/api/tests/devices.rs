@@ -67,6 +67,96 @@ async fn re_registering_the_same_public_key_updates_in_place() {
     );
 }
 
+/// `device.session_id` is only ever a snapshot - it goes stale the moment
+/// this exact device re-authenticates under a new session. The one
+/// guaranteed point the old session is both known and safe to kill is
+/// right here, at re-registration, rather than leaving an orphaned
+/// session to linger until some other device happens to revoke this one
+/// (by which point its own stored snapshot could itself already be
+/// stale - see `revoke_device`'s reliance on the same stored value).
+#[tokio::test]
+#[serial_test::serial]
+async fn re_registering_under_a_new_session_revokes_the_old_one() {
+    let env = shared_test_env().await;
+    let app = fresh_app(env).await;
+
+    let token1 = app.sign_in("owner@example.com").await;
+    register_device(&app, &token1, "pk-d1", "ios").await;
+
+    let (status, _) = app.request("GET", "/me/devices", Some(&token1), None).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the first session should still work before re-registering"
+    );
+
+    // A later re-launch, same device (same public key), new session.
+    let token2 = app.sign_in("owner@example.com").await;
+    register_device(&app, &token2, "pk-d1", "ios").await;
+
+    let (status, _) = app.request("GET", "/me/devices", Some(&token1), None).await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "the superseded session should be revoked, not left to linger"
+    );
+
+    let (status, _) = app.request("GET", "/me/devices", Some(&token2), None).await;
+    assert_eq!(status, StatusCode::OK, "the new session must still work");
+}
+
+/// A device suspended by `create_recovery_request` or
+/// `activate_via_recovery_key_mnemonic` isn't locked out forever - once it
+/// comes back online and re-announces itself, it goes through the exact
+/// same approval machinery a brand-new device does (sibling approval, a
+/// fresh recovery request, or the recovery phrase), rather than requiring
+/// another device to explicitly remove it first.
+#[tokio::test]
+#[serial_test::serial]
+async fn re_registering_a_suspended_device_returns_it_to_pending_for_approval_again() {
+    let env = shared_test_env().await;
+    let app = fresh_app(env).await;
+
+    let devices = sign_in_with_two_devices(&app, "owner@example.com").await;
+
+    // The pending device recovers via the phrase - this suspends the
+    // other (active) device, see `activate_via_recovery_key_mnemonic`.
+    let (status, _) = app
+        .request(
+            "POST",
+            "/me/recovery-key-mnemonic/activate",
+            Some(&devices.pending_token),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, list) = app
+        .request("GET", "/me/devices", Some(&devices.pending_token), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{list}");
+    let suspended = list
+        .as_array()
+        .expect("should be an array")
+        .iter()
+        .find(|d| d["id"] == devices.active_device_id)
+        .expect("row should still exist")
+        .clone();
+    assert_eq!(suspended["status"], "suspended");
+
+    // The suspended device comes back online and re-registers itself -
+    // same public key, fresh session (its old one was revoked, so it had
+    // to redo OTP).
+    let new_token = app.sign_in("owner@example.com").await;
+    let re_registered = register_device(&app, &new_token, "pk-d1", "ios").await;
+
+    assert_eq!(re_registered["id"], devices.active_device_id);
+    assert_eq!(
+        re_registered["status"], "pending",
+        "a re-announcing suspended device must go through approval again, not stay locked out"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // list_devices (GET /me/devices)
 // ---------------------------------------------------------------------------
@@ -491,6 +581,9 @@ async fn revoking_another_accounts_device_is_not_found() {
 // set_device_dek (PUT /me/devices/{id}/dek)
 // ---------------------------------------------------------------------------
 
+/// The target must already be `active` - depositing a DEK copy for a
+/// still-`pending` sibling (approved below first) would otherwise hand
+/// over the key before anyone actually approved it.
 #[tokio::test]
 #[serial_test::serial]
 async fn set_device_dek_deposits_a_sealed_copy() {
@@ -498,6 +591,13 @@ async fn set_device_dek_deposits_a_sealed_copy() {
     let app = fresh_app(env).await;
 
     let devices = sign_in_with_two_devices(&app, "owner@example.com").await;
+    app.request(
+        "POST",
+        &format!("/me/devices/{}/approve", devices.pending_device_id),
+        Some(&devices.active_token),
+        None,
+    )
+    .await;
 
     let (status, updated) = app
         .request(
@@ -509,6 +609,32 @@ async fn set_device_dek_deposits_a_sealed_copy() {
         .await;
     assert_eq!(status, StatusCode::OK, "{updated}");
     assert_eq!(updated["encryptedDek"], "test-sealed-dek-blob");
+}
+
+/// The server-side half of this session's confidentiality fix: the
+/// mobile client's own reconciliation logic already refuses to seal a
+/// DEK copy to anything but an `active` sibling, but that's a client-side
+/// intent, not a boundary - without this check here too, a buggy or
+/// malicious client could hand the DEK straight to a device still
+/// waiting on approval, making "pending" purely cosmetic for
+/// confidentiality.
+#[tokio::test]
+#[serial_test::serial]
+async fn set_device_dek_on_a_pending_device_is_not_found() {
+    let env = shared_test_env().await;
+    let app = fresh_app(env).await;
+
+    let devices = sign_in_with_two_devices(&app, "owner@example.com").await;
+
+    let (status, body) = app
+        .request(
+            "PUT",
+            &format!("/me/devices/{}/dek", devices.pending_device_id),
+            Some(&devices.active_token),
+            Some(json!({ "encryptedDek": "test-sealed-dek-blob" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }
 
 #[tokio::test]
@@ -531,8 +657,9 @@ async fn set_device_dek_on_a_nonexistent_device_is_not_found() {
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }
 
-/// `set_device_dek` only checks `user_id`, not an active/pending split -
-/// but it still must never touch a device belonging to someone else.
+/// Targets the `active` device specifically (unlike the pending-target
+/// test above) so this stays an isolated check of the cross-account
+/// boundary, not conflated with the active/pending one.
 #[tokio::test]
 #[serial_test::serial]
 async fn set_device_dek_on_another_accounts_device_is_not_found() {
@@ -547,7 +674,7 @@ async fn set_device_dek_on_another_accounts_device_is_not_found() {
     let (status, body) = app
         .request(
             "PUT",
-            &format!("/me/devices/{}/dek", devices.pending_device_id),
+            &format!("/me/devices/{}/dek", devices.active_device_id),
             Some(&other_token),
             Some(json!({ "encryptedDek": "test-sealed-dek-blob" })),
         )

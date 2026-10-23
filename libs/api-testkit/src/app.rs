@@ -158,6 +158,39 @@ impl TestApp {
         self.send(request).await
     }
 
+    /// Same request shape as `request`, but for an endpoint whose response
+    /// body isn't JSON (`get_upload_content` streams raw bytes back) -
+    /// `send`'s own `serde_json::from_slice` would otherwise silently turn
+    /// non-JSON bytes into `Value::Null`, losing the actual content.
+    pub async fn request_bytes(
+        &self,
+        method: &str,
+        path: &str,
+        token: &str,
+    ) -> (StatusCode, Vec<u8>) {
+        let request = Request::builder()
+            .method(method)
+            .uri(path)
+            .header("authorization", format!("Bearer {token}"))
+            .body(Body::empty())
+            .expect("valid request");
+
+        let response = self
+            .router
+            .clone()
+            .oneshot(request)
+            .await
+            .expect("router never returns Err - that's an Infallible service");
+        let status = response.status();
+        let bytes = response
+            .into_body()
+            .collect()
+            .await
+            .expect("failed to read response body")
+            .to_bytes();
+        (status, bytes.to_vec())
+    }
+
     async fn send(&self, request: Request<Body>) -> (StatusCode, Value) {
         let response = self
             .router

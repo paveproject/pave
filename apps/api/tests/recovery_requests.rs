@@ -292,7 +292,7 @@ async fn release_at_reflects_the_owners_configured_delay() {
         "PATCH",
         "/me",
         Some(&setup.owner_token),
-        Some(json!({ "recoveryDelaySeconds": 7200, "recoveryDelayProtestSeconds": 300 })),
+        Some(json!({ "recoveryDelaySeconds": 7200, "recoveryDelayProtestSeconds": 900 })),
     )
     .await;
 
@@ -332,7 +332,7 @@ async fn release_at_uses_the_protest_delay_when_protest_mode_is_on() {
         Some(json!({
             "protestModeEnabled": true,
             "recoveryDelaySeconds": 7200,
-            "recoveryDelayProtestSeconds": 300,
+            "recoveryDelayProtestSeconds": 900,
         })),
     )
     .await;
@@ -354,14 +354,14 @@ async fn release_at_uses_the_protest_delay_when_protest_mode_is_on() {
         .expect("releaseAt should be a valid timestamp");
     let delta = (release_at - before).num_seconds();
     assert!(
-        (290..=300).contains(&delta),
-        "expected ~300s protest delay, got {delta}s"
+        (890..=900).contains(&delta),
+        "expected ~900s protest delay, got {delta}s"
     );
 }
 
-/// Starting a recovery request hard-deletes every *other* device on the
+/// Starting a recovery request suspends every *other* device on the
 /// account - the point of the flow is "none of my other devices can
-/// help."
+/// help," but reversibly (see `cancelling_restores_suspended_devices`).
 #[tokio::test]
 #[serial_test::serial]
 async fn create_recovery_request_wipes_every_other_device() {
@@ -385,9 +385,60 @@ async fn create_recovery_request_wipes_every_other_device() {
     let devices = devices.as_array().expect("should be an array");
     assert_eq!(
         devices.len(),
-        1,
-        "only the requesting device itself should survive"
+        2,
+        "every device row survives - suspended, not deleted"
     );
+    let other_device = devices
+        .iter()
+        .find(|d| d["publicKey"] == "pk-owner-d1")
+        .expect("the other device should still have a row");
+    assert_eq!(other_device["status"], "suspended");
+}
+
+/// A suspended device row alone would be useless as a security boundary -
+/// the whole point is that its session (the owner's first/active device,
+/// still holding a bearer token minted before recovery ever started) stops
+/// working against *any* endpoint, not just the device-specific ones.
+#[tokio::test]
+#[serial_test::serial]
+async fn create_recovery_request_revokes_every_other_devices_session() {
+    let env = shared_test_env().await;
+    let app = fresh_app(env).await;
+
+    let setup = setup_recovery_scenario(&app, "owner@example.com", &["contact@example.com"]).await;
+
+    let (status, _) = app
+        .request("GET", "/me/devices", Some(&setup.owner_active_token), None)
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the other device's session should still work before recovery starts"
+    );
+
+    app.request(
+        "POST",
+        "/me/recovery-requests",
+        Some(&setup.owner_token),
+        None,
+    )
+    .await;
+
+    let (status, _) = app
+        .request("GET", "/me/devices", Some(&setup.owner_active_token), None)
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "the other device's session should be revoked, not just its device row suspended"
+    );
+
+    // The requesting device's own session must survive - it's the one
+    // that just made the call.
+    let (status, _) = app
+        .request("GET", "/me/devices", Some(&setup.owner_token), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
 }
 
 /// Starting a second recovery request (the requesting device is still
@@ -508,6 +559,54 @@ async fn owner_can_cancel_their_own_pending_request() {
         status,
         StatusCode::NOT_FOUND,
         "a cancelled request is no longer \"current\""
+    );
+}
+
+/// Reversible is the whole point of suspending rather than deleting -
+/// cancelling (the owner found the "lost" device, or it was a false
+/// alarm) puts every suspended device back to normal. Their sessions stay
+/// revoked regardless (see `create_recovery_request_revokes_every_other_devices_session`) -
+/// each one just re-registers the ordinary way on next launch.
+#[tokio::test]
+#[serial_test::serial]
+async fn cancelling_restores_suspended_devices() {
+    let env = shared_test_env().await;
+    let app = fresh_app(env).await;
+
+    let setup = setup_recovery_scenario(&app, "owner@example.com", &["contact@example.com"]).await;
+    let (_, request) = app
+        .request(
+            "POST",
+            "/me/recovery-requests",
+            Some(&setup.owner_token),
+            None,
+        )
+        .await;
+    let request_id = request["id"].as_str().unwrap();
+
+    let (status, _) = app
+        .request(
+            "DELETE",
+            &format!("/me/recovery-requests/{request_id}"),
+            Some(&setup.owner_token),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, devices) = app
+        .request("GET", "/me/devices", Some(&setup.owner_token), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{devices}");
+    let other_device = devices
+        .as_array()
+        .expect("should be an array")
+        .iter()
+        .find(|d| d["publicKey"] == "pk-owner-d1")
+        .expect("the other device should still have a row");
+    assert_eq!(
+        other_device["status"], "active",
+        "cancelling restores a suspended device back to active"
     );
 }
 

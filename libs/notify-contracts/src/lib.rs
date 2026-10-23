@@ -17,6 +17,9 @@ pub mod job_names {
     pub const AUTH_PASSWORD_RESET_OTP_EMAIL: &str = "auth:password-reset-otp-email";
     pub const RECOVERY_REQUEST_CREATED_EMAIL: &str = "recovery-request:created-email";
     pub const RECOVERY_REQUEST_READY_EMAIL: &str = "recovery-request:ready-email";
+    pub const RECOVERY_KEY_MNEMONIC_FETCHED_EMAIL: &str = "recovery-key-mnemonic:fetched-email";
+    pub const RECOVERY_KEY_MNEMONIC_SET_EMAIL: &str = "recovery-key-mnemonic:set-email";
+    pub const RECOVERY_KEY_MNEMONIC_ACTIVATED_EMAIL: &str = "recovery-key-mnemonic:activated-email";
     pub const PUSH_NOTIFICATION: &str = "push:notification";
 }
 
@@ -213,6 +216,25 @@ pub enum NotifyJob {
     /// above. Enqueued alongside `PushContent::RecoveryRequestReady` with
     /// a matching `delay`, not triggered by anything watching the clock.
     RecoveryRequestReadyEmail(LinkEmailPayload),
+    /// The recovery-phrase path's only safety net: sent unconditionally on
+    /// every fetch of the encrypted blob (`GET /me/recovery-key-mnemonic`),
+    /// win or lose - the server can never verify the fetch actually led to
+    /// a correct decrypt, so this is the one signal the real owner gets
+    /// instead of the delay/quorum the trusted-contacts path has.
+    RecoveryKeyMnemonicFetchedEmail(LinkEmailPayload),
+    /// A device with an already-live session can silently overwrite the
+    /// phrase's blob with one sealed to an attacker-chosen phrase, planting
+    /// a backdoor with no other visible trace - same independent-channel
+    /// reasoning as the fetch email above, sent on every `PUT`, not just
+    /// ones that look suspicious.
+    RecoveryKeyMnemonicSetEmail(LinkEmailPayload),
+    /// `activate_via_recovery_key_mnemonic`'s own notification - until this
+    /// existed, the owner only ever heard about an activation because the
+    /// mobile client happens to call `GET` (which emails) immediately
+    /// before `POST .../activate`. That's a client-side habit, not a
+    /// server-side guarantee, so this fires unconditionally from the
+    /// activation itself.
+    RecoveryKeyMnemonicActivatedEmail(LinkEmailPayload),
     PushNotification(PushNotifyPayload),
 }
 
@@ -228,6 +250,11 @@ impl NotifyJob {
             NotifyJob::AuthPasswordResetOtpEmail(_) => AUTH_PASSWORD_RESET_OTP_EMAIL,
             NotifyJob::RecoveryRequestCreatedEmail(_) => RECOVERY_REQUEST_CREATED_EMAIL,
             NotifyJob::RecoveryRequestReadyEmail(_) => RECOVERY_REQUEST_READY_EMAIL,
+            NotifyJob::RecoveryKeyMnemonicFetchedEmail(_) => RECOVERY_KEY_MNEMONIC_FETCHED_EMAIL,
+            NotifyJob::RecoveryKeyMnemonicSetEmail(_) => RECOVERY_KEY_MNEMONIC_SET_EMAIL,
+            NotifyJob::RecoveryKeyMnemonicActivatedEmail(_) => {
+                RECOVERY_KEY_MNEMONIC_ACTIVATED_EMAIL
+            }
             NotifyJob::PushNotification(_) => PUSH_NOTIFICATION,
         }
     }
@@ -238,7 +265,10 @@ impl NotifyJob {
             | NotifyJob::AuthDeleteAccountEmail(p)
             | NotifyJob::AuthResetPassword(p)
             | NotifyJob::RecoveryRequestCreatedEmail(p)
-            | NotifyJob::RecoveryRequestReadyEmail(p) => serde_json::to_value(p),
+            | NotifyJob::RecoveryRequestReadyEmail(p)
+            | NotifyJob::RecoveryKeyMnemonicFetchedEmail(p)
+            | NotifyJob::RecoveryKeyMnemonicSetEmail(p)
+            | NotifyJob::RecoveryKeyMnemonicActivatedEmail(p) => serde_json::to_value(p),
             NotifyJob::AuthSignInOtpEmail(p)
             | NotifyJob::AuthVerificationOtpEmail(p)
             | NotifyJob::AuthPasswordResetOtpEmail(p) => serde_json::to_value(p),
@@ -274,6 +304,15 @@ impl NotifyJob {
             }
             RECOVERY_REQUEST_READY_EMAIL => {
                 NotifyJob::RecoveryRequestReadyEmail(serde_json::from_value(data)?)
+            }
+            RECOVERY_KEY_MNEMONIC_FETCHED_EMAIL => {
+                NotifyJob::RecoveryKeyMnemonicFetchedEmail(serde_json::from_value(data)?)
+            }
+            RECOVERY_KEY_MNEMONIC_SET_EMAIL => {
+                NotifyJob::RecoveryKeyMnemonicSetEmail(serde_json::from_value(data)?)
+            }
+            RECOVERY_KEY_MNEMONIC_ACTIVATED_EMAIL => {
+                NotifyJob::RecoveryKeyMnemonicActivatedEmail(serde_json::from_value(data)?)
             }
             PUSH_NOTIFICATION => NotifyJob::PushNotification(serde_json::from_value(data)?),
             _ => return Ok(None),

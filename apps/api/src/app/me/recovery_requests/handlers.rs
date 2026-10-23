@@ -13,6 +13,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use better_auth::integrations::axum::CurrentSession;
+use better_auth::prelude::AuthSession;
 use bullmq_rs::JobOptions;
 use chrono::{Duration, Utc};
 use db_rs::device;
@@ -28,7 +29,7 @@ use notify_contracts::{
 };
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DbErr, EntityTrait, IntoActiveModel,
-    QueryFilter, TransactionTrait,
+    QueryFilter, QueryOrder, TransactionTrait,
 };
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -118,8 +119,9 @@ async fn mark_failed(
 
 /// Starts a recovery request - the owner's last resort once none of their
 /// own devices can help. Atomically: every *other* device this user has
-/// is hard-deleted (starting a recovery request *means* none of them can
-/// help), and any previous still-pending request is cancelled first.
+/// is suspended and its session revoked (starting a recovery request
+/// *means* none of them can help - see `cancel_recovery_request` for the
+/// reversal), and any previous still-pending request is cancelled first.
 #[utoipa::path(
     post,
     path = "/me/recovery-requests",
@@ -142,9 +144,17 @@ pub async fn create_recovery_request(
 ) -> impl IntoResponse {
     let owner_user_id = session.user.id.clone();
 
+    // `session_id` is diagnostic only (see `device.ts`'s own doc comment)
+    // - not unique, so more than one row can share it (e.g. a device
+    // re-registering with a fresh identity keypair under the same still-
+    // live session, as `wipeOwnRecoveryState`'s own debug flow does).
+    // Newest first makes the match deterministic and picks the row this
+    // request actually means: the one just registered, not an older
+    // sibling that happens to share the same session.
     let Some(this_device) = device::Entity::find()
         .filter(device::Column::UserId.eq(owner_user_id.clone()))
         .filter(device::Column::SessionId.eq(session.session.id.clone()))
+        .order_by_desc(device::Column::CreatedAt)
         .one(&state.db)
         .await
         .expect("failed to query requesting device")
@@ -216,8 +226,18 @@ pub async fn create_recovery_request(
             move |txn| {
                 Box::pin(async move {
                     // Every other device stops being a viable sync target
-                    // the instant a recovery request starts.
-                    device::Entity::delete_many()
+                    // the instant a recovery request starts - suspended,
+                    // not deleted, so a cancelled request can restore them
+                    // (see `cancel_recovery_request`).
+                    device::Entity::update_many()
+                        .col_expr(
+                            device::Column::Status,
+                            sea_orm::sea_query::Expr::value(DeviceStatusEnum::Suspended),
+                        )
+                        .col_expr(
+                            device::Column::UpdatedAt,
+                            sea_orm::sea_query::Expr::value(Utc::now()),
+                        )
                         .filter(device::Column::UserId.eq(owner_user_id.clone()))
                         .filter(device::Column::Id.ne(this_device_id))
                         .exec(txn)
@@ -277,6 +297,28 @@ pub async fn create_recovery_request(
         })
         .await
         .expect("failed to atomically start recovery request");
+
+    // Suspending the device rows isn't enough on its own - their bearer
+    // tokens stay valid against every other endpoint until the session
+    // behind each one is actually revoked. Every other device's session
+    // goes, not just the ones it has a device row for (a stolen token used
+    // before ever calling `PUT /me/devices` would otherwise survive this).
+    let other_sessions = state
+        .auth
+        .store()
+        .get_user_sessions(&owner_user_id)
+        .await
+        .expect("failed to list sessions for revocation");
+    for other_session in other_sessions {
+        if other_session.token() != session.session.token() {
+            state
+                .auth
+                .store()
+                .delete_session(other_session.token())
+                .await
+                .expect("failed to revoke a sibling device's session");
+        }
+    }
 
     let owner_username = session
         .user
@@ -533,7 +575,7 @@ pub async fn cancel_recovery_request(
         return StatusCode::NOT_FOUND.into_response();
     };
     let contact_rows = contact_rows.expect("failed to query recovery request contacts");
-    let requesting_device_id = model.requesting_device_id;
+    let owner_user_id = session.user.id.clone();
 
     let owner_profile = crate::app::me::dto::MeProfile {
         id: session.user.id,
@@ -549,14 +591,38 @@ pub async fn cancel_recovery_request(
         devices: owner_devices,
     };
 
+    cancel_recovery_request_model(&state, model, contact_rows, owner_user_id, owner_profile).await;
+
+    StatusCode::OK.into_response()
+}
+
+/// Shared by the handler above and
+/// `recovery_key_mnemonic::handlers::activate_via_recovery_key_mnemonic`
+/// (which cancels any in-flight trusted-contacts request the same way,
+/// so completing recovery through one path never leaves the other
+/// dangling) - everything past "the pending request + its contact rows
+/// are already resolved and the owner's profile already built."
+pub(crate) async fn cancel_recovery_request_model(
+    state: &AppState,
+    model: recovery_request::Model,
+    contact_rows: Vec<recovery_request_contact::Model>,
+    owner_user_id: String,
+    owner_profile: crate::app::me::dto::MeProfile,
+) {
+    let id = model.id;
+    let requesting_device_id = model.requesting_device_id;
+
     let mut active = model.into_active_model();
     active.status = Set(RecoveryRequestStatusEnum::Cancelled);
     active.cancelled_at = Set(Some(Utc::now().into()));
     active.updated_at = Set(Utc::now().into());
 
     // Independent of the update itself and of each other - resolved
-    // concurrently with it.
-    let (update_result, requesting_device, trusted_contacts) = tokio::join!(
+    // concurrently with it. Restoring the suspended devices is a best-
+    // effort reversal, not a security boundary (unlike suspending them in
+    // the first place) - they stay revoked as sessions regardless, and
+    // simply re-register (and re-sync the DEK) the normal way next launch.
+    let (update_result, requesting_device, trusted_contacts, restore_result) = tokio::join!(
         active.update(&state.db),
         device::Entity::find_by_id(requesting_device_id).one(&state.db),
         trusted_contact::Entity::find()
@@ -565,8 +631,21 @@ pub async fn cancel_recovery_request(
                     .is_in(contact_rows.iter().map(|r| r.trusted_contact_id)),
             )
             .all(&state.db),
+        device::Entity::update_many()
+            .col_expr(
+                device::Column::Status,
+                sea_orm::sea_query::Expr::value(DeviceStatusEnum::Active),
+            )
+            .col_expr(
+                device::Column::UpdatedAt,
+                sea_orm::sea_query::Expr::value(Utc::now()),
+            )
+            .filter(device::Column::UserId.eq(owner_user_id))
+            .filter(device::Column::Status.eq(DeviceStatusEnum::Suspended))
+            .exec(&state.db),
     );
     update_result.expect("failed to cancel recovery request");
+    restore_result.expect("failed to restore suspended devices after cancellation");
     let requesting_device_public_key = requesting_device
         .expect("failed to query requesting device")
         .map(|d| d.public_key)
@@ -596,8 +675,6 @@ pub async fn cancel_recovery_request(
             }),
         );
     }
-
-    StatusCode::OK.into_response()
 }
 
 /// Called once the requesting device has locally combined enough shares

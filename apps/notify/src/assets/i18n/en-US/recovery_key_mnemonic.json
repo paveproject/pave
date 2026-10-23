@@ -1,0 +1,20 @@
+{
+  "fetched_email": {
+    "subject": "Your Pavé recovery phrase was just used",
+    "title": "Recovery phrase used",
+    "text": "Someone just used your 24-word recovery phrase to access your Pavé account's key - this grants access immediately, with no waiting period. If this was you, no action is needed. If this wasn't you, open the app right away to review your devices and trusted contacts.",
+    "button": "Open Pavé"
+  },
+  "set_email": {
+    "subject": "Your Pavé recovery phrase was just changed",
+    "title": "Recovery phrase replaced",
+    "text": "Your account's recovery phrase was just set or replaced from one of your devices. If this was you - setting it up for the first time, or regenerating it - no action is needed. If this wasn't you, someone with access to one of your devices may have planted a new recovery phrase of their own - open the app right away to review your devices and trusted contacts.",
+    "button": "Open Pavé"
+  },
+  "activated_email": {
+    "subject": "Your Pavé recovery phrase was just used to sign in",
+    "title": "Device activated with your recovery phrase",
+    "text": "A device was just activated on your account using your 24-word recovery phrase - this grants access immediately, with no waiting period, and suspends every other device until they're approved again. If this was you, no action is needed. If this wasn't you, open the app right away to review your devices and trusted contacts.",
+    "button": "Open Pavé"
+  }
+}

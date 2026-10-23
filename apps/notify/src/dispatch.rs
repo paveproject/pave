@@ -49,6 +49,15 @@ pub async fn handle(state: &State, name: &str, data: serde_json::Value) -> Resul
         NotifyJob::RecoveryRequestReadyEmail(p) => {
             send_recovery_request_email(state, &p, "ready_email").await
         }
+        NotifyJob::RecoveryKeyMnemonicFetchedEmail(p) => {
+            send_recovery_key_mnemonic_email(state, &p, "fetched_email").await
+        }
+        NotifyJob::RecoveryKeyMnemonicSetEmail(p) => {
+            send_recovery_key_mnemonic_email(state, &p, "set_email").await
+        }
+        NotifyJob::RecoveryKeyMnemonicActivatedEmail(p) => {
+            send_recovery_key_mnemonic_email(state, &p, "activated_email").await
+        }
         NotifyJob::PushNotification(p) => send_push_notification(state, &p).await,
     }
 }
@@ -186,6 +195,40 @@ async fn send_recovery_request_email(
         state.dictionaries.t(
             payload.lang,
             &format!("recovery_request.{i18n_key}.{suffix}"),
+        )
+    };
+
+    let title = t("title");
+    let text = t("text");
+    let button = t("button");
+    let subject = t("subject");
+    let html = email::render(
+        &title,
+        &text,
+        Some((&button, &payload.url)),
+        &state.assets_base_url,
+    );
+
+    send(state, &payload.email, &subject, &html).await
+}
+
+/// The recovery-phrase path's own safety net (see
+/// `NotifyJob::RecoveryKeyMnemonicFetchedEmail`/`SetEmail`/`ActivatedEmail`'s
+/// own doc comments) - `i18n_key` is `fetched_email`, `set_email`, or
+/// `activated_email`, one unconditional email per sensitive action on this
+/// path (reading the blob, overwriting it, or using it to activate a
+/// device), win or lose in every case. Own i18n namespace
+/// (`recovery_key_mnemonic.*`), not folded into `recovery_request.*` - this
+/// isn't part of that email family.
+async fn send_recovery_key_mnemonic_email(
+    state: &State,
+    payload: &LinkEmailPayload,
+    i18n_key: &str,
+) -> Result<(), DynError> {
+    let t = |suffix: &str| {
+        state.dictionaries.t(
+            payload.lang,
+            &format!("recovery_key_mnemonic.{i18n_key}.{suffix}"),
         )
     };
 

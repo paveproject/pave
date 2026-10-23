@@ -76,7 +76,7 @@ pub async fn create_report(
         DatabaseBackend::Postgres,
         r#"
         INSERT INTO report (id, type, location, occurred_at, expires_at)
-        VALUES ($1, $2::report_type_enum, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6)
+        VALUES ($1::uuid, $2::report_type_enum, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6)
         ON CONFLICT (id) DO NOTHING
         "#,
         [
@@ -129,7 +129,7 @@ pub async fn list_reports(
         DatabaseBackend::Postgres,
         r#"
         SELECT
-            id,
+            id::text AS id,
             type,
             ST_X(location) AS lng,
             ST_Y(location) AS lat,

@@ -1,5 +1,5 @@
 use crate::app::me::dto::MeResponse;
-use crate::app::me::handlers::{find_pave_user_row, to_me_response};
+use crate::app::me::handlers::{find_pave_user_row, has_recovery_phrase, to_me_response};
 use crate::libs::media;
 use auth::schema::user as auth_user;
 use auth::AppAuthSchema;
@@ -87,9 +87,18 @@ pub async fn set_avatar(
     .exec(&state.db)
     .await
     .expect("failed to update user avatar");
-    let pave_user_row = pave_user_row_future.await;
+    let (pave_user_row, has_phrase) = tokio::join!(
+        pave_user_row_future,
+        has_recovery_phrase(&state.db, &user_id)
+    );
 
-    Json(to_me_response(auth_user_row, pave_user_row, &state.config)).into_response()
+    Json(to_me_response(
+        auth_user_row,
+        pave_user_row,
+        &state.config,
+        has_phrase,
+    ))
+    .into_response()
 }
 
 #[utoipa::path(
@@ -130,7 +139,15 @@ pub async fn delete_avatar(
     .exec(&state.db)
     .await
     .expect("failed to clear user avatar");
-    let pave_user_row = pave_user_row_future.await;
+    let (pave_user_row, has_phrase) = tokio::join!(
+        pave_user_row_future,
+        has_recovery_phrase(&state.db, &user_id)
+    );
 
-    Json(to_me_response(auth_user_row, pave_user_row, &state.config))
+    Json(to_me_response(
+        auth_user_row,
+        pave_user_row,
+        &state.config,
+        has_phrase,
+    ))
 }

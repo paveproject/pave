@@ -12,11 +12,22 @@ use axum::response::IntoResponse;
 use axum::Json;
 use better_auth::integrations::axum::{CurrentSession, OptionalSession};
 use chrono::Utc;
+use db_rs::recovery_key_mnemonic;
 use db_rs::user as pave_user;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait,
     IntoActiveModel, QueryFilter, TryIntoModel,
 };
+
+/// Floors, not just the DB's "protest < normal" check constraint - that
+/// constraint only enforces the two values stay *relatively* ordered, not
+/// that either is long enough to mean anything. Without this, a stolen
+/// session token could `PATCH` both down to a couple of seconds right
+/// before starting a recovery request, defeating the one window this
+/// delay exists to give the real owner (the out-of-band security email,
+/// plus a chance to cancel) before trusted contacts can approve it away.
+const MIN_RECOVERY_DELAY_SECONDS: i32 = 3600; // 1 hour
+const MIN_RECOVERY_DELAY_PROTEST_SECONDS: i32 = 900; // 15 minutes
 
 /// Pave's own `user` row - created atomically alongside the `auth.users`
 /// one by `libs::auth_hooks::CreatePaveUserRowHook`, so every real user
@@ -29,10 +40,19 @@ pub(crate) async fn find_pave_user_row(db: &DatabaseConnection, user_id: &str) -
         .expect("pave user row missing - CreatePaveUserRowHook should have created it at signup")
 }
 
+pub(crate) async fn has_recovery_phrase(db: &DatabaseConnection, user_id: &str) -> bool {
+    recovery_key_mnemonic::Entity::find_by_id(user_id.to_string())
+        .one(db)
+        .await
+        .expect("failed to query recovery key mnemonic")
+        .is_some()
+}
+
 pub(crate) fn to_me_response(
     auth_user: auth_user::Model,
     pave_user: pave_user::Model,
     config: &ApiConfig,
+    has_recovery_phrase: bool,
 ) -> MeResponse {
     MeResponse {
         id: auth_user.id,
@@ -49,6 +69,7 @@ pub(crate) fn to_me_response(
         protest_mode_enabled: pave_user.protest_mode_enabled,
         recovery_delay_seconds: pave_user.recovery_delay_seconds,
         recovery_delay_protest_seconds: pave_user.recovery_delay_protest_seconds,
+        has_recovery_phrase,
     }
 }
 
@@ -66,11 +87,16 @@ pub async fn get_me(
         return Json(None::<MeResponse>);
     };
 
-    let pave_user_row = find_pave_user_row(&state.db, &session.user.id).await;
+    // Independent of each other - resolved concurrently.
+    let (pave_user_row, has_phrase) = tokio::join!(
+        find_pave_user_row(&state.db, &session.user.id),
+        has_recovery_phrase(&state.db, &session.user.id),
+    );
     Json(Some(to_me_response(
         session.user,
         pave_user_row,
         &state.config,
+        has_phrase,
     )))
 }
 
@@ -118,8 +144,11 @@ pub async fn update_me(
             session.user
         }
     };
-    let (auth_user_row, pave_user_row) =
-        tokio::join!(auth_update, find_pave_user_row(&state.db, &user_id));
+    let (auth_user_row, pave_user_row, has_phrase) = tokio::join!(
+        auth_update,
+        find_pave_user_row(&state.db, &user_id),
+        has_recovery_phrase(&state.db, &user_id),
+    );
 
     // Protest mode must stay strictly faster than the normal delay - check
     // against the EFFECTIVE values (whichever of the two this request is
@@ -131,14 +160,23 @@ pub async fn update_me(
     let effective_protest_delay = body
         .recovery_delay_protest_seconds
         .unwrap_or(pave_user_row.recovery_delay_protest_seconds);
-    if (body.recovery_delay_seconds.is_some() || body.recovery_delay_protest_seconds.is_some())
-        && effective_protest_delay >= effective_delay
-    {
-        return (
-            StatusCode::BAD_REQUEST,
-            "protest mode delay must be shorter than the normal delay",
-        )
-            .into_response();
+    if body.recovery_delay_seconds.is_some() || body.recovery_delay_protest_seconds.is_some() {
+        if effective_delay < MIN_RECOVERY_DELAY_SECONDS
+            || effective_protest_delay < MIN_RECOVERY_DELAY_PROTEST_SECONDS
+        {
+            return (
+                StatusCode::BAD_REQUEST,
+                "recovery delay is below the minimum allowed",
+            )
+                .into_response();
+        }
+        if effective_protest_delay >= effective_delay {
+            return (
+                StatusCode::BAD_REQUEST,
+                "protest mode delay must be shorter than the normal delay",
+            )
+                .into_response();
+        }
     }
 
     // Language/welcome flow/username cooldown/recovery delays are Pave's
@@ -180,7 +218,13 @@ pub async fn update_me(
             .expect("active model missing fields")
     };
 
-    Json(to_me_response(auth_user_row, pave_user_row, &state.config)).into_response()
+    Json(to_me_response(
+        auth_user_row,
+        pave_user_row,
+        &state.config,
+        has_phrase,
+    ))
+    .into_response()
 }
 
 #[utoipa::path(

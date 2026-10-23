@@ -131,6 +131,9 @@ pub struct RecoverySetup {
     /// The pending device's own session - this is the one standing to
     /// call `create_recovery_request`.
     pub owner_token: String,
+    /// The first (already-`active`) device's own session - one of the
+    /// ones `create_recovery_request` suspends and revokes.
+    pub owner_active_token: String,
     /// One token per `contact_emails` entry, same order.
     pub contact_tokens: Vec<String>,
 }
@@ -154,6 +157,7 @@ pub async fn setup_recovery_scenario(
 
     RecoverySetup {
         owner_token,
+        owner_active_token,
         contact_tokens,
     }
 }

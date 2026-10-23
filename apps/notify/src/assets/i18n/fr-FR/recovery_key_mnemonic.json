@@ -1,0 +1,20 @@
+{
+  "fetched_email": {
+    "subject": "Votre phrase de récupération Pavé vient d'être utilisée",
+    "title": "Phrase de récupération utilisée",
+    "text": "Quelqu'un vient d'utiliser votre phrase de récupération de 24 mots pour accéder à la clé de votre compte Pavé - cela donne un accès immédiat, sans délai d'attente. Si c'était vous, aucune action n'est requise. Sinon, ouvrez l'application immédiatement pour vérifier vos appareils et vos contacts de confiance.",
+    "button": "Ouvrir Pavé"
+  },
+  "set_email": {
+    "subject": "Votre phrase de récupération Pavé vient d'être modifiée",
+    "title": "Phrase de récupération remplacée",
+    "text": "La phrase de récupération de votre compte vient d'être définie ou remplacée depuis l'un de vos appareils. Si c'était vous - première configuration ou régénération - aucune action n'est requise. Sinon, une personne ayant eu accès à l'un de vos appareils a peut-être implanté sa propre phrase de récupération - ouvrez l'application immédiatement pour vérifier vos appareils et vos contacts de confiance.",
+    "button": "Ouvrir Pavé"
+  },
+  "activated_email": {
+    "subject": "Votre phrase de récupération Pavé vient d'être utilisée pour vous connecter",
+    "title": "Appareil activé avec votre phrase de récupération",
+    "text": "Un appareil vient d'être activé sur votre compte grâce à votre phrase de récupération de 24 mots - cela donne un accès immédiat, sans délai d'attente, et suspend tous vos autres appareils jusqu'à ce qu'ils soient de nouveau approuvés. Si c'était vous, aucune action n'est requise. Sinon, ouvrez l'application immédiatement pour vérifier vos appareils et vos contacts de confiance.",
+    "button": "Ouvrir Pavé"
+  }
+}

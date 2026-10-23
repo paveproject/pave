@@ -4,12 +4,14 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 /// `pending`: awaiting sibling or recovery approval. `active`: approved,
-/// or never needed it (account's first device).
+/// or never needed it (account's first device). `suspended`: wiped out by
+/// a sibling's recovery request - see `handlers::create_recovery_request`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum MeDevicesStatus {
     Pending,
     Active,
+    Suspended,
 }
 
 impl From<DeviceStatusEnum> for MeDevicesStatus {
@@ -17,6 +19,7 @@ impl From<DeviceStatusEnum> for MeDevicesStatus {
         match value {
             DeviceStatusEnum::Pending => MeDevicesStatus::Pending,
             DeviceStatusEnum::Active => MeDevicesStatus::Active,
+            DeviceStatusEnum::Suspended => MeDevicesStatus::Suspended,
         }
     }
 }

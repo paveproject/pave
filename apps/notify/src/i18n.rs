@@ -13,6 +13,10 @@ const EN_RECOVERY_REQUEST_JSON: &str = include_str!("assets/i18n/en-US/recovery_
 const FR_RECOVERY_REQUEST_JSON: &str = include_str!("assets/i18n/fr-FR/recovery_request.json");
 const EN_DEVICE_JSON: &str = include_str!("assets/i18n/en-US/device.json");
 const FR_DEVICE_JSON: &str = include_str!("assets/i18n/fr-FR/device.json");
+const EN_RECOVERY_KEY_MNEMONIC_JSON: &str =
+    include_str!("assets/i18n/en-US/recovery_key_mnemonic.json");
+const FR_RECOVERY_KEY_MNEMONIC_JSON: &str =
+    include_str!("assets/i18n/fr-FR/recovery_key_mnemonic.json");
 
 #[derive(Clone)]
 pub struct Dictionaries {
@@ -30,6 +34,14 @@ impl Dictionaries {
         fr.extend(flatten_dict("recovery_request", FR_RECOVERY_REQUEST_JSON));
         en.extend(flatten_dict("device", EN_DEVICE_JSON));
         fr.extend(flatten_dict("device", FR_DEVICE_JSON));
+        en.extend(flatten_dict(
+            "recovery_key_mnemonic",
+            EN_RECOVERY_KEY_MNEMONIC_JSON,
+        ));
+        fr.extend(flatten_dict(
+            "recovery_key_mnemonic",
+            FR_RECOVERY_KEY_MNEMONIC_JSON,
+        ));
         Self { en, fr }
     }
 
