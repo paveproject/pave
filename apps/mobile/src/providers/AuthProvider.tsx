@@ -7,11 +7,12 @@ import { MeResponse, client } from '@libs/api-js';
 import { meKeys, meOptions } from '@libs/query-client';
 import { defaultSupportedLocale, SupportedLocale, supportedLocales } from '@libs/i18n';
 import { useMeSyncStore } from '../stores/useMeSyncStore';
-import { clearSessionToken, setSessionToken } from '../lib/auth/session';
+import { clearSessionToken, getSessionToken, setSessionToken } from '../lib/auth/session';
+import { clearLocalReports } from '../lib/watermelon/reports';
 
 type AuthContextProps = {
   user: MeResponse | null | undefined;
-  setSession: (token: string) => Promise<void>;
+  setSession: (token: string, email: string) => Promise<void>;
   logout: () => Promise<void>;
   pushToken: string | null;
   setPushToken: (token: string | null) => void;
@@ -31,7 +32,21 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
   const { data: user, status: userStatus } = useQuery(meOptions());
 
   const setSession = useCallback(
-    async (token: string) => {
+    async (token: string, email: string) => {
+      // A device whose session got revoked (e.g. a sibling recovered the
+      // account via trusted contacts or the recovery phrase - see
+      // `activate_via_recovery_key_mnemonic`) re-authenticates through this
+      // exact same OTP flow once it's back online, for the SAME account -
+      // not a second account signing in. Wiping local state below would
+      // otherwise destroy whatever this device hadn't synced yet (draft
+      // reports included) purely as a side effect of being forced to redo
+      // OTP. The cached `/me` response (nothing clears it on a 401 - it
+      // just goes stale) still identifies whichever account was last
+      // active on this device, so comparing emails tells the two cases
+      // apart before anything is touched.
+      const previousEmail = queryClient.getQueryData<MeResponse>(meKeys.details())?.email;
+      const isSameAccount = !!previousEmail && previousEmail.toLowerCase() === email.toLowerCase();
+
       // A request fired just before sign-in (e.g. the unauthenticated `/me`
       // probe) can still be in flight with no token attached. If it resolves
       // after the reset below, it writes a stale "logged out" result back
@@ -39,11 +54,19 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
       // fresh, authenticated fetch can land.
       await queryClient.cancelQueries();
       await setSessionToken(token);
-      // Not just the in-memory cache - the persisted MMKV blob (see
-      // `clearPersistedQueryCache`'s own doc comment) can still carry
-      // whichever account was last active on this device, since it isn't
-      // actually scoped per-user today.
-      clearPersistedQueryCache();
+
+      if (!isSameAccount) {
+        // Not just the in-memory cache - the persisted MMKV blob (see
+        // `clearPersistedQueryCache`'s own doc comment) can still carry
+        // whichever account was last active on this device, since it isn't
+        // actually scoped per-user today. Same reasoning for WatermelonDB's
+        // reports (see `clearLocalReports`'s own doc comment) and for
+        // `useMeSyncStore`'s own pending `/me` field edits, which are no
+        // less account-specific.
+        clearPersistedQueryCache();
+        await clearLocalReports();
+        useMeSyncStore.setState({ pending: {} });
+      }
       await queryClient.resetQueries();
     },
     [queryClient],
@@ -64,8 +87,52 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
     await queryClient.cancelQueries();
     await clearSessionToken();
     clearPersistedQueryCache();
+    await clearLocalReports();
+    useMeSyncStore.setState({ pending: {} });
     queryClient.setQueryData(meKeys.details(), null);
     await queryClient.resetQueries();
+  }, [queryClient]);
+
+  // A 401 means the server already revoked this device's session - a
+  // sibling reclaimed the account via the recovery phrase or trusted
+  // contacts (see `activate_via_recovery_key_mnemonic`/
+  // `create_recovery_request`), or another device explicitly removed this
+  // one. There's no realtime event for "you've been suspended" (the
+  // websocket connection dies with the session anyway, before it could
+  // ever deliver one), so a 401 on the very next API call is the one
+  // reliable signal - without this, the app would keep showing stale
+  // cached data as if nothing happened indefinitely.
+  const handlingRevokedSession = useRef(false);
+  useEffect(() => {
+    const onResponse = async (response: Response) => {
+      if (response.status !== 401) return response;
+
+      // The unauthenticated `/me` probe fired before any sign-in also
+      // 401s - that's expected, not a revoked session. Only react if this
+      // device actually believed it had one.
+      const token = await getSessionToken();
+      if (!token || handlingRevokedSession.current) return response;
+      handlingRevokedSession.current = true;
+
+      try {
+        // Deliberately NOT `clearLocalReports`/`clearPersistedQueryCache` -
+        // this is still the same account's device, only locked out, not a
+        // different account signing in (see `setSession`'s own "same
+        // account" guard for the identical reasoning). Whatever's unsynced
+        // stays safe for whenever this device is approved again.
+        await queryClient.cancelQueries();
+        await clearSessionToken();
+        queryClient.setQueryData(meKeys.details(), null);
+        await queryClient.resetQueries();
+      } finally {
+        handlingRevokedSession.current = false;
+      }
+
+      return response;
+    };
+
+    client.interceptors.response.use(onResponse);
+    return () => client.interceptors.response.eject(onResponse);
   }, [queryClient]);
 
   // `setLocale`'s own identity changes on every manual locale switch (its

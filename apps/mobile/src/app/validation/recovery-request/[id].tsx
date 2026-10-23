@@ -53,7 +53,7 @@ const ValidationRecoveryRequestScreen = () => {
     if (!action) router.back();
   }, [action, router]);
 
-  const ownerName = action?.owner.username ?? t('pages.pending_actions.recovery_request.someone');
+  const ownerName = action?.owner.username ?? t('messages.someone');
 
   const handleApprove = useCallback(() => {
     if (!action || !user) return;
@@ -63,7 +63,7 @@ const ValidationRecoveryRequestScreen = () => {
       [
         { text: t('messages.cancel'), style: 'cancel' },
         {
-          text: t('pages.pending_actions.recovery_request.approve'),
+          text: t('messages.approve'),
           style: 'destructive',
           onPress: async () => {
             const encryptedShare = await sealShareForRecoveryRequest(
@@ -190,7 +190,7 @@ const ValidationRecoveryRequestScreen = () => {
                     Platform.OS === 'ios' ? [frame({ maxWidth: Infinity })] : [fillMaxWidth()]
                   }
                 >
-                  {t('pages.pending_actions.recovery_request.approve')}
+                  {t('messages.approve')}
                 </NativeText>
               </NativeButton>
             </Host>
@@ -212,7 +212,7 @@ const ValidationRecoveryRequestScreen = () => {
                     Platform.OS === 'ios' ? [frame({ maxWidth: Infinity })] : [fillMaxWidth()]
                   }
                 >
-                  {t('pages.pending_actions.recovery_request.decline')}
+                  {t('messages.decline')}
                 </NativeText>
               </NativeButton>
             </Host>

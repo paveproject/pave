@@ -90,6 +90,7 @@
     "@react-native-picker/picker": "^2.11.4",
     "@react-native-segmented-control/segmented-control": "^2.5.7",
     "@scalar/nestjs-api-reference": "^1.0.19",
+    "@scure/bip39": "^2.4.0",
     "@sentry/react-native": "^7.11.0",
     "@shopify/flash-list": "^2.2.0",
     "@socket.io/redis-adapter": "^8.3.0",

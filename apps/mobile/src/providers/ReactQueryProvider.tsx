@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { createMMKV } from 'react-native-mmkv';
-import { focusManager, QueryClient } from '@tanstack/react-query';
+import NetInfo from '@react-native-community/netinfo';
+import { focusManager, onlineManager, QueryClient } from '@tanstack/react-query';
 import {
   PersistQueryClientProvider,
   PersistQueryClientProviderProps,
@@ -77,6 +78,14 @@ const createQueryClient = () =>
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
       },
+      // Every `useMutation` call gets this for free: a transient failure
+      // (server blip, timeout) retries with backoff instead of just
+      // failing once. Doesn't cover offline - that's `onlineManager`
+      // below, which pauses a mutation instead of even attempting it.
+      mutations: {
+        retry: 3,
+        retryDelay: (attempt: number) => Math.min(1000 * 2 ** attempt, 30_000),
+      },
     },
   });
 
@@ -87,16 +96,24 @@ const dehydrateOptions: PersistQueryClientProviderProps['persistOptions']['dehyd
   },
 };
 
-// const setupNetworkListeners = () => {
-//   setInterval(() => {
-//     if (AppState.currentState === 'active') {
-//     }
-//   }, 30000);
-// };
-
 focusManager.setEventListener((onFocus) => {
   const subscription = AppState.addEventListener('change', (status: AppStateStatus) => {
     focusManager.setFocused(status === 'active');
+  });
+
+  return () => subscription.remove();
+});
+
+// Without this, `onlineManager` has no event source on React Native and
+// defaults to "always online" - every mutation would just attempt and
+// fail while offline instead of pausing and auto-resuming on reconnect.
+// `providers/sync/networkStatus.ts` reads this same signal, so
+// `useSyncTask`'s retry-on-reconnect trigger and every `useMutation`'s
+// pause/resume share one connectivity source instead of two independent
+// `NetInfo` listeners.
+onlineManager.setEventListener((setOnline) => {
+  const subscription = NetInfo.addEventListener((state) => {
+    setOnline(!!state.isConnected && state.isInternetReachable !== false);
   });
 
   return () => subscription.remove();
@@ -130,10 +147,6 @@ function QueryProviderInner({ children, userId }: { children: React.ReactNode; u
   }, [userId]);
 
   // useReactQueryDevTools(queryClient);
-
-  // useEffect(() => {
-  //   setupNetworkListeners();
-  // }, []);
 
   return (
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>

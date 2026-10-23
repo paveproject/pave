@@ -22,3 +22,19 @@ export const toApiCallError = (status: number, body: unknown): ApiCallError => (
 
 export const isNotFoundError = (error: unknown): boolean =>
   typeof error === 'object' && error !== null && 'status' in error && error.status === 404;
+
+/** Same "stale local state vs. server truth" reasoning as
+ * `isNotFoundError` - `activate_via_recovery_key_mnemonic` 403s when the
+ * device is already `active` (a previous attempt already succeeded, but
+ * this client's own cache never caught up). The goal state is already
+ * true either way, so callers treat this the same as a fresh success. */
+export const isForbiddenError = (error: unknown): boolean =>
+  typeof error === 'object' && error !== null && 'status' in error && error.status === 403;
+
+/** `reserve_recovery_dek_generation` 409s when another device already
+ * won the same reservation - not a failure to retry, a signal to
+ * abandon this device's own rotation plan entirely and wait for the
+ * winner's result to arrive instead (see
+ * `useRecoveryKeySync`/`reserveDekGeneration`'s own doc comment). */
+export const isConflictError = (error: unknown): boolean =>
+  typeof error === 'object' && error !== null && 'status' in error && error.status === 409;

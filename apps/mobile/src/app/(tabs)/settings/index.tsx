@@ -16,6 +16,7 @@ import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { useTranslations } from 'use-intl';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { useAuth } from '../../../providers/AuthProvider';
+import { useSync } from '../../../providers/sync';
 import { useUIStore } from '../../../stores/useUIStore';
 import { View } from '../../../components/ui/view';
 import { Avatar } from '../../../components/ui/Avatar';
@@ -31,6 +32,7 @@ const SettingsScreen = () => {
   const t = useTranslations();
   const { user, logout } = useAuth();
   const { colors, theme, mode } = useTheme();
+  const { totalPendingCount: pendingSyncCount } = useSync();
   const debug = useUIStore((state) => state.debug);
   const toggleDebug = useUIStore((state) => state.toggleDebug);
 
@@ -90,16 +92,28 @@ const SettingsScreen = () => {
   }, [router]);
 
   const handleSignOut = useCallback(() => {
+    // Reports and offline-first `/me` field edits are the only things
+    // this abandons (see `AuthProvider`'s `logout`) - the recovery-key
+    // tasks only ever pull from the server, so they never contribute to
+    // this count and never need this warning.
+    const [title, message] =
+      pendingSyncCount > 0
+        ? [
+            t('pages.settings.sign_out_pending_title'),
+            t('pages.settings.sign_out_pending_message', { count: pendingSyncCount }),
+          ]
+        : [t('messages.are_u_sure'), undefined];
+
     Alert.alert(
-      t('messages.are_u_sure'),
-      undefined,
+      title,
+      message,
       [
         { text: t('messages.cancel'), style: 'cancel' },
         { text: t('messages.sign_out'), style: 'destructive', onPress: logout },
       ],
       { userInterfaceStyle: mode },
     );
-  }, [t, logout, mode]);
+  }, [t, logout, mode, pendingSyncCount]);
 
   const signInIosModifiers = [
     buttonStyle('glassProminent'),

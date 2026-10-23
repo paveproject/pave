@@ -11,24 +11,37 @@
 // quorum problem, so no splitting involved, just a direct seal per
 // sibling device.
 //
-// Nothing downstream consumes the DEK yet (that's a later phase) - this
-// module's whole job is generating it and keeping both of those in sync.
+// A 3rd path (see `mnemonicSeal.ts`) seals a copy of the same DEK under a
+// key derived from a 24-word recovery phrase, uploaded as an opaque,
+// account-level (not device-level) blob - `useReconcileMnemonicUpload`
+// keeps it current whenever the DEK changes, from whichever device holds
+// the cached derived key.
 import * as ShamirSecretSharing from 'shamir-secret-sharing';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 import { generateIdentityKeypair, seal, unseal } from './seal';
 import {
+  deriveMnemonicDerivedKey,
+  sealWithMnemonicKey,
+  unsealWithMnemonicKey,
+} from './mnemonicSeal';
+import {
   getDek,
   getIdentityKeypair,
+  getMnemonicDerivedKey,
+  getMnemonicUploadedFingerprint,
   getReceivedShare,
   getSyncedState,
   setDek,
   setIdentityKeypair,
+  setMnemonicDerivedKey,
+  setMnemonicUploadedFingerprint,
   setReceivedShare,
   setSyncedState,
   type RecoveryKeySyncState,
 } from './storage';
 
+export { generateRecoveryMnemonic, isValidRecoveryMnemonic } from './mnemonicSeal';
 export { clearReceivedShare, getDeviceId, setDeviceId, wipeOwnRecoveryState } from './storage';
 
 const DEK_LENGTH = 32;
@@ -46,10 +59,17 @@ export interface AcceptedContact {
 
 /** One of this same user's devices - pass the *complete* list (including
  * the calling device itself) into `planReconciliation`, which picks out
- * and excludes "self" using its own `thisDeviceId` parameter. */
+ * and excludes "self" using its own `thisDeviceId` parameter.
+ *
+ * `isActive` matters: a `pending`/`suspended` device is excluded from
+ * every DEK-bearing set `planReconciliation` produces (never sealed to,
+ * never counted in `ownDeviceIds`) until it's actually trusted - approval
+ * is the real gate for DEK confidentiality, not a decoration on top of a
+ * reconciliation pass that hands out the key regardless. */
 export interface OwnDevice {
   deviceId: string;
   publicKey: string;
+  isActive: boolean;
 }
 
 export interface ShareUpload {
@@ -67,9 +87,31 @@ export type ReconciliationPlan =
   | { kind: 'noop' }
   | {
       kind: 'rotate';
+      /** Not yet persisted - see `commitReconciliation`. Computing a
+       * plan must never have a side effect on local storage on its own;
+       * only committing one does, so a caller that reserves a generation
+       * and loses can walk away having changed nothing locally. */
+      dek: Uint8Array;
       shareUploads: ShareUpload[];
       deviceDekUploads: DeviceDekUpload[];
       nextState: RecoveryKeySyncState;
+      /** True when this plan mints a brand-new DEK (a removal, or no
+       * prior sync at all) - the one case where two of this account's
+       * own active devices reacting to the same event could each mint a
+       * *different* key with no way to tell afterward. `false` for a
+       * pure addition, which re-seals the *existing* DEK under a larger
+       * set - nothing random is being generated, so there's nothing to
+       * race on.
+       *
+       * When `true`, the caller MUST win a reservation (see
+       * `reserve_recovery_dek_generation`, called with
+       * `previousGeneration` as `expectedGeneration`) before uploading
+       * anything in this plan. Losing it means some other device already
+       * won the identical rotation and will seal its result to this
+       * device shortly (`receiveDek`) - this plan must be abandoned
+       * outright, not retried with the same (now-orphaned) DEK. */
+      needsGenerationReservation: boolean;
+      previousGeneration: number;
     };
 
 /** Generates this device's identity keypair for `userId` if it doesn't
@@ -92,6 +134,165 @@ export async function getIdentityPublicKeyHex(userId: string): Promise<string | 
   return identity ? bytesToHex(identity.publicKey) : null;
 }
 
+/**
+ * Bootstraps a DEK for the mandatory recovery-phrase welcome step, which
+ * runs before this account necessarily has any trusted contact or sibling
+ * device - `planReconciliation` below only ever mints one once at least
+ * one of those exists, so without this, a brand-new account's first
+ * device would have nothing yet for the phrase to seal.
+ *
+ * Reuses an existing DEK if one's already there (nothing to do). Seeds a
+ * matching `syncedState` baseline *only if none exists yet* - critical:
+ * without it, the next real reconciliation pass (first contact or second
+ * device) would see "no prior sync" and mint a *second*, different DEK,
+ * silently discarding the one the phrase just protected (the same
+ * landmine `receiveDek`/`completeRecovery`'s own doc comments already
+ * guard against for their own cases).
+ */
+export async function ensureDekForMnemonicSetup(
+  userId: string,
+  thisDeviceId: string,
+): Promise<Uint8Array> {
+  const existing = await getDek(userId);
+  if (existing) return existing;
+
+  const dek = crypto.getRandomValues(new Uint8Array(DEK_LENGTH));
+  await setDek(userId, dek);
+  if (!(await getSyncedState(userId))) {
+    await setSyncedState(userId, { contactIds: [], ownDeviceIds: [thisDeviceId], generation: 0 });
+  }
+  return dek;
+}
+
+export interface MnemonicUploadPlan {
+  encryptedDek: string;
+  dekFingerprint: string;
+}
+
+/**
+ * Whether this device needs to (re-)upload the account's recovery-phrase
+ * blob - `null` when there's nothing to do: no cached derived key (this
+ * isn't the device that set up/last confirmed the phrase), no DEK yet, or
+ * the DEK hasn't changed since this device's last successful upload.
+ *
+ * Call this after *any* point the local DEK may have changed - not just
+ * this device's own rotations (see `useRecoveryKeySync`), but also after
+ * adopting one a sibling pushed (`receiveDek`) or one just reconstructed
+ * via trusted-contacts quorum (`completeRecovery`) - this device's cached
+ * mnemonic key, if it has one, must stay in sync regardless of which of
+ * those drove the change.
+ */
+export async function planMnemonicUpload(userId: string): Promise<MnemonicUploadPlan | null> {
+  const [derivedKey, dek] = await Promise.all([getMnemonicDerivedKey(userId), getDek(userId)]);
+  if (!derivedKey || !dek) return null;
+
+  const dekFingerprint = bytesToHex(sha256(dek)).slice(0, 16);
+  if ((await getMnemonicUploadedFingerprint(userId)) === dekFingerprint) return null;
+
+  return { encryptedDek: sealWithMnemonicKey(dek, derivedKey), dekFingerprint };
+}
+
+/** Records that `dekFingerprint` has been uploaded, so the next
+ * `planMnemonicUpload` call is a no-op until the DEK changes again. */
+export async function commitMnemonicUpload(userId: string, dekFingerprint: string): Promise<void> {
+  await setMnemonicUploadedFingerprint(userId, dekFingerprint);
+}
+
+export interface MnemonicSetupPlan {
+  encryptedDek: string;
+  derivedKey: Uint8Array;
+  dekFingerprint: string;
+}
+
+/** The welcome flow's one-time setup: ensures a DEK exists (see
+ * `ensureDekForMnemonicSetup`), derives this phrase's key, and seals the
+ * DEK with it. The caller uploads `encryptedDek` itself (a network call,
+ * kept out of this module - see `planReconciliation`'s own separation),
+ * then calls `commitMnemonicSetup` with the rest of this plan. */
+export async function planMnemonicSetup(
+  userId: string,
+  thisDeviceId: string,
+  mnemonic: string,
+): Promise<MnemonicSetupPlan> {
+  const dek = await ensureDekForMnemonicSetup(userId, thisDeviceId);
+  const derivedKey = deriveMnemonicDerivedKey(mnemonic);
+  const encryptedDek = sealWithMnemonicKey(dek, derivedKey);
+  const dekFingerprint = bytesToHex(sha256(dek)).slice(0, 16);
+  return { encryptedDek, derivedKey, dekFingerprint };
+}
+
+/** Caches the derived key (so this device re-uploads on future rotations
+ * - see `planMnemonicUpload`) and records the DEK it was just uploaded
+ * for, once `encryptedDek` has actually reached the server. */
+export async function commitMnemonicSetup(
+  userId: string,
+  derivedKey: Uint8Array,
+  dekFingerprint: string,
+): Promise<void> {
+  await setMnemonicDerivedKey(userId, derivedKey);
+  await setMnemonicUploadedFingerprint(userId, dekFingerprint);
+}
+
+/**
+ * Decrypts a fetched recovery-key-mnemonic blob - throws (AEAD auth
+ * failure) on a wrong phrase, before any network call commits to it.
+ */
+export function decryptDekWithMnemonic(sealedHex: string, mnemonic: string): Uint8Array {
+  return unsealWithMnemonicKey(sealedHex, deriveMnemonicDerivedKey(mnemonic));
+}
+
+/** Adopts a DEK recovered via the mnemonic path immediately, before the
+ * server-side activation call - mirrors `receiveDek`/`completeRecovery`'s
+ * own "commit the DEK as soon as it's known" ordering.
+ *
+ * Also seeds a minimal `syncedState` baseline *if none exists yet* (same
+ * guard as `ensureDekForMnemonicSetup`). Without this, an app kill between
+ * this call and `finalizeMnemonicRecovery`'s own real `setSyncedState`
+ * (which needs a network round-trip first, to learn the account's current
+ * eligible contacts/devices) would leave `synced: null` with a real DEK
+ * already in storage - and `planReconciliation` treats `synced === null`
+ * as license to mint a *brand-new* random DEK, discarding the one just
+ * recovered. The baseline only ever claims this device itself;
+ * `finalizeMnemonicRecovery` upgrades it to the real eligible sets once
+ * they're known, and in the meantime `planReconciliation` sees this
+ * device's own id already present and reuses the existing DEK instead of
+ * rotating. */
+export async function adoptMnemonicDek(
+  userId: string,
+  dek: Uint8Array,
+  thisDeviceId: string,
+): Promise<void> {
+  await setDek(userId, dek);
+  if (!(await getSyncedState(userId))) {
+    await setSyncedState(userId, { contactIds: [], ownDeviceIds: [thisDeviceId], generation: 0 });
+  }
+}
+
+/**
+ * The second half, run only after `POST .../activate` has succeeded and
+ * the account's current eligible contacts/own-devices have been
+ * refetched. Seeds a matching `syncedState` baseline - without it, this
+ * device's very next reconciliation pass would see "no prior sync" and
+ * mint a *second*, different DEK (the same landmine
+ * `ensureDekForMnemonicSetup`'s own doc comment guards against). Also
+ * caches this phrase's derived key: this device just "re-confirmed" it,
+ * so it becomes the new upload-responsible device going forward (see
+ * `planMnemonicUpload`).
+ */
+export async function finalizeMnemonicRecovery(
+  userId: string,
+  dek: Uint8Array,
+  mnemonic: string,
+  eligibleContactIds: string[],
+  ownDeviceIds: string[],
+): Promise<void> {
+  await setSyncedState(userId, { contactIds: eligibleContactIds, ownDeviceIds, generation: 0 });
+  const derivedKey = deriveMnemonicDerivedKey(mnemonic);
+  const dekFingerprint = bytesToHex(sha256(dek)).slice(0, 16);
+  await setMnemonicDerivedKey(userId, derivedKey);
+  await setMnemonicUploadedFingerprint(userId, dekFingerprint);
+}
+
 function sameSet(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   const sorted = [...b].sort();
@@ -101,7 +302,12 @@ function sameSet(a: string[], b: string[]): boolean {
 /**
  * Decides whether the recovery key needs (re-)splitting/resyncing for the
  * given accepted contacts and own other devices, and if so, produces the
- * new sealed uploads for both.
+ * new sealed uploads for both. A pure computation - nothing here touches
+ * local storage; see `dek`/`commitReconciliation` on `ReconciliationPlan`
+ * for why, and `needsGenerationReservation` for the one thing a caller
+ * must do (win a server-side reservation) before calling
+ * `commitReconciliation` or uploading anything in a `rotate` plan where
+ * it's `true`.
  *
  * - No eligible contacts and no other devices: nothing to do yet.
  * - Exactly one eligible contact: Shamir needs at least 2 shares to mean
@@ -136,6 +342,16 @@ function sameSet(a: string[], b: string[]): boolean {
  * next time it recomputes its own. Self-exclusion is applied only when
  * deciding who actually needs an envelope sealed to them, not to this
  * tracked set.
+ *
+ * A sibling only counts - for `ownDeviceIds` and for actually receiving a
+ * sealed copy - once it's `isActive`. A `pending` device is already a
+ * real row (it registered before anyone approved it) and a `suspended`
+ * one is a row a recovery path deliberately locked out; neither has
+ * earned the DEK yet. This device itself always counts regardless of
+ * what its own row says *right now* (a completing recovery flow calls
+ * this before the server has been told it's `active` again) - it isn't
+ * waiting on anyone else's approval, it already has the plaintext DEK in
+ * hand by the time this runs.
  */
 export async function planReconciliation(
   userId: string,
@@ -145,8 +361,11 @@ export async function planReconciliation(
 ): Promise<ReconciliationPlan> {
   const eligible = accepted.filter((contact) => contact.contactDevices.length > 0);
   const eligibleIds = eligible.map((contact) => contact.contactUserId);
-  const ownDeviceIds = allOwnDevices.map((device) => device.deviceId);
-  const siblingDevices = allOwnDevices.filter((device) => device.deviceId !== thisDeviceId);
+  const trustedOwnDevices = allOwnDevices.filter(
+    (device) => device.isActive || device.deviceId === thisDeviceId,
+  );
+  const ownDeviceIds = trustedOwnDevices.map((device) => device.deviceId);
+  const siblingDevices = trustedOwnDevices.filter((device) => device.deviceId !== thisDeviceId);
 
   const synced = await getSyncedState(userId);
   const unchanged =
@@ -166,11 +385,23 @@ export async function planReconciliation(
       synced.ownDeviceIds.some((id) => !ownDeviceIds.includes(id)));
   const generation = synced && !removedSomeone ? synced.generation : (synced?.generation ?? 0) + 1;
 
-  let dek = removedSomeone || !synced ? null : await getDek(userId);
-  if (!dek) {
-    dek = crypto.getRandomValues(new Uint8Array(DEK_LENGTH));
-    await setDek(userId, dek);
-  }
+  // Reuse the existing DEK only when nothing was removed and a prior
+  // sync actually exists - otherwise mint fresh. If that reuse case
+  // somehow finds no local DEK anyway (storage wiped/corrupted despite
+  // `synced` still claiming otherwise), fall through to minting rather
+  // than throwing - but still through the *same* gated path below, not
+  // a silent ungated mint: an inconsistency like that could just as
+  // easily be hit by a sibling device at the same time.
+  const reusableDek = removedSomeone || !synced ? null : await getDek(userId);
+  const mintsNewDek = !reusableDek;
+  // Not persisted here - a freshly-minted candidate stays a local
+  // variable until `commitReconciliation` actually commits to it. A
+  // device that computes this plan, loses the generation reservation
+  // below to a sibling doing the exact same thing, and abandons the
+  // plan must come out of this having changed nothing locally - storing
+  // it eagerly here would clobber this device's own DEK with a losing
+  // candidate regardless of how the race turns out.
+  const dek = reusableDek ?? crypto.getRandomValues(new Uint8Array(DEK_LENGTH));
 
   const threshold = eligible.length === 1 ? 1 : Math.max(2, Math.ceil(eligible.length / 2));
   const shares =
@@ -208,17 +439,29 @@ export async function planReconciliation(
 
   return {
     kind: 'rotate',
+    dek,
     shareUploads,
     deviceDekUploads,
     nextState: { contactIds: eligibleIds, ownDeviceIds, generation },
+    needsGenerationReservation: mintsNewDek,
+    previousGeneration: synced?.generation ?? 0,
   };
 }
 
+/** Persists what `planReconciliation` only computed - see `dek`'s own
+ * doc comment on `ReconciliationPlan` for why committing, not planning,
+ * is where local storage actually changes. Same order
+ * `receiveDek`/`completeRecovery` already use (DEK, then synced state,
+ * back to back, no network call or other await in between) - an app
+ * kill between the two still leaves this device able to recognize "my
+ * own state is incomplete" and retry correctly on next launch, rather
+ * than silently rotating away a DEK it already committed to uploading. */
 export async function commitReconciliation(
   userId: string,
   plan: ReconciliationPlan,
 ): Promise<void> {
   if (plan.kind === 'noop') return;
+  await setDek(userId, plan.dek);
   await setSyncedState(userId, plan.nextState);
 }
 

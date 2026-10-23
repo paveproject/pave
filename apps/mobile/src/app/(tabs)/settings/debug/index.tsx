@@ -28,6 +28,10 @@ const DebugScreen = () => {
     router.push('/settings/debug/recovery-keys');
   }, [router]);
 
+  const handleSync = useCallback(() => {
+    router.push('/settings/debug/sync');
+  }, [router]);
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Host
@@ -59,6 +63,21 @@ const DebugScreen = () => {
             >
               <Icon name={Icons.lock} size={theme.icons.sizes.md} color={colors.foreground} />
               <NativeText textStyle={{ color: colors.foreground }}>Recovery keys</NativeText>
+              <Spacer flexible />
+              <Icon
+                name={Icons.chevronRight}
+                size={theme.icons.sizes.sm}
+                color={colors.mutedForeground}
+              />
+            </Row>
+            <Row
+              spacing={theme.spaces.md}
+              alignment="center"
+              onPress={handleSync}
+              modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+            >
+              <Icon name={Icons.refresh} size={theme.icons.sizes.md} color={colors.foreground} />
+              <NativeText textStyle={{ color: colors.foreground }}>Sync</NativeText>
               <Spacer flexible />
               <Icon
                 name={Icons.chevronRight}

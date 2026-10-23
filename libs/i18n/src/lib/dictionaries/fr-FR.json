@@ -47,6 +47,11 @@
     "open_settings": "Ouvrir les réglages",
     "code_copied": "Code copié",
     "copied": "{gender, select, female {{count, plural, one {Copiée} other {Copiées}}} other {{count, plural, one {Copié} other {Copiés}}}}",
+    "copy": "Copier",
+    "finish": "Terminer",
+    "approve": "Approuver",
+    "decline": "Refuser",
+    "someone": "Quelqu'un",
     "no_username": "Pas de nom d'utilisateur",
     "pending": "En attente",
     "active": "Actif",
@@ -94,14 +99,14 @@
       }
     },
     "welcome": {
-      "description": "On vous a choisi un nom d'utilisateur - gardez-le, ou faites-le vôtre."
-    },
-    "protest_mode": {
-      "title": "Mode manif",
-      "description": "Raccourcit le délai obligatoire avant que vos contacts de confiance puissent vous aider à récupérer votre compte - pour quand perdre un appareil compte plus que d'habitude.",
-      "settings": "Réglages de l'enregistrement",
-      "start_recording": "Démarrer l'enregistrement",
-      "stop_recording": "Arrêter l'enregistrement"
+      "description": "On vous a choisi un nom d'utilisateur - gardez-le, ou faites-le vôtre.",
+      "recovery_phrase": {
+        "title": "Phrase de récupération",
+        "description": "Cette phrase de 24 mots est un moyen de secours pour récupérer l'accès à votre compte si vous perdez tous vos appareils - elle fonctionne immédiatement, sans passer par vos contacts de confiance. Notez-la et conservez-la en lieu sûr. Elle ne sera plus jamais affichée.",
+        "confirm_label": "J'ai sauvegardé cette phrase en lieu sûr",
+        "finish_confirm_title": "Vous l'avez vraiment sauvegardée ?",
+        "finish_confirm_message": "Une fois que vous continuez, cette phrase ne sera plus jamais affichée - ni sur cet appareil, ni sur un autre, ni même en contactant le support. Si vous ne l'avez pas encore notée ou sauvegardée en lieu sûr, revenez en arrière maintenant."
+      }
     },
     "pending_actions": {
       "device": {
@@ -109,25 +114,22 @@
         "body": "Un nouvel appareil demande l'accès à votre clé de récupération. N'approuvez que si vous le reconnaissez.",
         "location": "{city}, {country}",
         "location_approximate": "Position approximative, basée sur l'adresse IP",
-        "approve": "Approuver",
         "approve_confirm_title": "Approuver cet appareil ?",
-        "approve_confirm_message": "Il pourra recevoir une copie de votre clé de récupération.",
-        "decline": "Refuser"
+        "approve_confirm_message": "Il pourra recevoir une copie de votre clé de récupération."
       },
       "recovery_request": {
         "title": "Demande de récupération",
         "body": "{ownerName} a perdu l'accès à tous ses appareils et vous demande, en tant que contact de confiance, de l'aider à récupérer sa clé.",
-        "approve": "Approuver",
         "approve_confirm_title": "Transmettre votre part ?",
-        "approve_confirm_message": "Cette action est irréversible. Ne le faites que si vous êtes sûr qu'il s'agit bien de {ownerName}.",
-        "decline": "Refuser",
-        "someone": "Quelqu'un"
+        "approve_confirm_message": "Cette action est irréversible. Ne le faites que si vous êtes sûr qu'il s'agit bien de {ownerName}."
       },
       "own_device": {
         "title": "En attente d'approbation",
         "body": "Cet appareil attend qu'un de vos autres appareils l'approuve avant de pouvoir recevoir votre clé de récupération.",
         "approvers_label": "Peut être approuvé depuis :",
         "recovery": {
+          "no_access": "Pas d'accès ?",
+          "use_trusted_contacts": "Démarrer la récupération via les contacts de confiance",
           "start": "Je n'ai accès à aucun de mes autres appareils",
           "start_short": "Aucun accès ? démarrer la récupération",
           "start_confirm_title": "Démarrer la récupération du compte ?",
@@ -141,6 +143,17 @@
           "cancel_confirm_title": "Annuler la récupération ?",
           "cancel_confirm_message": "Vos contacts de confiance seront informés que ce n'est plus nécessaire.",
           "impossible": "Il ne reste plus assez de contacts de confiance pouvant approuver cette demande. Annulez-la et relancez-en une nouvelle."
+        },
+        "mnemonic": {
+          "use": "J'ai une phrase de récupération",
+          "start_confirm_title": "Récupérer l'accès avec la phrase ?",
+          "start_confirm_message": "Vos autres appareils seront immédiatement suspendus et devront être revalidés (via un autre appareil actif, cette phrase, ou vos contacts de confiance).",
+          "title": "Saisissez votre phrase de récupération",
+          "description": "Entrez les 24 mots que vous avez sauvegardés lors de la création de votre compte, séparés par des espaces.",
+          "placeholder": "mot1 mot2 mot3 ...",
+          "invalid": "Cela ne ressemble pas à une phrase de récupération valide - vérifiez les mots et réessayez.",
+          "wrong_phrase": "Cette phrase ne correspond pas à ce compte.",
+          "continue": "Récupérer l'accès"
         }
       }
     },
@@ -156,13 +169,8 @@
         "delay": "Délai de récupération",
         "protest_delay": "Délai en mode manif"
       },
-      "protest_mode": {
-        "gps_recording": "Enregistrer la position",
-        "polling_frequency": "Fréquence de position",
-        "polling_frequency_description": "À quelle fréquence votre position est captée pendant l'enregistrement. Plus fréquent consomme plus de batterie.",
-        "save_frequency": "Fréquence de sauvegarde",
-        "save_frequency_description": "À quelle fréquence les positions enregistrées sont envoyées. Plus fréquent veut dire moins de perte si cet appareil est perdu ou détruit."
-      },
+      "sign_out_pending_title": "Modifications non synchronisées",
+      "sign_out_pending_message": "{count, plural, one {Une modification n'a pas encore atteint le serveur.} other {{count} modifications n'ont pas encore atteint le serveur.}} Se déconnecter maintenant les perdra définitivement.",
       "trusted_contacts": {
         "empty": {
           "mine": "Aucun contact de confiance pour l'instant",
@@ -181,7 +189,7 @@
       "devices": {
         "empty": "Aucun appareil enregistré pour l'instant",
         "this_device": "Cet appareil",
-        "pending": "En attente",
+        "suspended": "Suspendu pendant une récupération",
         "revoke_confirm_title": "Retirer cet appareil ?",
         "revoke_confirm_message": "Il cessera de recevoir les mises à jour de votre clé de récupération."
       }

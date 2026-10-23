@@ -63,7 +63,7 @@ const ValidationDeviceScreen = () => {
       [
         { text: t('messages.cancel'), style: 'cancel' },
         {
-          text: t('pages.pending_actions.device.approve'),
+          text: t('messages.approve'),
           onPress: () => {
             approve.mutate(action.id, {
               onError: (error) => {
@@ -181,7 +181,7 @@ const ValidationDeviceScreen = () => {
                     Platform.OS === 'ios' ? [frame({ maxWidth: Infinity })] : [fillMaxWidth()]
                   }
                 >
-                  {t('pages.pending_actions.device.approve')}
+                  {t('messages.approve')}
                 </NativeText>
               </NativeButton>
             </Host>
@@ -203,7 +203,7 @@ const ValidationDeviceScreen = () => {
                     Platform.OS === 'ios' ? [frame({ maxWidth: Infinity })] : [fillMaxWidth()]
                   }
                 >
-                  {t('pages.pending_actions.device.decline')}
+                  {t('messages.decline')}
                 </NativeText>
               </NativeButton>
             </Host>

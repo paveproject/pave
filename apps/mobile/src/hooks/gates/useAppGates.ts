@@ -8,7 +8,8 @@ import { useRateAppGate } from './useRateAppGate';
 // true once it's ready to gate on again. Deliberately doesn't cover
 // `pendingActionsGate` (someone may be actively waiting on one of those,
 // so it can't be put on hold alongside an unrelated onboarding rework) or
-// `welcomeGate` (always on - every signed-up user needs to see it once).
+// `welcomeGate` (always on - every signed-up user needs to see it once,
+// see the array below - it's listed outside this flag on purpose).
 const REWORK_GATES_ENABLED = false;
 
 // How long to wait before presenting the *next* gate once a previous one
@@ -39,7 +40,8 @@ export const useAppGates = () => {
   const gates = useMemo(
     () => [
       pendingActionsGate,
-      ...(REWORK_GATES_ENABLED ? [welcomeGate, onboardingGate, rateAppGate] : []),
+      welcomeGate,
+      ...(REWORK_GATES_ENABLED ? [onboardingGate, rateAppGate] : []),
     ],
     [pendingActionsGate, onboardingGate, welcomeGate, rateAppGate],
   );

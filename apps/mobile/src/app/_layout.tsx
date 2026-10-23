@@ -144,23 +144,48 @@ const RootLayoutNav = () => {
               : {}),
           }}
         />
+        {/* Pushed from the sheet above (see its "Use my recovery phrase"
+            option) - its own dismissible formSheet, unlike `/welcome`'s:
+            getting the phrase wrong, or changing your mind, isn't
+            destructive, so there's no reason to trap the user in it. */}
+        <Stack.Screen
+          name="validation/own-device/recovery-phrase/[id]"
+          options={{
+            title: t('pages.pending_actions.own_device.mnemonic.title'),
+            presentation: 'formSheet',
+            sheetGrabberVisible: true,
+            sheetAllowedDetents: 'fitToContents',
+            sheetInitialDetentIndex: 0,
+            ...(isLiquidGlassAvailable
+              ? {
+                  contentStyle: { backgroundColor: 'transparent' },
+                  headerStyle: { backgroundColor: 'transparent' },
+                }
+              : {}),
+          }}
+        />
       </Stack.Protected>
-      {/* WELCOME */}
+      {/* WELCOME (see hooks/gates/useWelcomeGate) - grabber + gesture dismiss
+          are OFF, same reasoning as the VALIDATION sheets above: this is
+          mandatory, not just another formSheet the user can swipe away. */}
       <Stack.Protected guard={!!user}>
         <Stack.Screen
           name="welcome"
           options={{
             headerShown: false,
-            presentation: 'fullScreenModal',
+            presentation: 'formSheet',
+            sheetGrabberVisible: false,
+            gestureEnabled: false,
+            sheetAllowedDetents: 'fitToContents',
+            sheetInitialDetentIndex: 0,
+            ...(isLiquidGlassAvailable
+              ? {
+                  contentStyle: { backgroundColor: 'transparent' },
+                  headerStyle: { backgroundColor: 'transparent' },
+                }
+              : {}),
           }}
         />
-      </Stack.Protected>
-      {/* PROTEST MODE (see (tabs)/_layout.tsx's always-visible accessory) -
-          no `headerShown: false` here, unlike `welcome`: this is a flat
-          route with no nested layout of its own, so it owns its header
-          directly via `useModalHeaderOptions` inside the screen. */}
-      <Stack.Protected guard={!!user}>
-        <Stack.Screen name="protest-mode" options={{ presentation: 'fullScreenModal' }} />
       </Stack.Protected>
       <Stack.Screen
         name="onboarding"

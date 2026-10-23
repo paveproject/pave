@@ -83,8 +83,9 @@ const AuthScreen = () => {
   const handleVerifyOtp = useCallback(
     async (code: string) => {
       try {
-        const { token } = await verifyOtp({ email: formGetValues('email'), code });
-        await setSession(token);
+        const email = formGetValues('email');
+        const { token } = await verifyOtp({ email, code });
+        await setSession(token, email);
         logger.metric('account:loggedIn', { logContext: 'AuthScreen' });
         toast.success(t('messages.code_verified'));
         if (router.canGoBack()) {

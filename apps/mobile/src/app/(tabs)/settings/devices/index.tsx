@@ -119,6 +119,8 @@ const DeviceRow = ({
                 onPress={() => onReview(device.id)}
               />
             </Host>
+          ) : device.status === 'suspended' ? (
+            <Text style={{ color: colors.warning }}>{t('pages.settings.devices.suspended')}</Text>
           ) : (
             <Text textColor="muted">
               {format.dateTime(new Date(device.createdAt), { dateStyle: 'medium' })}

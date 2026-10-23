@@ -19,10 +19,14 @@ const SettingsLayout = () => {
       <Stack.Screen name="trusted-contacts" options={{ title: t('messages.trusted_contacts') }} />
       <Stack.Screen name="devices" options={{ title: t('messages.devices') }} />
       <Stack.Screen name="recovery" options={{ title: t('messages.recovery') }} />
-      <Stack.Screen name="protest-mode" options={{ title: t('pages.protest_mode.title') }} />
       <Stack.Protected guard={debug}>
         <Stack.Screen name="debug" options={{ title: 'Debug' }} />
         <Stack.Screen name="debug/recovery-keys" options={{ title: 'Recovery keys' }} />
+        {/* `debug/sync/{index,outbox,log}` - no `_layout.tsx` in that
+            folder, registered directly here by their nested path. */}
+        <Stack.Screen name="debug/sync/index" options={{ title: 'Sync' }} />
+        <Stack.Screen name="debug/sync/outbox" options={{ title: 'Outbox' }} />
+        <Stack.Screen name="debug/sync/log" options={{ title: 'Recent activity' }} />
       </Stack.Protected>
       <Stack.Screen
         name="account/change-email"

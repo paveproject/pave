@@ -47,6 +47,11 @@
     "open_settings": "Open settings",
     "code_copied": "Code copied",
     "copied": "Copied",
+    "copy": "Copy",
+    "finish": "Done",
+    "approve": "Approve",
+    "decline": "Decline",
+    "someone": "Someone",
     "no_username": "No username",
     "pending": "Pending",
     "active": "Active",
@@ -94,14 +99,14 @@
       }
     },
     "welcome": {
-      "description": "We've picked a username for you - keep it, or make it yours."
-    },
-    "protest_mode": {
-      "title": "Protest mode",
-      "description": "Shortens the mandatory delay before your trusted contacts can help you recover your account - for when losing a device matters more urgently than usual.",
-      "settings": "Recording settings",
-      "start_recording": "Start recording",
-      "stop_recording": "Stop recording"
+      "description": "We've picked a username for you - keep it, or make it yours.",
+      "recovery_phrase": {
+        "title": "Recovery phrase",
+        "description": "This 24-word phrase is a backup way back into your account if you ever lose every device - it works immediately, without needing your trusted contacts. Write it down and keep it somewhere safe. It will not be shown again.",
+        "confirm_label": "I've saved this phrase somewhere safe",
+        "finish_confirm_title": "Did you really save it?",
+        "finish_confirm_message": "Once you continue, this phrase will never be shown again - not on this device, not on any other, and not even by contacting support. If you haven't written it down or saved it somewhere safe yet, go back now."
+      }
     },
     "pending_actions": {
       "device": {
@@ -109,25 +114,22 @@
         "body": "A new device wants access to your recovery key. Only approve this if you recognize it.",
         "location": "{city}, {country}",
         "location_approximate": "Approximate location, based on IP address",
-        "approve": "Approve",
         "approve_confirm_title": "Approve this device?",
-        "approve_confirm_message": "It will be able to receive a copy of your recovery key.",
-        "decline": "Decline"
+        "approve_confirm_message": "It will be able to receive a copy of your recovery key."
       },
       "recovery_request": {
         "title": "Recovery request",
         "body": "{ownerName} lost access to all their devices and is asking you, as a trusted contact, to help them recover their key.",
-        "approve": "Approve",
         "approve_confirm_title": "Release your share?",
-        "approve_confirm_message": "This can't be undone. Only do this if you're sure it's really {ownerName} asking.",
-        "decline": "Decline",
-        "someone": "Someone"
+        "approve_confirm_message": "This can't be undone. Only do this if you're sure it's really {ownerName} asking."
       },
       "own_device": {
         "title": "Waiting for approval",
         "body": "This device is waiting for one of your other devices to approve it before it can receive your recovery key.",
         "approvers_label": "Can be approved from:",
         "recovery": {
+          "no_access": "No access?",
+          "use_trusted_contacts": "Start recovery via trusted contacts",
           "start": "I don't have access to any of my other devices",
           "start_short": "No access? start recovery",
           "start_confirm_title": "Start account recovery?",
@@ -141,6 +143,17 @@
           "cancel_confirm_title": "Cancel recovery?",
           "cancel_confirm_message": "Your trusted contacts will be notified that this is no longer needed.",
           "impossible": "Not enough of your trusted contacts can still approve this request. Cancel it and start a new one."
+        },
+        "mnemonic": {
+          "use": "I have a recovery phrase",
+          "start_confirm_title": "Recover access with the phrase?",
+          "start_confirm_message": "Your other devices will be suspended immediately and will need to be re-approved (via another active device, this phrase, or your trusted contacts).",
+          "title": "Enter your recovery phrase",
+          "description": "Type the 24 words you saved when you first set up your account, separated by spaces.",
+          "placeholder": "word1 word2 word3 ...",
+          "invalid": "That doesn't look like a valid recovery phrase - check the words and try again.",
+          "wrong_phrase": "That phrase doesn't match this account.",
+          "continue": "Recover access"
         }
       }
     },
@@ -156,13 +169,8 @@
         "delay": "Recovery delay",
         "protest_delay": "Protest mode delay"
       },
-      "protest_mode": {
-        "gps_recording": "Record position",
-        "polling_frequency": "Position frequency",
-        "polling_frequency_description": "How often your position is captured while recording. More frequent uses more battery.",
-        "save_frequency": "Save frequency",
-        "save_frequency_description": "How often recorded positions are uploaded. More frequent means less is lost if this device is lost or destroyed."
-      },
+      "sign_out_pending_title": "Unsynced changes will be lost",
+      "sign_out_pending_message": "{count, plural, one {You have 1 change that hasn't reached the server yet.} other {You have {count} changes that haven't reached the server yet.}} Signing out now loses it for good.",
       "trusted_contacts": {
         "empty": {
           "mine": "No trusted contacts yet",
@@ -181,7 +189,7 @@
       "devices": {
         "empty": "No devices registered yet",
         "this_device": "This device",
-        "pending": "Pending",
+        "suspended": "Suspended during recovery",
         "revoke_confirm_title": "Remove this device?",
         "revoke_confirm_message": "It will stop receiving updates to your recovery key."
       }

@@ -1,23 +1,25 @@
-import { useEffect, useRef } from 'react';
-import NetInfo from '@react-native-community/netinfo';
-import { pushPendingReports } from '../../lib/watermelon/reports';
+import { useEffect } from 'react';
+import { getUnsyncedReportsCount, reconcileUnsyncedReports } from '../../lib/watermelon/reports';
+import { useSyncTaskReporter } from '../../providers/sync/useSyncTaskReporter';
+import { SYNC_TASK_IDS } from '../../providers/sync/types';
 
 /**
- * Retries every not-yet-synced local report as soon as connectivity comes
- * back - mount once near the app root (see `providers/Providers.tsx`).
+ * Reconnect retry for reports is no longer handled here - it's
+ * `reportsExecutor`'s job now (see
+ * `providers/sync/offlineExecutor/reportsExecutor.ts`), which persists
+ * its own queue and retries on reconnect/app-foreground on its own. This
+ * just runs the one-time startup catch-up once, and reports it into the
+ * same registry as every other sync task.
  */
 export const useReportSync = () => {
-  const wasOffline = useRef(false);
+  const reporter = useSyncTaskReporter({ id: SYNC_TASK_IDS.reports });
 
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state) => {
-      const isOnline = !!state.isConnected && state.isInternetReachable !== false;
-      if (isOnline && wasOffline.current) {
-        pushPendingReports();
-      }
-      wasOffline.current = !isOnline;
-    });
-
-    return unsubscribe;
-  }, []);
+    reporter.reportStart();
+    getUnsyncedReportsCount().then((count) => reporter.reportPendingCount(count));
+    reconcileUnsyncedReports()
+      .then(() => reporter.reportSuccess())
+      .catch((error) => reporter.reportError(error))
+      .finally(() => getUnsyncedReportsCount().then((count) => reporter.reportPendingCount(count)));
+  }, [reporter]);
 };

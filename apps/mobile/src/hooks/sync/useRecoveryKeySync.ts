@@ -2,7 +2,9 @@ import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   devicesOptions,
+  isConflictError,
   trustedContactsOptions,
+  useReserveRecoveryDekGenerationMutation,
   useSetDeviceDekMutation,
   useSetSharesMutation,
 } from '@libs/query-client';
@@ -14,7 +16,10 @@ import {
   type OwnDevice,
 } from '../../lib/recoveryKey';
 import { useEnsureRecoveryIdentity } from './useEnsureRecoveryIdentity';
+import { useReconcileMnemonicUpload } from './useReconcileMnemonicUpload';
 import { useAuth } from '../../providers/AuthProvider';
+import { useSyncTaskReporter } from '../../providers/sync/useSyncTaskReporter';
+import { SYNC_TASK_IDS } from '../../providers/sync/types';
 import { logger } from '../../logger';
 
 /**
@@ -29,9 +34,9 @@ import { logger } from '../../logger';
  * device registering, a device being revoked, a manual refresh), with no
  * separate wiring needed per action.
  *
- * Mounted app-wide (see `Providers.tsx`'s `RecoveryKeyBootstrap`), not
- * tied to the trusted-contacts screen being open - a rotation shouldn't
- * depend on the user happening to revisit that one screen.
+ * Mounted app-wide (see `providers/sync/SyncProvider.tsx`), not tied to
+ * the trusted-contacts screen being open - a rotation shouldn't depend on
+ * the user happening to revisit that one screen.
  */
 export const useRecoveryKeySync = () => {
   useEnsureRecoveryIdentity();
@@ -41,14 +46,21 @@ export const useRecoveryKeySync = () => {
   const { data: devices } = useQuery({ ...devicesOptions(), enabled: !!user });
   const setShares = useSetSharesMutation();
   const setDeviceDek = useSetDeviceDekMutation();
+  const reserveGeneration = useReserveRecoveryDekGenerationMutation();
+  const reconcileMnemonicUpload = useReconcileMnemonicUpload();
   // Guards against overlapping runs if `contacts`/`devices` change again
   // mid-flight (e.g. a second realtime event) before the previous pass
   // finished.
   const runningRef = useRef(false);
+  const reporter = useSyncTaskReporter({
+    id: SYNC_TASK_IDS.recoveryKey,
+    enabled: !!user,
+  });
 
   useEffect(() => {
     if (!user || !contacts || !devices || runningRef.current) return;
     runningRef.current = true;
+    reporter.reportStart();
     const userId = user.id;
 
     const run = async () => {
@@ -68,6 +80,14 @@ export const useRecoveryKeySync = () => {
         const thisDevice = devices.find((device) => device.id === thisDeviceId);
         if (thisDevice?.status !== 'active') return;
 
+        // Every pass, not just a `rotate` one below - this is what keeps
+        // the recovery-phrase blob current even when nothing about
+        // contacts/own-devices changed *from this device's perspective*
+        // (e.g. a sibling pushed a DEK this device adopted via
+        // `receiveDek` - see `useReceiveShares`), and gives free retry if
+        // a previous upload failed mid-flight.
+        await reconcileMnemonicUpload(userId);
+
         const accepted: AcceptedContact[] = contacts
           .filter(
             (row): row is typeof row & { contact: NonNullable<(typeof row)['contact']> } =>
@@ -85,10 +105,29 @@ export const useRecoveryKeySync = () => {
         const allOwnDevices: OwnDevice[] = devices.map((device) => ({
           deviceId: device.id,
           publicKey: device.publicKey,
+          isActive: device.status === 'active',
         }));
 
         const plan = await planReconciliation(userId, accepted, allOwnDevices, thisDeviceId);
         if (plan.kind === 'rotate') {
+          if (plan.needsGenerationReservation) {
+            try {
+              await reserveGeneration.mutateAsync({ expectedGeneration: plan.previousGeneration });
+            } catch (error) {
+              if (!isConflictError(error)) throw error;
+              // Lost the race - some other device minted the real DEK for
+              // this exact rotation and is already sealing it to every
+              // sibling, including this one (see `receiveDek`/
+              // `useReceiveShares`). This plan is abandoned outright -
+              // nothing was persisted locally (see `dek`'s own doc comment
+              // on `ReconciliationPlan`), and the next change to
+              // `contacts`/`devices` (or the winner's own incoming seal)
+              // re-triggers this effect to pick up the real result.
+              reporter.reportSuccess();
+              return;
+            }
+          }
+
           const uploads: Promise<unknown>[] = plan.deviceDekUploads.map((upload) =>
             setDeviceDek.mutateAsync(upload),
           );
@@ -98,13 +137,24 @@ export const useRecoveryKeySync = () => {
           await Promise.all(uploads);
           await commitReconciliation(userId, plan);
         }
+        reporter.reportSuccess();
       } catch (error) {
         logger.error('recovery key reconciliation failed', { error });
+        reporter.reportError(error);
       } finally {
         runningRef.current = false;
       }
     };
 
     run();
-  }, [user, contacts, devices, setShares, setDeviceDek]);
+  }, [
+    user,
+    contacts,
+    devices,
+    setShares,
+    setDeviceDek,
+    reserveGeneration,
+    reporter,
+    reconcileMnemonicUpload,
+  ]);
 };

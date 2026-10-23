@@ -14,33 +14,12 @@ import { ReanimatedScreenProvider } from 'react-native-screens/reanimated';
 import { ToastProvider } from '../components/Toast';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { ApiProvider } from './ApiProvider';
-import { useReportSync } from '../hooks/sync/useReportSync';
-import { useMeSync } from '../hooks/sync/useMeSync';
+import { SyncProvider } from './sync';
 import { useAppVersionCheck } from '../hooks/useAppVersionCheck';
 import { useUserEventsSocket } from '../hooks/websocket/useUserEventsSocket';
-import { useRecoveryKeySync } from '../hooks/sync/useRecoveryKeySync';
-import { useReceiveShares } from '../hooks/sync/useReceiveShares';
-import { useRecoveryRequestCompletion } from '../hooks/sync/useRecoveryRequestCompletion';
-import { useProtestDataSync } from '../hooks/sync/useProtestDataSync';
-import { useProtestLocationTracking } from '../hooks/protestMode/useProtestLocationTracking';
 
 type ProvidersProps = {
   children: React.ReactNode;
-};
-
-// Renders nothing - just wires the reconnect listener that retries
-// not-yet-synced local reports (see lib/watermelon/reports.ts).
-const ReportSyncBootstrap = () => {
-  useReportSync();
-  return null;
-};
-
-// Same idea, for every offline-first `/me` field (language, protest mode,
-// ...) that couldn't be pushed to the account yet - see
-// `stores/useMeSyncStore.ts`'s own doc comment for the full mechanism.
-const MeSyncBootstrap = () => {
-  useMeSync();
-  return null;
 };
 
 // Same idea, for the outdated-app-version check (see useAppVersionCheck).
@@ -55,30 +34,6 @@ const AppVersionCheckBootstrap = () => {
 const UserEventsBootstrap = () => {
   const { user } = useAuth();
   useUserEventsSocket(!!user);
-  return null;
-};
-
-// Same idea, for the recovery-key machinery (see lib/recoveryKey) - keeps
-// this user's own key split across their trusted contacts and decrypts
-// shares entrusted to this device, app-wide regardless of which screen
-// is open. Both hooks gate on auth themselves. Catches up a rotation
-// missed by the realtime event (app was closed when it fired) on next
-// launch, instead of only when the user happens to revisit those
-// specific settings screens.
-const RecoveryKeyBootstrap = () => {
-  useRecoveryKeySync();
-  useReceiveShares();
-  useRecoveryRequestCompletion();
-  return null;
-};
-
-// Same idea, for protest-mode's position recording (see
-// hooks/protestMode/useProtestLocationTracking.ts) and the sync of its
-// session/upload rows (see hooks/sync/useProtestDataSync.ts) - both gate
-// on auth themselves.
-const ProtestModeBootstrap = () => {
-  useProtestLocationTracking();
-  useProtestDataSync();
   return null;
 };
 
@@ -101,12 +56,9 @@ const Providers = ({ children }: ProvidersProps) => {
                                 <NotificationsProvider>
                                   {children}
                                   <BottomSheetManager />
-                                  <ReportSyncBootstrap />
-                                  <MeSyncBootstrap />
+                                  <SyncProvider />
                                   <AppVersionCheckBootstrap />
                                   <UserEventsBootstrap />
-                                  <RecoveryKeyBootstrap />
-                                  <ProtestModeBootstrap />
                                 </NotificationsProvider>
                               </BottomSheetModalProvider>
                             </ApiProvider>

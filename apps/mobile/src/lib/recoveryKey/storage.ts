@@ -140,6 +140,47 @@ export const clearReceivedShare = async (forUserId: string, ownerId: string): Pr
   await SecureStore.deleteItemAsync(receivedShareId(forUserId, ownerId));
 };
 
+// The recovery-phrase symmetric key (see `mnemonicSeal.ts`), cached only
+// on whichever device most recently set up or re-confirmed the phrase -
+// it never travels over the network, so only this one device can ever
+// re-seal a rotated DEK under it (see `useReconcileMnemonicUpload`).
+const mnemonicDerivedKeyId = (userId: string) => `pave_recovery_mnemonic_key_${userId}`;
+
+export const getMnemonicDerivedKey = async (userId: string): Promise<Uint8Array | null> => {
+  const value = await SecureStore.getItemAsync(mnemonicDerivedKeyId(userId));
+  return value ? hexToBytes(value) : null;
+};
+
+export const setMnemonicDerivedKey = async (userId: string, key: Uint8Array): Promise<void> => {
+  await SecureStore.setItemAsync(mnemonicDerivedKeyId(userId), bytesToHex(key));
+};
+
+export const clearMnemonicDerivedKey = async (userId: string): Promise<void> => {
+  await SecureStore.deleteItemAsync(mnemonicDerivedKeyId(userId));
+};
+
+// A fingerprint (truncated sha256, same convention as `getDebugSnapshot`'s
+// `dekFingerprint`) of the DEK this device last successfully uploaded
+// under the recovery phrase - lets `useReconcileMnemonicUpload` skip a
+// redundant re-seal+PUT when the server already has the current one.
+const mnemonicUploadedFingerprintId = (userId: string) =>
+  `pave_recovery_mnemonic_uploaded_fp_${userId}`;
+
+export const getMnemonicUploadedFingerprint = async (userId: string): Promise<string | null> => {
+  return SecureStore.getItemAsync(mnemonicUploadedFingerprintId(userId));
+};
+
+export const setMnemonicUploadedFingerprint = async (
+  userId: string,
+  fingerprint: string,
+): Promise<void> => {
+  await SecureStore.setItemAsync(mnemonicUploadedFingerprintId(userId), fingerprint);
+};
+
+export const clearMnemonicUploadedFingerprint = async (userId: string): Promise<void> => {
+  await SecureStore.deleteItemAsync(mnemonicUploadedFingerprintId(userId));
+};
+
 /**
  * `__DEV__`-only: wipes this device's own identity/DEK/sync state for one
  * specific account, so it behaves like a brand-new device on next launch -
@@ -157,5 +198,7 @@ export const wipeOwnRecoveryState = async (userId: string): Promise<void> => {
     SecureStore.deleteItemAsync(deviceIdId(userId)),
     SecureStore.deleteItemAsync(recoveryDekId(userId)),
     SecureStore.deleteItemAsync(syncedStateId(userId)),
+    SecureStore.deleteItemAsync(mnemonicDerivedKeyId(userId)),
+    SecureStore.deleteItemAsync(mnemonicUploadedFingerprintId(userId)),
   ]);
 };

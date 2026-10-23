@@ -7,7 +7,7 @@ import {
 } from '@libs/api-js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { isNotFoundError, toApiCallError } from '../apiError';
-import { pendingActionsOptions } from '../me/meOptions';
+import { devicesOptions, pendingActionsOptions } from '../me/meOptions';
 import { recoveryRequestCurrentOptions } from './recoveryRequestsOptions';
 
 /** The owner's last resort, once none of their own devices can help -
@@ -25,6 +25,13 @@ export const useCreateRecoveryRequestMutation = () => {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(recoveryRequestCurrentOptions().queryKey, data);
+      // The response doesn't carry the suspended devices' rows (only the
+      // request itself), unlike `useActivateRecoveryKeyMnemonicMutation`'s
+      // own onSuccess - genuinely nothing here to patch the devices cache
+      // with directly, so this is the one case that actually needs an
+      // invalidation rather than a direct write, to avoid every other
+      // device showing stale as `active` in Settings.
+      queryClient.invalidateQueries({ queryKey: devicesOptions().queryKey });
     },
   });
 };
