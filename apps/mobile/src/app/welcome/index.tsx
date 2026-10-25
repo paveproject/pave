@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Share, ScrollView } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, Share, ScrollView } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -376,10 +376,15 @@ const WelcomeScreen = () => {
 
               <View
                 style={{ flexDirection: 'row', alignItems: 'flex-start', gap: theme.spaces.sm }}
-                onTouchEnd={() => setConfirmed((prev) => !prev)}
               >
                 <Checkbox checked={confirmed} onCheckedChange={setConfirmed} />
-                <Text style={{ flex: 1 }}>{t('pages.welcome.recovery_phrase.confirm_label')}</Text>
+                {/* Own touch target, separate from the checkbox's - tapping
+                    the checkbox icon itself used to also bubble up to a
+                    wrapping `onTouchEnd` here, double-toggling (on then
+                    immediately back off) so the box never visibly checked. */}
+                <Pressable style={{ flex: 1 }} onPress={() => setConfirmed((prev) => !prev)}>
+                  <Text>{t('pages.welcome.recovery_phrase.confirm_label')}</Text>
+                </Pressable>
               </View>
             </>
           )}
