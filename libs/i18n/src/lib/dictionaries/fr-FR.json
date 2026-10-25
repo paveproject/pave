@@ -236,6 +236,7 @@
         "title": "Que se passe-t-il ?",
         "no_location": "Impossible d'obtenir votre position - réessayez dans un instant.",
         "created": "Signalement envoyé",
+        "count": "{count} signalement{count, plural, one {} other {s}}",
         "types": {
           "tear_gas": "Gaz lacrymogène",
           "police_presence": "Présence policière",

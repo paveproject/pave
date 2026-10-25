@@ -27,6 +27,7 @@ import { useReportsQuery } from '@libs/query-client';
 import useDebounce from '../../hooks/useDebounce';
 import { useObservable } from '../../hooks/useObservable';
 import { observeAllReports } from '../../lib/watermelon/reports';
+import { groupReports, GROUP_RADIUS_METERS } from '../../lib/watermelon/grouping';
 import type { Report } from '../../lib/watermelon/models/Report';
 import type { ReportsResponse } from '@libs/api-js';
 import { useUIStore } from '../../stores/useUIStore';
@@ -276,24 +277,37 @@ const MapMap = () => {
       );
     });
 
+    // Same same-type/within-radius grouping as the server (see
+    // `lib/watermelon/grouping.ts`), applied only among local-only reports -
+    // not merged with the already-grouped server ones, since a local report
+    // near an existing server group just shows as its own marker until it
+    // syncs and the next refetch re-groups everything server-side.
+    const localOnlyGroups = groupReports(localOnlyReports, GROUP_RADIUS_METERS);
+
     return {
       type: 'FeatureCollection' as const,
       features: [
         ...serverReports.map((report) => ({
           type: 'Feature' as const,
           id: report.id,
-          properties: { id: report.id, type: report.type, occurredAt: report.occurredAt },
-          geometry: { type: 'Point' as const, coordinates: [report.lng, report.lat] },
-        })),
-        ...localOnlyReports.map((report) => ({
-          type: 'Feature' as const,
-          id: report.id,
           properties: {
             id: report.id,
             type: report.type,
-            occurredAt: report.occurredAt.toISOString(),
+            occurredAt: report.occurredAt,
+            count: report.count,
           },
           geometry: { type: 'Point' as const, coordinates: [report.lng, report.lat] },
+        })),
+        ...localOnlyGroups.map((group) => ({
+          type: 'Feature' as const,
+          id: group.id,
+          properties: {
+            id: group.id,
+            type: group.type,
+            occurredAt: group.occurredAt.toISOString(),
+            count: group.count,
+          },
+          geometry: { type: 'Point' as const, coordinates: [group.lng, group.lat] },
         })),
       ],
     };
@@ -317,6 +331,7 @@ const MapMap = () => {
 
       const reportType = properties.type as string | undefined;
       const occurredAt = properties.occurredAt as string | undefined;
+      const count = (properties.count as number | undefined) ?? 1;
       if (reportType) {
         const formattedOccurredAt = occurredAt
           ? format.dateTime(new Date(occurredAt), {
@@ -327,7 +342,9 @@ const MapMap = () => {
               minute: '2-digit',
             })
           : undefined;
-        Alert.alert(t(`pages.map.report.types.${reportType}`), formattedOccurredAt);
+        const countLine = count > 1 ? t('pages.map.report.count', { count }) : undefined;
+        const message = [formattedOccurredAt, countLine].filter(Boolean).join('\n') || undefined;
+        Alert.alert(t(`pages.map.report.types.${reportType}`), message);
       }
     },
     [t, format],

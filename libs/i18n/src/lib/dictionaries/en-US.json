@@ -236,6 +236,7 @@
         "title": "What's happening?",
         "no_location": "Can't get your location - try again in a moment.",
         "created": "Report sent",
+        "count": "{count} report{count, plural, one {} other {s}}",
         "types": {
           "tear_gas": "Tear gas",
           "police_presence": "Police presence",
