@@ -55,11 +55,6 @@ jobs:
           SENTRY_DISABLE_AUTO_UPLOAD=false
           EOF
 
-      - name: 🔑 Decode Google Services files
-        run: |
-          echo "${{ secrets.INFISICAL_GOOGLE_SERVICES_ANDROID_BASE64 }}" | base64 --decode > apps/mobile/google-services.json
-          echo "${{ secrets.INFISICAL_GOOGLE_SERVICES_IOS_BASE64 }}" | base64 --decode > apps/mobile/GoogleService-Info.plist
-
       - name: 🔍 Calculate current fingerprints
         id: current
         working-directory: apps/mobile
@@ -151,11 +146,6 @@ jobs:
           # different build target (e.g. a future web app) needs it.
           SENTRY_DISABLE_AUTO_UPLOAD=false
           EOF
-
-      - name: 🔑 Decode Google Services files
-        run: |
-          echo "${{ secrets.INFISICAL_GOOGLE_SERVICES_ANDROID_BASE64 }}" | base64 --decode > apps/mobile/google-services.json
-          echo "${{ secrets.INFISICAL_GOOGLE_SERVICES_IOS_BASE64 }}" | base64 --decode > apps/mobile/GoogleService-Info.plist
 
       - name: 🧭 Resolve target platform
         id: platforms
@@ -380,11 +370,6 @@ jobs:
           # different build target (e.g. a future web app) needs it.
           SENTRY_DISABLE_AUTO_UPLOAD=false
           EOF
-
-      - name: 🔑 Decode Google Services files
-        run: |
-          echo "${{ secrets.INFISICAL_GOOGLE_SERVICES_ANDROID_BASE64 }}" | base64 --decode > apps/mobile/google-services.json
-          echo "${{ secrets.INFISICAL_GOOGLE_SERVICES_IOS_BASE64 }}" | base64 --decode > apps/mobile/GoogleService-Info.plist
 
       - name: 🔍 Re-calculate fingerprints
         working-directory: apps/mobile
