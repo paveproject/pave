@@ -83,6 +83,9 @@ pub struct ReportsResponse {
     pub lng: f64,
     pub occurred_at: String,
     pub expires_at: String,
+    /// Number of reports of this `type` within `grouping::GROUP_RADIUS_METERS`
+    /// of each other that this marker represents. `1` if ungrouped.
+    pub count: u32,
 }
 
 /// Bounding box scoping the map's visible viewport - without this, every

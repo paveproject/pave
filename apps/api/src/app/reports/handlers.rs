@@ -1,5 +1,6 @@
 use super::dto::{ReportsCreateRequest, ReportsListQuery, ReportsResponse};
 use super::geohash_util;
+use super::grouping::{self, ReportRow};
 use super::hub::{self, ReportsHub};
 use super::rate_limit;
 use super::ws_dto::{ReportsClientMessage, ReportsServerMessage};
@@ -13,7 +14,6 @@ use axum::Json;
 use better_auth::integrations::axum::CurrentSession;
 use chrono::Duration;
 use db_rs::sea_orm_active_enums::ReportTypeEnum;
-use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::{ActiveEnum, ConnectionTrait, DatabaseBackend, FromQueryResult, Statement};
 use std::collections::HashSet;
 use tokio::sync::mpsc;
@@ -22,29 +22,6 @@ use tokio::sync::mpsc;
 /// constant for v1 - may end up varying by `ReportType` later (e.g. an arrest
 /// report probably shouldn't expire as fast as a tear-gas one).
 const REPORT_TTL_HOURS: i64 = 6;
-
-#[derive(Debug, FromQueryResult)]
-struct ReportRow {
-    id: String,
-    r#type: ReportTypeEnum,
-    lng: f64,
-    lat: f64,
-    occurred_at: DateTimeWithTimeZone,
-    expires_at: DateTimeWithTimeZone,
-}
-
-impl From<ReportRow> for ReportsResponse {
-    fn from(row: ReportRow) -> Self {
-        ReportsResponse {
-            id: row.id,
-            r#type: row.r#type.into(),
-            lat: row.lat,
-            lng: row.lng,
-            occurred_at: row.occurred_at.to_rfc3339(),
-            expires_at: row.expires_at.to_rfc3339(),
-        }
-    }
-}
 
 #[utoipa::path(
     post,
@@ -101,6 +78,7 @@ pub async fn create_report(
         lng: body.lng,
         occurred_at: body.occurred_at.to_rfc3339(),
         expires_at: expires_at.to_rfc3339(),
+        count: 1,
     };
 
     // Fans out over Redis to every pod watching this area (see `hub.rs`) -
@@ -153,11 +131,7 @@ pub async fn list_reports(
         .await
         .expect("failed to query reports");
 
-    Json(
-        rows.into_iter()
-            .map(ReportsResponse::from)
-            .collect::<Vec<_>>(),
-    )
+    Json(grouping::group_reports(rows, grouping::GROUP_RADIUS_METERS))
 }
 
 /// Live feed of newly created reports for the client's current viewport.
