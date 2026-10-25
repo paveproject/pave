@@ -39,8 +39,6 @@ android/
 *.pem
 credentials/
 credentials.json
-google-services*.json
-GoogleService-Info*.plist
 
 .env
 .env*.local
