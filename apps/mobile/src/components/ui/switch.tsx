@@ -1,20 +1,16 @@
+import { Platform } from 'react-native';
+import { Switch as ExpoSwitch, type SwitchProps as ExpoSwitchProps } from '@expo/ui';
+import { tint } from '@expo/ui/swift-ui/modifiers';
 import { useTheme } from '../../providers/ThemeProvider';
-import * as React from 'react';
-import { SwitchProps, Switch as SwitchRN } from 'react-native';
 
-const Switch = React.forwardRef<React.ComponentRef<typeof SwitchRN>, SwitchProps>(
-  ({ style, ...props }, ref) => {
-    const { colors } = useTheme();
-    return (
-      <SwitchRN
-        ref={ref}
-        trackColor={{ true: colors.primary, false: colors.mutedForeground }}
-        thumbColor={colors.foreground}
-        {...props}
-      />
-    );
-  },
-);
-Switch.displayName = 'Switch';
+export type SwitchProps = ExpoSwitchProps;
 
-export default Switch;
+export const Switch = ({ modifiers, ...props }: SwitchProps) => {
+  const { colors } = useTheme();
+
+  if (Platform.OS !== 'ios') {
+    return <ExpoSwitch {...props} modifiers={modifiers} />;
+  }
+
+  return <ExpoSwitch {...props} modifiers={[tint(colors.success), ...(modifiers ?? [])]} />;
+};
