@@ -72,6 +72,7 @@ const OutboxEntryRow = ({
 const SyncOutboxDebugScreen = () => {
   const { theme, colors } = useTheme();
   const [outbox, setOutbox] = useState<OutboxEntry[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const refreshOutbox = useCallback(async () => {
     const reportsOutbox = await reportsExecutor.peekOutbox();
@@ -87,19 +88,33 @@ const SyncOutboxDebugScreen = () => {
     return () => clearInterval(interval);
   }, [refreshOutbox]);
 
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await refreshOutbox();
+    setIsRefreshing(false);
+  }, [refreshOutbox]);
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {outbox.length === 0 ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text textColor="muted">Nothing waiting - either idle, or already synced.</Text>
-        </View>
-      ) : (
-        <LegendList
-          data={outbox}
-          keyExtractor={(entry) => `${entry.executor}:${entry.transaction.id}`}
-          renderItem={({ item }) => <OutboxEntryRow entry={item} theme={theme} colors={colors} />}
-        />
-      )}
+      <LegendList
+        data={outbox}
+        keyExtractor={(entry) => `${entry.executor}:${entry.transaction.id}`}
+        renderItem={({ item }) => <OutboxEntryRow entry={item} theme={theme} colors={colors} />}
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
+        ListEmptyComponent={
+          <View
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: theme.spaces.xl,
+            }}
+          >
+            <Text textColor="muted">Nothing waiting - either idle, or already synced.</Text>
+          </View>
+        }
+      />
     </View>
   );
 };

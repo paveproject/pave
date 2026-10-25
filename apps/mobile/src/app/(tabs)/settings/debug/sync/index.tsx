@@ -5,6 +5,7 @@ import { Host, Icon, Column, FieldGroup, Row, Spacer, Text as NativeText } from 
 import {
   background,
   listRowBackground,
+  refreshable,
   scrollContentBackground,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
@@ -13,7 +14,6 @@ import { useSyncRegistry, useSyncLogStore, type SyncLogEntry } from '../../../..
 import { reportsExecutor } from '../../../../../providers/sync/offlineExecutor/reportsExecutor';
 import { useTheme } from '../../../../../providers/ThemeProvider';
 import { View } from '../../../../../components/ui/view';
-import { Text } from '../../../../../components/ui/text';
 import { Icons } from '../../../../../constants/icons';
 
 /** Debug-only polling - this is the one place that can see a transaction
@@ -43,7 +43,11 @@ const TaskStatusRow = ({
   const format = useFormatter();
 
   return (
-    <Row spacing={8} alignment="center">
+    <Row
+      spacing={8}
+      alignment="center"
+      modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+    >
       <NativeText textStyle={{ color: colors.foreground, fontWeight: '600' }}>{id}</NativeText>
       <Spacer flexible />
       <Column alignment="end">
@@ -129,13 +133,21 @@ const SyncDebugScreen = () => {
                   scrollContentBackground('hidden'),
                   background(colors.background),
                   tint(colors.foreground),
+                  refreshable(refreshOutboxCount),
                 ]
               : undefined
           }
         >
           <FieldGroup.Section title="Sync tasks">
             {taskIds.length === 0 ? (
-              <Text textColor="muted">No sync task registered yet.</Text>
+              <Row
+                alignment="center"
+                modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+              >
+                <NativeText textStyle={{ color: colors.mutedForeground }}>
+                  No sync task registered yet.
+                </NativeText>
+              </Row>
             ) : (
               taskIds.map((id) => (
                 <TaskStatusRow

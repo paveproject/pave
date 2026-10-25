@@ -138,6 +138,14 @@ export const Icons = {
     ios: 'exclamationmark.triangle.fill',
     android: import('@expo/material-symbols/warning.xml'),
   }),
+  bluetooth: Icon.select({
+    ios: 'dot.radiowaves.left.and.right',
+    android: import('@expo/material-symbols/bluetooth.xml'),
+  }),
+  shield: Icon.select({
+    ios: 'lock.shield',
+    android: import('@expo/material-symbols/shield.xml'),
+  }),
   error: Icon.select({
     ios: 'exclamationmark.octagon.fill',
     android: import('@expo/material-symbols/error.xml'),

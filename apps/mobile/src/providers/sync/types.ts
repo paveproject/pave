@@ -22,6 +22,7 @@ export const SYNC_TASK_IDS = {
   receiveShares: 'receive-shares',
   recoveryRequestCompletion: 'recovery-request-completion',
   mnemonicUpload: 'recovery-mnemonic-upload',
+  meshRelay: 'mesh-relay',
 } as const;
 
 export type SyncTaskId = (typeof SYNC_TASK_IDS)[keyof typeof SYNC_TASK_IDS];

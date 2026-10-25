@@ -32,6 +32,10 @@ const DebugScreen = () => {
     router.push('/settings/debug/sync');
   }, [router]);
 
+  const handleMesh = useCallback(() => {
+    router.push('/settings/debug/mesh');
+  }, [router]);
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Host
@@ -78,6 +82,21 @@ const DebugScreen = () => {
             >
               <Icon name={Icons.refresh} size={theme.icons.sizes.md} color={colors.foreground} />
               <NativeText textStyle={{ color: colors.foreground }}>Sync</NativeText>
+              <Spacer flexible />
+              <Icon
+                name={Icons.chevronRight}
+                size={theme.icons.sizes.sm}
+                color={colors.mutedForeground}
+              />
+            </Row>
+            <Row
+              spacing={theme.spaces.md}
+              alignment="center"
+              onPress={handleMesh}
+              modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+            >
+              <Icon name={Icons.bluetooth} size={theme.icons.sizes.md} color={colors.foreground} />
+              <NativeText textStyle={{ color: colors.foreground }}>Mesh relay</NativeText>
               <Spacer flexible />
               <Icon
                 name={Icons.chevronRight}

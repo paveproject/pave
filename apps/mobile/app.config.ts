@@ -169,6 +169,23 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         sounds: ['./src/assets/sounds/notif.wav'],
       },
     ],
+    [
+      'munim-bluetooth',
+      {
+        // Central + peripheral permissions (scan/connect/advertise) - the
+        // mesh relay needs all three, foreground-only (see `lib/mesh`).
+        androidBluetoothPermissions: ['scan', 'connect', 'advertise'],
+        // The plugin otherwise adds iOS's `bluetooth-central`/
+        // `bluetooth-peripheral` background modes by default - v1 is
+        // deliberately foreground-only (background BLE central+peripheral
+        // is unreliable on both platforms), so skip that addition.
+        bluetoothBackground: false,
+        bluetoothAlwaysUsageDescription:
+          'Bluetooth is used to relay safety reports between nearby devices when the app is open, even without an internet connection.',
+        bluetoothPeripheralUsageDescription:
+          'Bluetooth is used to relay safety reports between nearby devices when the app is open, even without an internet connection.',
+      },
+    ],
     'expo-web-browser',
     [
       'expo-splash-screen',
