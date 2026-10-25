@@ -38,7 +38,7 @@ import { Stack } from 'expo-router';
  */
 const SettingsAccount = () => {
   const t = useTranslations();
-  const { colors, theme } = useTheme();
+  const { colors, theme, mode } = useTheme();
   const {
     form,
     canSave,
@@ -62,7 +62,10 @@ const SettingsAccount = () => {
         </Stack.Toolbar.Button>
       </Stack.Toolbar>
       <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <Host style={{ flex: 1 }}>
+        {/* `colorScheme`: without it SwiftUI follows the device setting, so a
+            theme forced in-app renders the system palette of the opposite
+            scheme (placeholders, section headers, keyboard). */}
+        <Host style={{ flex: 1 }} seedColor={colors.foreground} colorScheme={mode}>
           <Form
             modifiers={[
               scrollContentBackground('hidden'),

@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { zustandStorage } from './storage';
-import { ViewType } from '@libs/api-js';
 
 export type ThemeVariant = 'light' | 'dark' | 'system';
 export type MapStyleVariant = 'default' | 'satellite';
@@ -16,21 +15,6 @@ interface MapState {
 interface UIStore {
   theme: ThemeVariant;
   setTheme: (theme: ThemeVariant) => void;
-
-  watchlist: { view: ViewType };
-  setWatchlist: (props: Partial<{ view: ViewType }>) => void;
-
-  myRecos: { view: ViewType };
-  setMyRecos: (props: Partial<{ view: ViewType }>) => void;
-
-  playlistView: ViewType;
-  setPlaylistView: (view: ViewType) => void;
-
-  feedView: 'community' | 'cast_and_crew';
-  setFeedView: (view: 'community' | 'cast_and_crew') => void;
-
-  notificationsView: 'all' | 'unread' | 'archived';
-  setNotificationsView: (view: 'all' | 'unread' | 'archived') => void;
 
   hasOnboarded: boolean;
   setHasOnboarded: (hasOnboarded: boolean) => void;
@@ -58,31 +42,6 @@ export const useUIStore = create<UIStore>()(
       theme: 'system',
       setTheme: (theme) => set({ theme }),
 
-      // Watchlist
-      watchlist: {
-        view: 'grid',
-      },
-      setWatchlist: (props) =>
-        set((state) => ({
-          watchlist: { ...state.watchlist, ...props },
-        })),
-      // My Recos
-      myRecos: {
-        view: 'grid',
-      },
-      setMyRecos: (props) =>
-        set((state) => ({
-          myRecos: { ...state.myRecos, ...props },
-        })),
-      // Playlist
-      playlistView: 'list',
-      setPlaylistView: (view) => set({ playlistView: view }),
-      // Feed
-      feedView: 'community',
-      setFeedView: (view) => set({ feedView: view }),
-      // Notifications
-      notificationsView: 'all',
-      setNotificationsView: (view) => set({ notificationsView: view }),
       // Onboarding
       hasOnboarded: false,
       setHasOnboarded: (hasOnboarded) => set({ hasOnboarded }),
