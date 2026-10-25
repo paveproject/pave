@@ -3,11 +3,7 @@ import * as Application from 'expo-application';
 import { getStatusOptions } from '@libs/api-js';
 import { BUNDLE_IDENTIFIER } from '../../env';
 
-// apps/mobile/eas.json -> submit.production.ios.ascAppId is still a
-// placeholder (no App Store listing yet) - fill this in once it exists.
-// Not derivable at runtime (unlike the Android package name), so kept as a
-// constant, same as Recomend's own MOBILE_APP_STORE_URL.
-const IOS_APP_STORE_ID: string | null = null;
+const IOS_APP_STORE_ID: string = '6821105046';
 
 export const MOBILE_APP_STORE_URL: string | null =
   Platform.select({
