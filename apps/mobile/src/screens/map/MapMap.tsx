@@ -25,6 +25,9 @@ import {
 import type { NativeSyntheticEvent } from 'react-native';
 import { useReportsQuery } from '@libs/query-client';
 import useDebounce from '../../hooks/useDebounce';
+import { useObservable } from '../../hooks/useObservable';
+import { observeAllReports } from '../../lib/watermelon/reports';
+import type { Report } from '../../lib/watermelon/models/Report';
 import type { ReportsResponse } from '@libs/api-js';
 import { useUIStore } from '../../stores/useUIStore';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -81,6 +84,12 @@ const MAPTILER_STYLE_URLS = {
 } as const;
 
 const DEFAULT_CENTER: [number, number] = [2.3522, 48.8566];
+
+// Mirrors the API's own `REPORT_TTL_HOURS` (apps/api/src/app/reports/handlers.rs)
+// - local reports have no expiry of their own, so without this a
+// not-yet/never-synced row would render as a pin forever. Keep the two
+// in sync by hand if that constant ever changes.
+const REPORT_TTL_MS = 6 * 60 * 60 * 1000;
 
 const BUTTON_GAP = 12;
 
@@ -237,18 +246,58 @@ const MapMap = () => {
   const reportsQuery = useReportsQuery(bbox);
   useReportsSocket(bbox);
 
+  const getLocalReports = useCallback(() => observeAllReports(), []);
+  const localReports = useObservable(getLocalReports, [] as Report[]);
+
+  // `useState`'s initializer is the one place a component is allowed an
+  // impure read (same reasoning as `initialCenter` above) - computing
+  // "now" directly inside the `useMemo` below would make it an impure
+  // function per React's rules. Frozen for the session: fine in
+  // practice, a map screen isn't kept mounted for 6+ hours straight.
+  const [mountedAt] = useState(() => Date.now());
+
   const reportsFeatureCollection = useMemo(() => {
-    const reports: ReportsResponse[] = reportsQuery.data ?? [];
+    const serverReports: ReportsResponse[] = reportsQuery.data ?? [];
+    const serverIds = new Set(serverReports.map((report) => report.id));
+    const ttlCutoff = mountedAt - REPORT_TTL_MS;
+
+    // Local-only: not already covered by the server fetch (once synced,
+    // the server copy takes over), not expired, and within the current
+    // viewport - same scoping the server query already gets for free.
+    const localOnlyReports = localReports.filter((report) => {
+      if (serverIds.has(report.id)) return false;
+      if (report.occurredAt.getTime() < ttlCutoff) return false;
+      if (!bbox) return true;
+      return (
+        report.lat >= bbox.minLat &&
+        report.lat <= bbox.maxLat &&
+        report.lng >= bbox.minLng &&
+        report.lng <= bbox.maxLng
+      );
+    });
+
     return {
       type: 'FeatureCollection' as const,
-      features: reports.map((report) => ({
-        type: 'Feature' as const,
-        id: report.id,
-        properties: { id: report.id, type: report.type, occurredAt: report.occurredAt },
-        geometry: { type: 'Point' as const, coordinates: [report.lng, report.lat] },
-      })),
+      features: [
+        ...serverReports.map((report) => ({
+          type: 'Feature' as const,
+          id: report.id,
+          properties: { id: report.id, type: report.type, occurredAt: report.occurredAt },
+          geometry: { type: 'Point' as const, coordinates: [report.lng, report.lat] },
+        })),
+        ...localOnlyReports.map((report) => ({
+          type: 'Feature' as const,
+          id: report.id,
+          properties: {
+            id: report.id,
+            type: report.type,
+            occurredAt: report.occurredAt.toISOString(),
+          },
+          geometry: { type: 'Point' as const, coordinates: [report.lng, report.lat] },
+        })),
+      ],
     };
-  }, [reportsQuery.data]);
+  }, [reportsQuery.data, localReports, bbox, mountedAt]);
 
   const handleReportsPress = useCallback(
     async (event: NativeSyntheticEvent<PressEventWithFeatures>) => {
