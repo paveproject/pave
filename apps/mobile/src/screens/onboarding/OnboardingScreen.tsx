@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Host, Icon, Row, FieldGroup, Spacer, Switch, Text as NativeText } from '@expo/ui';
+import { Host, Icon, Row, FieldGroup, Spacer, Text as NativeText } from '@expo/ui';
 import {
   background,
   buttonStyle,
@@ -19,6 +19,7 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useMeshSettingsStore } from '../../stores/useMeshSettingsStore';
 import { View } from '../../components/ui/view';
 import { Text } from '../../components/ui/text';
+import { Switch } from '../../components/ui/switch';
 import { NativeButton } from '../../components/ui/NativeButton';
 import { Icons } from '../../constants/icons';
 import { PERMISSIONS, type PermissionConfigEntry } from '../../lib/permissions/config';

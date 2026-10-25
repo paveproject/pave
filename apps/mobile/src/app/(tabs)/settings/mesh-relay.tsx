@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { Alert, Linking, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Host, Icon, Row, FieldGroup, Spacer, Switch, Text as NativeText } from '@expo/ui';
+import { Host, Icon, Row, FieldGroup, Spacer, Text as NativeText } from '@expo/ui';
 import {
   background,
   listRowBackground,
@@ -13,6 +13,7 @@ import { useTheme } from '../../../providers/ThemeProvider';
 import { usePermissions } from '../../../providers/PermissionsProvider';
 import { useMeshSettingsStore } from '../../../stores/useMeshSettingsStore';
 import { View } from '../../../components/ui/view';
+import { Switch } from '../../../components/ui/switch';
 import { Icons } from '../../../constants/icons';
 
 const MeshRelayScreen = () => {
