@@ -4,7 +4,6 @@
   "main": "index.js",
   "private": true,
   "scripts": {
-    "eas-build-pre-install": "if [ \"$EAS_BUILD_PLATFORM\" = \"android\" ]; then echo $GOOGLE_SERVICES_ANDROID_BASE64 | base64 --decode > ./google-services.json; elif [ \"$EAS_BUILD_PLATFORM\" = \"ios\" ]; then echo $GOOGLE_SERVICES_IOS_BASE64 | base64 --decode > ./GoogleService-Info.plist; fi",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "lint": "expo lint"

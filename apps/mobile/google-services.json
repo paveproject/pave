@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "391732230952",
+    "project_id": "pave-f64d8",
+    "storage_bucket": "pave-f64d8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:391732230952:android:03486ce0183195c6fc6e1d",
+        "android_client_info": {
+          "package_name": "org.paveproject.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "391732230952-4ariprb8bkc7gmj03v48fl9kd1hq2llv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA2cCRf1_DrRENaXa9-OQTAfTSD_mjYjKI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "391732230952-4ariprb8bkc7gmj03v48fl9kd1hq2llv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "391732230952-vb6vn2rhmca1e20tgc9lreo1ja2m4lo5.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "org.paveproject.org",
+                "app_store_id": "6821105046"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
