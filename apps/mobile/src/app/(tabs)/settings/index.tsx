@@ -91,6 +91,14 @@ const SettingsScreen = () => {
     router.push('/settings/debug');
   }, [router]);
 
+  const handlePermissions = useCallback(() => {
+    router.push('/settings/permissions');
+  }, [router]);
+
+  const handleMeshRelay = useCallback(() => {
+    router.push('/settings/mesh-relay');
+  }, [router]);
+
   const handleSignOut = useCallback(() => {
     // Reports and offline-first `/me` field edits are the only things
     // this abandons (see `AuthProvider`'s `logout`) - the recovery-key
@@ -276,6 +284,40 @@ const SettingsScreen = () => {
               <Icon name={Icons.appearance} size={theme.icons.sizes.md} color={colors.foreground} />
               <NativeText textStyle={{ color: colors.foreground }}>
                 {t('messages.appearance')}
+              </NativeText>
+              <Spacer flexible />
+              <Icon
+                name={Icons.chevronRight}
+                size={theme.icons.sizes.sm}
+                color={colors.mutedForeground}
+              />
+            </Row>
+            <Row
+              spacing={theme.spaces.md}
+              alignment="center"
+              onPress={handlePermissions}
+              modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+            >
+              <Icon name={Icons.shield} size={theme.icons.sizes.md} color={colors.foreground} />
+              <NativeText textStyle={{ color: colors.foreground }}>
+                {t('messages.permissions')}
+              </NativeText>
+              <Spacer flexible />
+              <Icon
+                name={Icons.chevronRight}
+                size={theme.icons.sizes.sm}
+                color={colors.mutedForeground}
+              />
+            </Row>
+            <Row
+              spacing={theme.spaces.md}
+              alignment="center"
+              onPress={handleMeshRelay}
+              modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+            >
+              <Icon name={Icons.bluetooth} size={theme.icons.sizes.md} color={colors.foreground} />
+              <NativeText textStyle={{ color: colors.foreground }}>
+                {t('messages.mesh_relay')}
               </NativeText>
               <Spacer flexible />
               <Icon

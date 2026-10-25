@@ -8,6 +8,7 @@ import { SplashScreenProvider } from './SplashScreenProvider';
 import { LocaleProvider } from './LocaleProvider';
 import { LocationProvider } from './LocationProvider';
 import { NotificationsProvider } from './NotificationsProvider';
+import { PermissionsProvider } from './PermissionsProvider';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ReanimatedScreenProvider } from 'react-native-screens/reanimated';
@@ -47,25 +48,27 @@ const Providers = ({ children }: ProvidersProps) => {
               <LocaleProvider>
                 <ThemeProvider>
                   <ToastProvider>
-                    <LocationProvider>
-                      <ActionSheetProvider>
-                        <ReactQueryProvider>
-                          <AuthProvider>
-                            <ApiProvider>
-                              <BottomSheetModalProvider>
-                                <NotificationsProvider>
-                                  {children}
-                                  <BottomSheetManager />
-                                  <SyncProvider />
-                                  <AppVersionCheckBootstrap />
-                                  <UserEventsBootstrap />
-                                </NotificationsProvider>
-                              </BottomSheetModalProvider>
-                            </ApiProvider>
-                          </AuthProvider>
-                        </ReactQueryProvider>
-                      </ActionSheetProvider>
-                    </LocationProvider>
+                    <PermissionsProvider>
+                      <LocationProvider>
+                        <ActionSheetProvider>
+                          <ReactQueryProvider>
+                            <AuthProvider>
+                              <ApiProvider>
+                                <BottomSheetModalProvider>
+                                  <NotificationsProvider>
+                                    {children}
+                                    <BottomSheetManager />
+                                    <SyncProvider />
+                                    <AppVersionCheckBootstrap />
+                                    <UserEventsBootstrap />
+                                  </NotificationsProvider>
+                                </BottomSheetModalProvider>
+                              </ApiProvider>
+                            </AuthProvider>
+                          </ReactQueryProvider>
+                        </ActionSheetProvider>
+                      </LocationProvider>
+                    </PermissionsProvider>
                   </ToastProvider>
                 </ThemeProvider>
               </LocaleProvider>

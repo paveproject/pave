@@ -15,6 +15,8 @@
     "trusted_contacts": "Trusted contacts",
     "devices": "Devices",
     "recovery": "Recovery",
+    "permissions": "Permissions",
+    "mesh_relay": "Mesh relay",
     "language": "Language",
     "theme": "Theme",
     "system": "System",
@@ -93,6 +95,24 @@
     "trusts_me": "Trusts me"
   },
   "pages": {
+    "onboarding": {
+      "title": "Permissions",
+      "description": "Pavé works better with a few permissions - all optional, and you can change them anytime in Settings.",
+      "permission_denied_hint": "You declined this permission. You can try again, or manage it later in Settings > Permissions.",
+      "continue_confirm_title": "Continue without these permissions?",
+      "continue_confirm_intro": "Here's what you'll be missing:",
+      "continue_anyway": "Continue anyway",
+      "permissions": {
+        "location_reason": "To show reports near you and place yours on the map.",
+        "bluetooth_reason": "To relay reports to the server when you have no internet connection.",
+        "notifications_reason": "To alert you about approvals and trusted-contact updates.",
+        "camera_reason": "To scan a QR code when adding a trusted contact.",
+        "location_consequence": "Reports you create won't be placed at your current location on the map automatically.",
+        "bluetooth_consequence": "The mesh relay won't be available, so your reports can't reach the server without an internet connection.",
+        "notifications_consequence": "You won't get push alerts for approvals, trusted-contact updates, or other account activity.",
+        "camera_consequence": "You won't be able to scan a QR code to add a trusted contact."
+      }
+    },
     "auth": {
       "complete": {
         "description": "Pick a username to finish setting up your account."
@@ -192,6 +212,23 @@
         "suspended": "Suspended during recovery",
         "revoke_confirm_title": "Remove this device?",
         "revoke_confirm_message": "It will stop receiving updates to your recovery key."
+      },
+      "mesh_relay": {
+        "title": "Mesh relay",
+        "toggle_label": "Relay reports over Bluetooth",
+        "footer_description": "When enabled, this device relays safety reports to and from other nearby devices over Bluetooth, so reports can still reach the server even when this device - or one relaying for it - has no internet connection. Only works while the app is open.",
+        "permission_denied_title": "Bluetooth permission needed",
+        "permission_denied_message": "Pavé needs Bluetooth permission to relay reports between nearby devices. You can grant it in your device settings.",
+        "permission_hint": "Bluetooth permission needed to relay reports. Manage it in Permissions."
+      },
+      "permissions": {
+        "location_label": "Location",
+        "bluetooth_label": "Bluetooth",
+        "notifications_label": "Notifications",
+        "camera_label": "Camera",
+        "status_granted": "Granted",
+        "status_denied": "Denied",
+        "status_undetermined": "Not asked"
       }
     },
     "map": {

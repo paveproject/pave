@@ -15,6 +15,8 @@
     "trusted_contacts": "Contacts de confiance",
     "devices": "Appareils",
     "recovery": "Récupération",
+    "permissions": "Permissions",
+    "mesh_relay": "Relais mesh",
     "language": "Langue",
     "theme": "Thème",
     "system": "Système",
@@ -93,6 +95,24 @@
     "trusts_me": "Me font confiance"
   },
   "pages": {
+    "onboarding": {
+      "title": "Permissions",
+      "description": "Pavé fonctionne mieux avec quelques permissions - toutes optionnelles, modifiables à tout moment dans les réglages.",
+      "permission_denied_hint": "Vous avez refusé cette permission. Vous pouvez réessayer, ou la gérer plus tard dans Réglages > Permissions.",
+      "continue_confirm_title": "Continuer sans ces permissions ?",
+      "continue_confirm_intro": "Voici ce que vous allez manquer :",
+      "continue_anyway": "Continuer quand même",
+      "permissions": {
+        "location_reason": "Pour afficher les signalements proches et placer les tiens sur la carte.",
+        "bluetooth_reason": "Pour relayer les signalements vers le serveur quand tu n'as pas de connexion internet.",
+        "notifications_reason": "Pour te prévenir des approbations et des mises à jour de tes contacts de confiance.",
+        "camera_reason": "Pour scanner un QR code lors de l'ajout d'un contact de confiance.",
+        "location_consequence": "Les signalements que vous créez ne seront pas placés automatiquement à votre position actuelle sur la carte.",
+        "bluetooth_consequence": "Le relais mesh ne sera pas disponible, donc vos signalements ne pourront pas atteindre le serveur sans connexion internet.",
+        "notifications_consequence": "Vous ne recevrez pas d'alertes push pour les approbations, les mises à jour de vos contacts de confiance, ou d'autre activité de votre compte.",
+        "camera_consequence": "Vous ne pourrez pas scanner un QR code pour ajouter un contact de confiance."
+      }
+    },
     "auth": {
       "complete": {
         "description": "Choisissez un nom d'utilisateur pour finaliser la création de votre compte."
@@ -192,6 +212,23 @@
         "suspended": "Suspendu pendant une récupération",
         "revoke_confirm_title": "Retirer cet appareil ?",
         "revoke_confirm_message": "Il cessera de recevoir les mises à jour de votre clé de récupération."
+      },
+      "mesh_relay": {
+        "title": "Relais mesh",
+        "toggle_label": "Relayer les reports via Bluetooth",
+        "footer_description": "Une fois activé, cet appareil relaie les reports de sécurité vers et depuis les autres appareils proches via Bluetooth, pour qu'un report puisse atteindre le serveur même quand cet appareil - ou un autre qui le relaie - n'a pas de connexion internet. Fonctionne uniquement quand l'application est ouverte.",
+        "permission_denied_title": "Permission Bluetooth requise",
+        "permission_denied_message": "Pavé a besoin de la permission Bluetooth pour relayer les reports entre appareils proches. Vous pouvez l'accorder dans les réglages de votre appareil.",
+        "permission_hint": "Permission Bluetooth requise pour relayer les reports. Gérez-la dans Permissions."
+      },
+      "permissions": {
+        "location_label": "Localisation",
+        "bluetooth_label": "Bluetooth",
+        "notifications_label": "Notifications",
+        "camera_label": "Caméra",
+        "status_granted": "Accordée",
+        "status_denied": "Refusée",
+        "status_undetermined": "Non demandée"
       }
     },
     "map": {

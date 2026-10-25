@@ -1,6 +1,7 @@
 import { createContext, use, useCallback, useEffect, useRef, useState } from 'react';
 import * as Notifications from 'expo-notifications';
 import { useAuth } from './AuthProvider';
+import { usePermissions } from './PermissionsProvider';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import { useRouter } from 'expo-router';
@@ -15,9 +16,10 @@ import {
 } from '@libs/query-client';
 import { useTranslations } from 'use-intl';
 import type { PushContent } from '@libs/api-js';
+import type { PermissionStatus } from '../lib/permissions/types';
 
 type NotificationsContextType = {
-  permissionStatus: Notifications.PermissionStatus | null;
+  permissionStatus: PermissionStatus;
   pushToken: string | null;
   notifications: Notifications.Notification[] | null;
   error?: Error | null;
@@ -37,9 +39,7 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, pushToken, setPushToken } = useAuth();
-  const [permissionStatus, setPermissionStatus] = useState<Notifications.PermissionStatus | null>(
-    null,
-  );
+  const notificationsPermission = usePermissions().notifications;
   const [notifications, setNotifications] = useState<Notifications.Notification[] | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
@@ -59,14 +59,11 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
     }
 
     if (Device.isDevice) {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-      setPermissionStatus(finalStatus);
-      if (finalStatus !== 'granted') {
+      // `request()` is safe to call even when already granted/denied -
+      // it just returns the cached OS decision instead of re-prompting
+      // (see `PermissionsProvider`).
+      const granted = await notificationsPermission.request();
+      if (!granted) {
         throw new Error('Permission not granted to get push token for push notification!');
       }
       try {
@@ -82,7 +79,7 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
     } else {
       throw new Error('Must use physical device for push notifications');
     }
-  }, []);
+  }, [notificationsPermission]);
 
   /**
    * Keeps the react-query cache honest the moment a push actually tells us
@@ -192,7 +189,6 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
     if (!user) return;
 
     // Register token — async registration, state updates happen in the resolved callback.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     handleRegisterForPushNotificationsAsync().then(
       (token) => {
         setPushToken(token);
@@ -249,7 +245,7 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
   return (
     <NotificationsContext.Provider
       value={{
-        permissionStatus,
+        permissionStatus: notificationsPermission.status,
         pushToken,
         notifications,
         error,

@@ -1,87 +1,192 @@
-import { StyleSheet, View, FlatList, ViewToken, Platform } from 'react-native';
-import React from 'react';
-import Animated, {
-  useSharedValue,
-  useAnimatedScrollHandler,
-  useAnimatedRef,
-} from 'react-native-reanimated';
-import Pagination from './components/Pagination';
-import CustomButton from './components/CustomButton';
-import RenderItem from './components/RenderItem';
-import useOnboardingData, { OnboardingData } from './data';
+import { useCallback } from 'react';
+import { Alert, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PADDING_VERTICAL } from '../../theme/globals';
-import { useRouter } from 'expo-router';
+import { Host, Icon, Row, FieldGroup, Spacer, Switch, Text as NativeText } from '@expo/ui';
+import {
+  background,
+  buttonStyle,
+  controlSize,
+  frame,
+  listRowBackground,
+  scrollContentBackground,
+  tint,
+} from '@expo/ui/swift-ui/modifiers';
+import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
+import { useTranslations } from 'use-intl';
+import { useTheme } from '../../providers/ThemeProvider';
+import { usePermissions } from '../../providers/PermissionsProvider';
+import { useUIStore } from '../../stores/useUIStore';
+import { useMeshSettingsStore } from '../../stores/useMeshSettingsStore';
+import { View } from '../../components/ui/view';
+import { Text } from '../../components/ui/text';
+import { NativeButton } from '../../components/ui/NativeButton';
+import { Icons } from '../../constants/icons';
+import { PERMISSIONS, type PermissionConfigEntry } from '../../lib/permissions/config';
 
-const OnboardingScreen = () => {
-  const flatListRef = useAnimatedRef<FlatList<OnboardingData>>();
-  const x = useSharedValue(0);
-  const flatListIndex = useSharedValue(0);
-  const data = useOnboardingData();
-  const router = useRouter();
-  const shouldInsetsAware = !(Platform.OS === 'ios' && router.canDismiss());
-  const insets = useSafeAreaInsets();
+const PermissionRow = ({ icon, labelKey, reasonKey, id }: PermissionConfigEntry) => {
+  const t = useTranslations();
+  const { colors, theme } = useTheme();
+  const permissions = usePermissions();
+  const setMeshRelayEnabled = useMeshSettingsStore((state) => state.setMeshRelayEnabled);
+  const { status, request } = permissions[id];
 
-  const onViewableItemsChanged = ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    if (viewableItems.length > 0 && viewableItems[0].index !== null) {
-      flatListIndex.value = viewableItems[0].index;
-    }
-  };
-
-  const onScroll = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      x.value = event.contentOffset.x;
+  const handleToggle = useCallback(
+    async (value: boolean) => {
+      // A granted OS permission can't be revoked from in-app - nothing to
+      // request when the switch is being turned off.
+      if (!value) return;
+      const granted = await request();
+      if (id === 'bluetooth' && granted) {
+        setMeshRelayEnabled(true);
+      }
     },
-  });
+    [request, id, setMeshRelayEnabled],
+  );
 
   return (
-    <View style={styles.container}>
-      <Animated.FlatList
-        ref={flatListRef}
-        onScroll={onScroll}
-        data={data}
-        renderItem={({ item, index }) => {
-          return <RenderItem item={item} index={index} x={x} />;
-        }}
-        keyExtractor={(item) => item.id.toString()}
-        scrollEventThrottle={16}
-        horizontal={true}
-        bounces={false}
-        pagingEnabled={true}
-        showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{
-          minimumViewTime: 300,
-          viewAreaCoveragePercentThreshold: 10,
-        }}
+    <>
+      <Row
+        spacing={theme.spaces.md}
+        alignment="center"
+        modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+      >
+        <Icon name={Icons[icon]} size={theme.icons.sizes.md} color={colors.foreground} />
+        <NativeText textStyle={{ color: colors.foreground }}>{t(labelKey)}</NativeText>
+        <Spacer flexible />
+        <Switch
+          value={status === 'granted'}
+          disabled={status === 'granted'}
+          onValueChange={handleToggle}
+        />
+      </Row>
+      <Row
+        spacing={theme.spaces.md}
+        alignment="center"
+        modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+      >
+        <NativeText textStyle={{ color: colors.mutedForeground, fontSize: theme.fonts.sizes.sm }}>
+          {t(reasonKey)}
+        </NativeText>
+      </Row>
+      {status === 'denied' && (
+        <Row
+          spacing={theme.spaces.md}
+          alignment="center"
+          modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+        >
+          <NativeText textStyle={{ color: colors.mutedForeground, fontSize: theme.fonts.sizes.sm }}>
+            {t('pages.onboarding.permission_denied_hint')}
+          </NativeText>
+        </Row>
+      )}
+    </>
+  );
+};
+
+const OnboardingScreen = () => {
+  const t = useTranslations();
+  const { colors, theme, mode } = useTheme();
+  const insets = useSafeAreaInsets();
+  const permissions = usePermissions();
+  const setHasOnboarded = useUIStore((state) => state.setHasOnboarded);
+
+  const handleContinue = useCallback(() => {
+    const missing = PERMISSIONS.filter(
+      (permission) => permissions[permission.id].status !== 'granted',
+    );
+
+    if (missing.length === 0) {
+      setHasOnboarded(true);
+      return;
+    }
+
+    const message = [
+      t('pages.onboarding.continue_confirm_intro'),
+      '',
+      ...missing.map((permission) => `• ${t(permission.consequenceKey)}`),
+    ].join('\n');
+
+    Alert.alert(
+      t('pages.onboarding.continue_confirm_title'),
+      message,
+      [
+        { text: t('messages.back'), style: 'cancel' },
+        { text: t('pages.onboarding.continue_anyway'), onPress: () => setHasOnboarded(true) },
+      ],
+      { userInterfaceStyle: mode },
+    );
+  }, [permissions, setHasOnboarded, t, mode]);
+
+  const continueIosModifiers = [
+    buttonStyle('glassProminent'),
+    controlSize('extraLarge'),
+    tint(colors.secondary),
+    listRowBackground(colors.muted),
+  ];
+
+  const continueLabelModifiers =
+    Platform.OS === 'ios' ? [frame({ maxWidth: Infinity })] : [fillMaxWidth()];
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View
         style={{
-          paddingTop: shouldInsetsAware ? insets.top + PADDING_VERTICAL : PADDING_VERTICAL,
-          paddingBottom: insets.bottom + PADDING_VERTICAL + 50,
+          paddingHorizontal: theme.spaces.lg,
+          paddingTop: insets.top + theme.spaces.xl,
+          paddingBottom: theme.spaces.md,
         }}
-      />
-      <View style={styles.bottomContainer}>
-        <Pagination data={data} x={x} />
-        <CustomButton flatListRef={flatListRef} flatListIndex={flatListIndex} x={x} data={data} />
+      >
+        <Text variant="title" textColor="foreground">
+          {t('pages.onboarding.title')}
+        </Text>
+        <Text textColor="muted" style={{ marginTop: theme.spaces.xs }}>
+          {t('pages.onboarding.description')}
+        </Text>
       </View>
+
+      <Host style={{ flex: 1, width: '100%' }} seedColor={colors.foreground} colorScheme={mode}>
+        <FieldGroup
+          style={{ backgroundColor: colors.background }}
+          modifiers={
+            Platform.OS === 'ios'
+              ? [
+                  scrollContentBackground('hidden'),
+                  background(colors.background),
+                  tint(colors.foreground),
+                ]
+              : undefined
+          }
+        >
+          <FieldGroup.Section>
+            {PERMISSIONS.map((permission) => (
+              <PermissionRow key={permission.id} {...permission} />
+            ))}
+          </FieldGroup.Section>
+
+          <FieldGroup.Section>
+            <NativeButton
+              onPress={handleContinue}
+              style={{ paddingVertical: theme.spaces.sm }}
+              colors={{
+                containerColor: colors.secondary,
+                contentColor: colors.secondaryForeground,
+              }}
+              iosModifiers={continueIosModifiers}
+              androidModifiers={[fillMaxWidth()]}
+              androidContentPadding={{ top: theme.spaces.sm, bottom: theme.spaces.sm }}
+            >
+              <NativeText
+                textStyle={{ color: colors.secondaryForeground, textAlign: 'center' }}
+                modifiers={continueLabelModifiers}
+              >
+                {t('messages.continue')}
+              </NativeText>
+            </NativeButton>
+          </FieldGroup.Section>
+        </FieldGroup>
+      </Host>
     </View>
   );
 };
 
 export default OnboardingScreen;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  bottomContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: 30,
-    paddingVertical: 30,
-    position: 'absolute',
-    bottom: 20,
-    left: 0,
-    right: 0,
-  },
-});

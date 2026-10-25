@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { usePendingActionsGate } from './usePendingActionsGate';
-import { useOnboardingGate } from './useOnboardingGate';
 import { useWelcomeGate } from './useWelcomeGate';
 import { useRateAppGate } from './useRateAppGate';
 
-// Temporarily off while onboarding is under active rework - flip back to
-// true once it's ready to gate on again. Deliberately doesn't cover
-// `pendingActionsGate` (someone may be actively waiting on one of those,
-// so it can't be put on hold alongside an unrelated onboarding rework) or
-// `welcomeGate` (always on - every signed-up user needs to see it once,
-// see the array below - it's listed outside this flag on purpose).
+// Temporarily off while rate-app is under rework - flip back to true
+// once it's ready to gate on again. Onboarding used to be covered by
+// this same flag, but it's now enforced declaratively at the root
+// `Stack.Protected` level (see `app/_layout.tsx`'s `hasOnboarded` guard)
+// instead of through this imperative gate queue, so it no longer needs
+// a place here. Deliberately doesn't cover `pendingActionsGate` (someone
+// may be actively waiting on one of those, so it can't be put on hold
+// alongside an unrelated rework) or `welcomeGate` (always on - every
+// signed-up user needs to see it once, see the array below - it's
+// listed outside this flag on purpose).
 const REWORK_GATES_ENABLED = false;
 
 // How long to wait before presenting the *next* gate once a previous one
@@ -25,25 +28,20 @@ const GATE_TRANSITION_DELAY_MS = 400;
 
 /**
  * Presents at most one app-level gate at a time (pending approvals -
- * including this device's own pending status - onboarding, welcome,
- * rate-app, ...), in priority order, so they never stack on top of each
- * other. A gate is only ever considered once every gate ahead of it in
- * the list is no longer needed.
+ * including this device's own pending status - welcome, rate-app, ...),
+ * in priority order, so they never stack on top of each other. A gate
+ * is only ever considered once every gate ahead of it in the list is no
+ * longer needed.
  */
 export const useAppGates = () => {
   const pendingActionsGate = usePendingActionsGate();
-  const onboardingGate = useOnboardingGate();
   const welcomeGate = useWelcomeGate();
   const rateAppGate = useRateAppGate();
 
   // Order = priority - pending approvals always come first.
   const gates = useMemo(
-    () => [
-      pendingActionsGate,
-      welcomeGate,
-      ...(REWORK_GATES_ENABLED ? [onboardingGate, rateAppGate] : []),
-    ],
-    [pendingActionsGate, onboardingGate, welcomeGate, rateAppGate],
+    () => [pendingActionsGate, welcomeGate, ...(REWORK_GATES_ENABLED ? [rateAppGate] : [])],
+    [pendingActionsGate, welcomeGate, rateAppGate],
   );
   const presentedIdRef = useRef<string | null>(null);
   // The id a `present()` call is currently scheduled (or was just made)
