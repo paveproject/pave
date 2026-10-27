@@ -39,7 +39,7 @@ import tw from '../../../lib/tw';
 const ValidationDeviceScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { theme, colors, mode } = useTheme();
+  const { theme, colors, mode, isLiquidGlassAvailable } = useTheme();
   const t = useTranslations();
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -169,7 +169,7 @@ const ValidationDeviceScreen = () => {
                   contentColor: colors.secondaryForeground,
                 }}
                 iosModifiers={[
-                  buttonStyle('glassProminent'),
+                  buttonStyle(isLiquidGlassAvailable ? 'glassProminent' : 'borderedProminent'),
                   controlSize('extraLarge'),
                   tint(colors.secondary),
                 ]}
@@ -191,7 +191,7 @@ const ValidationDeviceScreen = () => {
                 onPress={handleDecline}
                 colors={{ containerColor: colors.muted, contentColor: colors.foreground }}
                 iosModifiers={[
-                  buttonStyle('glassProminent'),
+                  buttonStyle(isLiquidGlassAvailable ? 'glassProminent' : 'borderedProminent'),
                   controlSize('extraLarge'),
                   tint(colors.muted),
                 ]}

@@ -68,7 +68,7 @@ type Step = 'username' | 'recovery-phrase';
 const WelcomeScreen = () => {
   const t = useTranslations();
   const router = useRouter();
-  const { colors, theme, mode } = useTheme();
+  const { colors, theme, mode, isLiquidGlassAvailable } = useTheme();
   const toast = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -233,7 +233,7 @@ const WelcomeScreen = () => {
   };
 
   const continueIosModifiers = [
-    buttonStyle('glassProminent'),
+    buttonStyle(isLiquidGlassAvailable ? 'glassProminent' : 'borderedProminent'),
     controlSize('extraLarge'),
     tint(colors.secondary),
     foregroundStyle(colors.secondaryForeground),

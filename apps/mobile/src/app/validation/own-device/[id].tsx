@@ -68,7 +68,7 @@ import tw from '../../../lib/tw';
 const ValidationOwnDeviceScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { theme, colors, mode } = useTheme();
+  const { theme, colors, mode, isLiquidGlassAvailable } = useTheme();
   const t = useTranslations();
   const format = useFormatter();
   const toast = useToast();
@@ -273,7 +273,7 @@ const ValidationOwnDeviceScreen = () => {
                     contentColor: colors.destructiveForeground,
                   }}
                   iosModifiers={[
-                    buttonStyle('glassProminent'),
+                    buttonStyle(isLiquidGlassAvailable ? 'glassProminent' : 'borderedProminent'),
                     controlSize('extraLarge'),
                     tint(colors.destructive),
                   ]}

@@ -444,7 +444,12 @@ const HomeMap = () => {
             onPress={handleReportButtonPress}
             colors={{ containerColor: colors.warning, contentColor: colors.warningForeground }}
             iosModifiers={[
-              buttonStyle('glassProminent'),
+              // 'glass'/'glassProminent' only exist on iOS 26+ - below
+              // that, @expo/ui silently drops the style, leaving the
+              // button with no fill at all (just the label). 'bordered
+              // Prominent' is the pre-26 equivalent that `tint` still
+              // fills correctly.
+              buttonStyle(isLiquidGlassAvailable ? 'glassProminent' : 'borderedProminent'),
               controlSize('extraLarge'),
               tint(colors.warning),
               frame({ maxWidth: Infinity, maxHeight: Infinity }),

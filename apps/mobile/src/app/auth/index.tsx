@@ -43,7 +43,7 @@ type EmailFormValues = z.infer<typeof emailSchema>;
 const AuthScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colors, theme, mode } = useTheme();
+  const { colors, theme, mode, isLiquidGlassAvailable } = useTheme();
   const toast = useToast();
   const t = useTranslations();
   const { locale } = useLocaleContext();
@@ -109,7 +109,11 @@ const AuthScreen = () => {
   }, [toast, t]);
 
   const socialButtonIosModifiers = [
-    buttonStyle('glassProminent'),
+    // 'glassProminent' only exists on iOS 26+ - below that, @expo/ui
+    // silently drops the style, leaving the button with no fill at all.
+    // 'borderedProminent' is the pre-26 equivalent that `tint` still
+    // fills correctly.
+    buttonStyle(isLiquidGlassAvailable ? 'glassProminent' : 'borderedProminent'),
     controlSize('extraLarge'),
     tint(colors.muted),
     foregroundStyle(colors.foreground),
@@ -157,7 +161,7 @@ const AuthScreen = () => {
             paddingTop: navigationHeaderHeight + theme.spaces.vertical,
             paddingLeft: insets.left + theme.spaces.horizontal,
             paddingRight: insets.right + theme.spaces.horizontal,
-            paddingBottom: bottomInset,
+            paddingBottom: bottomInset + theme.spaces.vertical,
           },
         ]}
       >
@@ -190,7 +194,7 @@ const AuthScreen = () => {
                   contentColor: colors.secondaryForeground,
                 }}
                 iosModifiers={[
-                  buttonStyle('glassProminent'),
+                  buttonStyle(isLiquidGlassAvailable ? 'glassProminent' : 'borderedProminent'),
                   controlSize('extraLarge'),
                   tint(colors.secondary),
                   foregroundStyle(colors.secondaryForeground),

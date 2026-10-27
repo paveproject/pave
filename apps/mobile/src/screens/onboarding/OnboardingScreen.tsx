@@ -86,7 +86,7 @@ const PermissionRow = ({ icon, labelKey, reasonKey, id }: PermissionConfigEntry)
 
 const OnboardingScreen = () => {
   const t = useTranslations();
-  const { colors, theme, mode } = useTheme();
+  const { colors, theme, mode, isLiquidGlassAvailable } = useTheme();
   const insets = useSafeAreaInsets();
   const permissions = usePermissions();
   const setHasOnboarded = useUIStore((state) => state.setHasOnboarded);
@@ -119,7 +119,7 @@ const OnboardingScreen = () => {
   }, [permissions, setHasOnboarded, t, mode]);
 
   const continueIosModifiers = [
-    buttonStyle('glassProminent'),
+    buttonStyle(isLiquidGlassAvailable ? 'glassProminent' : 'borderedProminent'),
     controlSize('extraLarge'),
     tint(colors.secondary),
     listRowBackground(colors.muted),

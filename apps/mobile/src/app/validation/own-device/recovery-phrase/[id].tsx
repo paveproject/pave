@@ -61,7 +61,7 @@ const RecoveryPhraseEntryScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useTranslations();
   const router = useRouter();
-  const { theme, colors } = useTheme();
+  const { theme, colors, isLiquidGlassAvailable } = useTheme();
   const toast = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -225,7 +225,7 @@ const RecoveryPhraseEntryScreen = () => {
                 contentColor: colors.secondaryForeground,
               }}
               iosModifiers={[
-                buttonStyle('glassProminent'),
+                buttonStyle(isLiquidGlassAvailable ? 'glassProminent' : 'borderedProminent'),
                 controlSize('extraLarge'),
                 tint(colors.secondary),
                 foregroundStyle(colors.secondaryForeground),

@@ -20,7 +20,7 @@ import { Text } from '../components/ui/text';
 import { NativeButton } from '../components/ui/NativeButton';
 
 const ErrorBoundaryInner = ({ error, retry }: ErrorBoundaryProps) => {
-  const { colors, theme } = useTheme();
+  const { colors, theme, isLiquidGlassAvailable } = useTheme();
   const t = useTranslations();
   const toast = useToast();
 
@@ -61,7 +61,7 @@ const ErrorBoundaryInner = ({ error, retry }: ErrorBoundaryProps) => {
             contentColor: colors.destructiveForeground,
           }}
           iosModifiers={[
-            buttonStyle('glassProminent'),
+            buttonStyle(isLiquidGlassAvailable ? 'glassProminent' : 'borderedProminent'),
             controlSize('extraLarge'),
             tint(colors.destructive),
           ]}

@@ -36,7 +36,7 @@ import tw from '../../../lib/tw';
 const ValidationRecoveryRequestScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { theme, colors, mode } = useTheme();
+  const { theme, colors, mode, isLiquidGlassAvailable } = useTheme();
   const t = useTranslations();
   const { user } = useAuth();
   const toast = useToast();
@@ -178,7 +178,7 @@ const ValidationRecoveryRequestScreen = () => {
                   contentColor: colors.destructiveForeground,
                 }}
                 iosModifiers={[
-                  buttonStyle('glassProminent'),
+                  buttonStyle(isLiquidGlassAvailable ? 'glassProminent' : 'borderedProminent'),
                   controlSize('extraLarge'),
                   tint(colors.destructive),
                 ]}
@@ -200,7 +200,7 @@ const ValidationRecoveryRequestScreen = () => {
                 onPress={handleDecline}
                 colors={{ containerColor: colors.muted, contentColor: colors.foreground }}
                 iosModifiers={[
-                  buttonStyle('glassProminent'),
+                  buttonStyle(isLiquidGlassAvailable ? 'glassProminent' : 'borderedProminent'),
                   controlSize('extraLarge'),
                   tint(colors.muted),
                 ]}

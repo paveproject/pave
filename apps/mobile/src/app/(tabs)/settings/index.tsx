@@ -31,7 +31,7 @@ const SettingsScreen = () => {
   const router = useRouter();
   const t = useTranslations();
   const { user, logout } = useAuth();
-  const { colors, theme, mode } = useTheme();
+  const { colors, theme, mode, isLiquidGlassAvailable } = useTheme();
   const { totalPendingCount: pendingSyncCount } = useSync();
   const debug = useUIStore((state) => state.debug);
   const toggleDebug = useUIStore((state) => state.toggleDebug);
@@ -124,7 +124,7 @@ const SettingsScreen = () => {
   }, [t, logout, mode, pendingSyncCount]);
 
   const signInIosModifiers = [
-    buttonStyle('glassProminent'),
+    buttonStyle(isLiquidGlassAvailable ? 'glassProminent' : 'borderedProminent'),
     controlSize('extraLarge'),
     tint(colors.secondary),
     listRowBackground(colors.muted),
