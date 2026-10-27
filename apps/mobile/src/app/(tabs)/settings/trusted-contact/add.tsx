@@ -21,7 +21,6 @@ import { SegmentedControl } from '../../../../components/ui/SegmentedControl';
 import { Skeleton } from '../../../../components/ui/Skeleton';
 import Empty from '../../../../components/ui/empty';
 import { Icons as NativeIcons } from '../../../../constants/icons';
-import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isIpad } from '../../../../platform/detection';
 
@@ -38,7 +37,6 @@ const AddTrustedContactScreen = () => {
   const { theme, colors } = useTheme();
   const toast = useToast();
   const modalHeaderOptions = useModalHeaderOptions({ forceCross: true });
-  const navigationHeaderHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
   const bottomInset = isIpad ? insets.bottom : 0;
 
@@ -137,10 +135,10 @@ const AddTrustedContactScreen = () => {
       <ScrollView
         bounces={false}
         contentContainerStyle={{
-          paddingTop: navigationHeaderHeight + theme.spaces.vertical,
+          paddingTop: theme.spaces.vertical,
           paddingLeft: insets.left + theme.spaces.horizontal,
           paddingRight: insets.right + theme.spaces.horizontal,
-          paddingBottom: bottomInset,
+          paddingBottom: bottomInset + theme.spaces.vertical,
           gap: theme.spaces.lg,
           alignItems: 'center',
         }}

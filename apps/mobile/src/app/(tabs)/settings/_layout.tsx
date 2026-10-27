@@ -50,6 +50,7 @@ const SettingsLayout = () => {
       <Stack.Screen
         name="trusted-contact/add"
         options={{
+          headerTransparent: false,
           title: t('pages.settings.trusted_contacts.add.title'),
           presentation: 'formSheet',
           sheetGrabberVisible: true,
