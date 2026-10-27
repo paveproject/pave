@@ -1,27 +1,12 @@
 import { useTranslations } from 'use-intl';
-import { Stack, useRouter, withLayoutContext } from 'expo-router';
-import {
-  createMaterialTopTabNavigator,
-  MaterialTopTabBarProps,
-  MaterialTopTabNavigationEventMap,
-  MaterialTopTabNavigationOptions,
-} from 'expo-router/js-top-tabs';
-import { ParamListBase, TabNavigationState } from 'expo-router/react-navigation';
+import { Stack, useRouter } from 'expo-router';
+import { TopTabs, MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { SegmentedControlTabBar } from '../../../../components/ui/segmented-control-tabbar';
 import { View } from 'react-native';
 import { Button } from '../../../../components/ui/Button';
 import { Icons } from '../../../../constants/IconsOld';
 import { useCallback } from 'react';
 import { useTheme } from '../../../../providers/ThemeProvider';
-
-const Tab = createMaterialTopTabNavigator();
-
-const MaterialTopTabs = withLayoutContext<
-  MaterialTopTabNavigationOptions,
-  typeof Tab.Navigator,
-  TabNavigationState<ParamListBase>,
-  MaterialTopTabNavigationEventMap
->(Tab.Navigator);
 
 const TrustedContactsLayout = () => {
   const t = useTranslations();
@@ -53,16 +38,15 @@ const TrustedContactsLayout = () => {
           ],
         }}
       />
-      <MaterialTopTabs
-        initialRouteName="index"
+      <TopTabs
         tabBar={(props: MaterialTopTabBarProps) => <SegmentedControlTabBar {...props} />}
         screenOptions={{
           swipeEnabled: false,
         }}
       >
-        <MaterialTopTabs.Screen name="index" options={{ title: t('messages.my_contacts') }} />
-        <MaterialTopTabs.Screen name="as-contact" options={{ title: t('messages.trusts_me') }} />
-      </MaterialTopTabs>
+        <TopTabs.Screen name="index" options={{ title: t('messages.my_contacts') }} />
+        <TopTabs.Screen name="as-contact" options={{ title: t('messages.trusts_me') }} />
+      </TopTabs>
     </>
   );
 };

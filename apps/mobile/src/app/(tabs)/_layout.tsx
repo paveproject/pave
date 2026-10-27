@@ -2,7 +2,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { useTheme } from '../../providers/ThemeProvider';
 import { useTranslations } from 'use-intl';
 import { useAppGates } from '../../hooks/gates/useAppGates';
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/native-tabs';
 import { isIOS } from '../../platform/detection';
 
 const TabsLayout = () => {

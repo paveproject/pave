@@ -1,3 +1,22 @@
+diff --git a/native/android/build.gradle b/native/android/build.gradle
+index a45cfe0b6735e699ebc19cb0a3b255260011ffdf..6387cacee6aad85cbc298cb1e9965032f8a6d557 100644
+--- a/native/android/build.gradle
++++ b/native/android/build.gradle
+@@ -26,6 +26,14 @@ android {
+ 
+     namespace "com.nozbe.watermelondb"
+ 
++    // AGP 9.x stops generating BuildConfig by default - this module's own
++    // Java (WMDatabaseBridge/WMDatabaseDriver) reads BuildConfig.DEBUG,
++    // so without this the build fails with "cannot find symbol: variable
++    // BuildConfig" under SDK 58's Gradle/AGP versions.
++    buildFeatures {
++        buildConfig true
++    }
++
+     defaultConfig {
+         minSdkVersion getExtOrIntegerDefault('minSdkVersion')
+         targetSdkVersion getExtOrIntegerDefault('targetSdkVersion')
 diff --git a/native/android-jsi/src/main/cpp/CMakeLists.txt b/native/android-jsi/src/main/cpp/CMakeLists.txt
 index 79d961e8a1b3a292d93cd5bfc4dff303d7151cd6..8656692babd7bb3b6648132c3ce05304983d0a60 100755
 --- a/native/android-jsi/src/main/cpp/CMakeLists.txt
@@ -26,3 +45,55 @@ index 79d961e8a1b3a292d93cd5bfc4dff303d7151cd6..8656692babd7bb3b6648132c3ce05304
  else()
          # these paths should work for a standard RN project
          set(NODE_MODULES_PATH_WM ../../../../../../../)
+diff --git a/native/ios/WatermelonDB/JSIInstaller.h b/native/ios/WatermelonDB/JSIInstaller.h
+index c1b7efb0fb33d56bf7a2f1b3a5f16644ad855e9b..badd0f8120e7f3dd12128de18cccde9982780003 100644
+--- a/native/ios/WatermelonDB/JSIInstaller.h
++++ b/native/ios/WatermelonDB/JSIInstaller.h
+@@ -2,12 +2,20 @@
+ 
+ #import <React/RCTBridge+Private.h>
+ 
++// React Native 0.87+ removed RCTCxxBridge entirely (bridgeless-only
++// architecture) - the underlying bridge object still responds to
++// `runtime` at runtime, the header just no longer declares it, so
++// declare it ourselves to keep calling it from Objective-C++.
++@interface RCTBridge (WMJSIRuntime)
++- (void *)runtime;
++@end
++
+ #ifdef __cplusplus
+ extern "C"
+ {
+ #endif
+ 
+-void installWatermelonJSI(RCTCxxBridge *bridge);
++void installWatermelonJSI(RCTBridge *bridge);
+ void watermelondbProvideSyncJson(int id, NSData *json, NSError **errorPtr);
+ 
+ #ifdef __cplusplus
+diff --git a/native/ios/WatermelonDB/JSIInstaller.mm b/native/ios/WatermelonDB/JSIInstaller.mm
+index d508249731957ede36f5e4ad33b030c7fb221b23..e43f7f41cb7cba20d0d22d0b389e01f6ee5f4a70 100644
+--- a/native/ios/WatermelonDB/JSIInstaller.mm
++++ b/native/ios/WatermelonDB/JSIInstaller.mm
+@@ -1,7 +1,7 @@
+ #import "JSIInstaller.h"
+ #import "Database.h"
+ 
+-extern "C" void installWatermelonJSI(RCTCxxBridge *bridge) {
++extern "C" void installWatermelonJSI(RCTBridge *bridge) {
+     if (bridge.runtime == nullptr) {
+         return;
+     }
+diff --git a/native/ios/WatermelonDB/objc/WMDatabaseBridge.m b/native/ios/WatermelonDB/objc/WMDatabaseBridge.m
+index 8a3ab356bf57cad3e994ae7f660387bf2c3a9d16..aafd588101208d4171c0486b0a1319b1fe108b24 100644
+--- a/native/ios/WatermelonDB/objc/WMDatabaseBridge.m
++++ b/native/ios/WatermelonDB/objc/WMDatabaseBridge.m
+@@ -196,7 +196,7 @@ BRIDGE_METHOD(getLocal,
+ 
+ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(initializeJSI)
+ {
+-    __block RCTCxxBridge *bridge = (RCTCxxBridge *) _bridge;
++    __block RCTBridge *bridge = (RCTBridge *) _bridge;
+     dispatch_sync([self methodQueue], ^{
+         installWatermelonJSI(bridge);
+     });

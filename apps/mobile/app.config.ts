@@ -127,24 +127,22 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-localization',
     'expo-video',
     [
+      '@sentry/react-native/expo',
+      {
+        url: 'https://sentry.io/',
+        project: process.env.SENTRY_PROJECT,
+        organization: process.env.SENTRY_ORG,
+      },
+    ],
+    'expo-font',
+    'expo-image',
+    'expo-status-bar',
+    [
       'expo-build-properties',
       {
         ios: {
           deploymentTarget: '16.4',
           useFrameworks: 'static',
-          enableSceneSupport: true,
-        },
-        // Expo SDK 57 defaults to compileSdk 36 - bumped early because
-        // munim-bluetooth (BLE mesh relay) already ships Android 17/API 37
-        // Bluetooth APIs unconditionally. Matches exactly what Expo SDK 58
-        // itself defaults to: compileSdk 37, but targetSdk stays at 36 (SDK
-        // 58 doesn't bump that either) - compiling against the newer API
-        // surface without actually opting the app into API 37's runtime
-        // behavior changes yet.
-        android: {
-          compileSdkVersion: 37,
-          targetSdkVersion: 36,
-          buildToolsVersion: '37.0.0',
         },
       },
     ],

@@ -71,7 +71,7 @@ const Report = () => {
         <View style={tw`flex-1 items-center justify-start gap-1 p-2`}>
           <Image
             source={Assets.reports[type]}
-            style={{ width: theme.icons.sizes.lg, height: theme.icons.sizes.lg }}
+            style={{ width: theme.icons.sizes['2xl'], height: theme.icons.sizes['2xl'] }}
             contentFit="contain"
           />
           <Text style={tw`text-center`} numberOfLines={2}>
@@ -120,11 +120,6 @@ const Report = () => {
         contentContainerStyle={{
           gap: theme.spaces.md,
           paddingHorizontal: theme.spaces.horizontal,
-          // On iOS the native header stays shown (just a transparent
-          // `headerLeft` close button via `modalHeaderOptions`), so the
-          // list needs top padding to clear it - on Android it's hidden
-          // (`headerShown: false`, the custom row above draws its own),
-          // so `navigationHeaderHeight` is already 0 there.
           paddingTop: navigationHeaderHeight + theme.spaces.vertical,
           paddingBottom: insets.bottom + theme.spaces.vertical,
         }}
