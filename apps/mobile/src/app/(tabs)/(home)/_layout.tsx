@@ -1,19 +1,9 @@
-import { useAuth } from '../../../providers/AuthProvider';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { Stack } from 'expo-router';
 import { useMemo } from 'react';
-import { useNow, useTranslations } from 'use-intl';
 
 const AppLayout = ({ segment }: { segment: string }) => {
   const { defaultScreenOptions } = useTheme();
-  const { user } = useAuth();
-  const t = useTranslations();
-  const now = useNow();
-
-  const hour = now.getHours();
-  const timeOfDay =
-    hour < 5 ? 'night' : hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
-  const name = user?.name || user?.username;
 
   const initialRouteName = useMemo(() => {
     switch (segment) {
@@ -27,10 +17,10 @@ const AppLayout = ({ segment }: { segment: string }) => {
       <Stack.Screen
         name="index"
         options={{
-          title: name
-            ? t('messages.greeting_with_name', { timeOfDay, name })
-            : t('messages.greeting', { timeOfDay }),
-          headerLargeTitleEnabled: true,
+          // Hidden for now - `HomeMap` reserves its own top space from
+          // `insets.top` directly instead of a header bar. Revisit once
+          // this screen has a real header to show.
+          headerShown: false,
         }}
       />
     </Stack>

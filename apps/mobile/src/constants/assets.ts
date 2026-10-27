@@ -7,7 +7,7 @@ const reportPlaceholder = 'map_reports_placeholder';
  * reports it bundles, not just a plain count label. Flat-color stand-ins
  * for now (see `src/assets/images/map/reports/`); swap each file for real
  * artwork (smoke, crowds, collapsing buildings, ...) later without
- * touching `screens/map/MapMap.tsx` - it only reads these names.
+ * touching `screens/home/HomeMap.tsx` - it only reads these names.
  */
 export type ClusterSeverity = 'low' | 'medium' | 'high' | 'extreme';
 

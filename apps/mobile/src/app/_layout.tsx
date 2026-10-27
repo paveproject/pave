@@ -65,13 +65,44 @@ const RootLayoutNav = () => {
       </Stack.Protected>
       <Stack.Protected guard={hasOnboarded}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        {/* REPORT - half/full sheet (not 'fitToContents' like the other
+            formSheets below) since its content is a scrollable grid, not a
+            form that should size to itself. */}
         <Stack.Screen
-          name="map"
+          name="report"
           options={{
-            animation: 'fade',
+            title: t('pages.map.report.title'),
             headerTransparent: true,
-            headerTitle: () => <></>,
-            headerStyle: { backgroundColor: 'transparent' },
+            presentation: 'formSheet',
+            sheetGrabberVisible: true,
+            sheetAllowedDetents: [0.5, 1],
+            sheetInitialDetentIndex: 0,
+            ...(isLiquidGlassAvailable
+              ? {
+                  contentStyle: { backgroundColor: 'transparent' },
+                  headerStyle: { backgroundColor: 'transparent' },
+                }
+              : {}),
+          }}
+        />
+        {/* SETTINGS-MAP - fits its content (one segmented control), unlike
+            REPORT's scrollable grid above, so 'fitToContents' like the
+            other formSheets below instead of an explicit detents array. */}
+        <Stack.Screen
+          name="settings-map"
+          options={{
+            title: t('pages.map.settings.title'),
+            headerTransparent: true,
+            presentation: 'formSheet',
+            sheetGrabberVisible: true,
+            sheetAllowedDetents: 'fitToContents',
+            sheetInitialDetentIndex: 0,
+            ...(isLiquidGlassAvailable
+              ? {
+                  contentStyle: { backgroundColor: 'transparent' },
+                  headerStyle: { backgroundColor: 'transparent' },
+                }
+              : {}),
           }}
         />
         {/* AUTH */}

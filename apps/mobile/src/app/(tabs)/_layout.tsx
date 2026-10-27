@@ -4,11 +4,9 @@ import { useTranslations } from 'use-intl';
 import { useAppGates } from '../../hooks/gates/useAppGates';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { isIOS } from '../../platform/detection';
-import { useRouter } from 'expo-router';
 
 const TabsLayout = () => {
   const { user } = useAuth();
-  const router = useRouter();
   const { colors, isLiquidGlassAvailable } = useTheme();
   const t = useTranslations();
 
@@ -36,19 +34,6 @@ const TabsLayout = () => {
       <NativeTabs.Trigger name="(home)" disableAutomaticContentInsets={isIOS}>
         <NativeTabs.Trigger.Label hidden>{t('messages.home')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md="home" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger
-        name="map"
-        disableAutomaticContentInsets={isIOS}
-        disabled
-        listeners={() => ({
-          tabPress: () => {
-            router.push('/map');
-          },
-        })}
-      >
-        <NativeTabs.Trigger.Label hidden>{t('messages.map')}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} md="map" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings" disableAutomaticContentInsets={isIOS}>
         <NativeTabs.Trigger.Label hidden>{t('messages.settings')}</NativeTabs.Trigger.Label>

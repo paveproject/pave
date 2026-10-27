@@ -116,7 +116,7 @@ export const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
 
 /**
  * MapTiler - vector/satellite map styles for the map screen. Falls back to
- * MapLibre's unstyled demo tiles (see `screens/map/MapMap.tsx`) when unset,
+ * MapLibre's unstyled demo tiles (see `screens/home/HomeMap.tsx`) when unset,
  * since the free-tier key is a per-dev opt-in, not a build requirement.
  */
 export const MAPTILER_API_KEY = process.env.EXPO_PUBLIC_MAPTILER_API_KEY;

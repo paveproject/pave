@@ -109,7 +109,7 @@ export const getUnsyncedReportsCount = async (): Promise<number> =>
  * mesh relay exists. */
 export const observeUnsyncedReports = () => reports().query(Q.where('synced', false)).observe();
 
-/** Every local report, synced or not - for `screens/map/MapMap.tsx`,
+/** Every local report, synced or not - for `screens/home/HomeMap.tsx`,
  * which merges these in alongside the server-fetched ones so a report
  * (self-authored or received over the mesh relay) shows up immediately,
  * even on a device that hasn't reached the server yet. */

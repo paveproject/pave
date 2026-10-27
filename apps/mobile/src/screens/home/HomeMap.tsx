@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Alert, Pressable, useWindowDimensions } from 'react-native';
+import { Alert, Pressable, View, type LayoutChangeEvent } from 'react-native';
 import { useFormatter, useTranslations } from 'use-intl';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { GlassView } from 'expo-glass-effect';
-import { Settings } from 'lucide-react-native';
-import { Host, Icon } from '@expo/ui';
+import { Settings, TriangleAlert } from 'lucide-react-native';
+import { Host, Icon, RNHostView } from '@expo/ui';
+import { buttonStyle, controlSize, frame, tint } from '@expo/ui/swift-ui/modifiers';
+import { fillMaxSize } from '@expo/ui/jetpack-compose/modifiers';
 import {
   Map,
   Camera,
@@ -24,6 +24,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 import type { NativeSyntheticEvent } from 'react-native';
 import { useReportsQuery } from '@libs/query-client';
+import { useReportsSocket } from './useReportsSocket';
 import useDebounce from '../../hooks/useDebounce';
 import { useObservable } from '../../hooks/useObservable';
 import { observeAllReports } from '../../lib/watermelon/reports';
@@ -36,9 +37,10 @@ import { useLocation } from '../../providers/LocationProvider';
 import { MAPTILER_API_KEY } from '../../env/common';
 import { Assets } from '../../constants/assets';
 import { Icons } from '../../constants/icons';
-import { useMapState } from './MapState';
-import { useReportsSocket } from './useReportsSocket';
-import { getVisibleAreaPadding, INDEX_SHEET_INITIAL_DETENT } from './mapVisibleArea';
+import { Breakpoints } from '../../constants/breakpoints';
+import { Text } from '../../components/ui/text';
+import { Icon as RNIcon } from '../../components/ui/icon';
+import { NativeButton } from '../../components/ui/NativeButton';
 
 /**
  * The locate button's 3 states, cycled on each tap - same idea as Apple/
@@ -86,13 +88,10 @@ const MAPTILER_STYLE_URLS = {
 
 const DEFAULT_CENTER: [number, number] = [2.3522, 48.8566];
 
-// Mirrors the API's own `REPORT_TTL_HOURS` (apps/api/src/app/reports/handlers.rs)
-// - local reports have no expiry of their own, so without this a
-// not-yet/never-synced row would render as a pin forever. Keep the two
-// in sync by hand if that constant ever changes.
+// Mirrors the API's own `REPORT_TTL_HOURS` (apps/api/src/app/reports/
+// handlers.rs) - local reports have no expiry of their own, so without
+// this a not-yet/never-synced row would render as a pin forever.
 const REPORT_TTL_MS = 6 * 60 * 60 * 1000;
-
-const BUTTON_GAP = 12;
 
 const CLUSTER_SEVERITY_STOPS = {
   medium: 10,
@@ -100,115 +99,94 @@ const CLUSTER_SEVERITY_STOPS = {
   extreme: 100,
 } as const;
 
-const MapMap = () => {
+/**
+ * The Home tab's live map - reports (server + local/mesh-pending, grouped
+ * by type/proximity) rendered as clustered markers, plus the locate and
+ * report-creation controls. No bottom sheet on this screen, so camera
+ * padding/button placement are plain fixed reserves (`cameraPadding`)
+ * rather than anything tracking a draggable sheet position.
+ */
+const HomeMap = () => {
   const router = useRouter();
   const t = useTranslations();
   const format = useFormatter();
   const { theme, colors, mode, isLiquidGlassAvailable } = useTheme();
   const mapStyleVariant = useUIStore((state) => state.map.style);
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
-  const { height: windowHeight } = useWindowDimensions();
-  const { sheetPosition, setOnSheetSettled } = useMapState();
   const { position } = useLocation();
   const cameraRef = useRef<CameraRef>(null);
   const reportsSourceRef = useRef<GeoJSONSourceRef>(null);
   const [bounds, setBounds] = useState<LngLatBounds | null>(null);
   const [locateMode, setLocateMode] = useState<LocateMode>('idle');
+  // Guessed up front (matches the Host's own fixed height below) so the
+  // very first render already reserves roughly the right space - the real,
+  // measured value from `onLayout` takes over as soon as it fires.
+  const [footerHeight, setFooterHeight] = useState<number>(() => theme.input.height.lg);
+  const handleFooterLayout = useCallback((event: LayoutChangeEvent) => {
+    setFooterHeight(event.nativeEvent.layout.height);
+  }, []);
 
-  // `initialViewState` only applies once, at mount - frozen here via
-  // `useState`'s initializer so a later `position` update (the user's fix
-  // just resolving, or simply moving) never yanks the camera back to it.
   const [initialCenter] = useState<[number, number]>(() =>
     position ? [position.coords.longitude, position.coords.latitude] : DEFAULT_CENTER,
   );
 
-  // Fed into `<Map>`'s `contentInset` below - the PERSISTENT viewport
-  // inset the native SDK consults continuously (compass/logo placement,
-  // and crucially the locate button's `trackUserLocation` tracking, which
-  // reads the map's own padding on every GPS update). `Camera`'s own
-  // `padding` prop is a different, one-shot thing (added on top of this
-  // for a single animated move) and doesn't affect ongoing tracking at
-  // all - using it here was the bug: it nudged the camera once per sheet
-  // settle regardless of tracking mode, then got silently overridden by
-  // the next GPS-driven tracking update. Prefers the REAL
-  // `sheetPosition.value` if it's somehow already known by the time this
-  // runs - only falls back to an estimate (from the sheet's known first
-  // detent, see `INDEX_SHEET_INITIAL_DETENT`) while it's still at its
-  // unset default (`0`, which never happens once the sheet has actually
-  // reported a position - our detents never let it cover the full
-  // screen).
-  const [cameraPadding, setCameraPadding] = useState(() =>
-    getVisibleAreaPadding({
-      headerHeight,
-      windowHeight,
-      sheetTop: sheetPosition.value || windowHeight * (1 - INDEX_SHEET_INITIAL_DETENT),
+  // This screen mounts immediately at app launch, before GPS has
+  // necessarily had time to resolve - `position` is often still
+  // `undefined` on that very first render, so `initialCenter` above
+  // freezes in `DEFAULT_CENTER`. This recenters once, the first time a
+  // real position actually arrives after mount, instead of leaving the
+  // map stuck on the Paris fallback.
+  const hasCenteredOnPosition = useRef(false);
+  useEffect(() => {
+    if (!position || hasCenteredOnPosition.current) return;
+    hasCenteredOnPosition.current = true;
+    cameraRef.current?.flyTo({
+      center: [position.coords.longitude, position.coords.latitude],
+      zoom: 12,
+      duration: 0,
+    });
+  }, [position]);
+
+  const buttonSize = theme.input.height.md;
+  const reportButtonHeight = theme.input.height.lg;
+  const stackGap = theme.spaces.sm;
+
+  // No header on this screen (see `(tabs)/(home)/_layout.tsx`) - `insets.top`
+  // is the only top reservation needed. The native tab bar isn't a separate
+  // term here: it already consumes/extends `insets.bottom` itself (it's a
+  // real `UITabBarController`/bottom nav, not a JS-rendered overlay), so
+  // the bottom reserve is just the footer button's own (measured) height
+  // plus one gap above the safe area - nothing here drags, so this only
+  // needs recomputing when insets/footer height actually change.
+  const cameraPadding = useMemo(
+    () => ({
+      top: insets.top + theme.spaces.md,
+      left: 0,
+      right: 0,
+      bottom: insets.bottom + footerHeight + theme.spaces.md,
     }),
+    [insets.top, insets.bottom, footerHeight, theme.spaces.md],
   );
 
   const mapStyleUrl = MAPTILER_API_KEY
     ? `${MAPTILER_STYLE_URLS[mapStyleVariant][mode]}?key=${MAPTILER_API_KEY}`
     : FALLBACK_STYLE_URL;
 
-  const buttonSize = theme.input.height.md;
-  const stackGap = theme.spaces.sm;
-  const stackHeight = buttonSize * 2 + stackGap;
-
-  const containerAnimatedStyle = useAnimatedStyle(() => {
-    const minTop = headerHeight + BUTTON_GAP;
-    const top = Math.max(sheetPosition.value - stackHeight - BUTTON_GAP, minTop);
-    return { top };
-  });
-
-  // DEV-only visual of `getVisibleAreaPadding`'s rectangle - the region a
-  // centered point actually lands in, not hidden under the header or the
-  // live-dragged sheet. Reads `sheetPosition.value` every frame via a
-  // worklet (same mechanism as `containerAnimatedStyle` above) so it
-  // tracks the sheet while it's being dragged, not just at rest.
-  const visibleAreaDebugStyle = useAnimatedStyle(() => ({
-    top: headerHeight,
-    height: Math.max(sheetPosition.value - headerHeight, 0),
-  }));
-
   const handleRegionDidChange = useCallback((event: { nativeEvent: { bounds: LngLatBounds } }) => {
     setBounds(event.nativeEvent.bounds);
   }, []);
 
-  // No position, no tracking - if it drops away mid-session (permission
-  // revoked, GPS lost), fall back out of whichever mode was active.
-  // Adjusted during render (React's documented pattern for resetting state
-  // when a prop/value changes), not in an effect - no extra render pass
-  // just to flip this back to idle.
   const [hadPosition, setHadPosition] = useState(!!position);
   if (!!position !== hadPosition) {
     setHadPosition(!!position);
     if (!position) setLocateMode('idle');
   }
 
-  // Cycles idle -> focused -> heading -> idle. Just flips the state;
-  // `trackUserLocation` below (a native MapLibre feature, not a manual
-  // `easeTo`) handles the actual "lock onto and fly to the user" move and
-  // the continuous heading-follow rotation.
   const handleLocatePress = useCallback(() => {
     if (!position) return;
-    setLocateMode((current) => {
-      const next = NEXT_LOCATE_MODE[current];
-      // Refreshes the padding right as tracking engages (idle -> focused):
-      // while idle, a sheet resize doesn't update it (see `onSheetSettled`
-      // above), so it could otherwise still reflect a detent from before
-      // this tap.
-      if (current === 'idle' && next !== 'idle') {
-        setCameraPadding(
-          getVisibleAreaPadding({ headerHeight, windowHeight, sheetTop: sheetPosition.value }),
-        );
-      }
-      return next;
-    });
-  }, [position, headerHeight, windowHeight, sheetPosition]);
+    setLocateMode((current) => NEXT_LOCATE_MODE[current]);
+  }, [position]);
 
-  // MapLibre's own tracking modes cancel themselves on a user-driven
-  // gesture and report it here with `trackUserLocation: null` - no need to
-  // detect "the user panned/zoomed" ourselves.
   const handleTrackUserLocationChange = useCallback(
     (event: NativeSyntheticEvent<TrackUserLocationChangeEvent>) => {
       if (event.nativeEvent.trackUserLocation === null) {
@@ -218,24 +196,9 @@ const MapMap = () => {
     [],
   );
 
-  // Keeps the camera's padding in sync whenever the sheet settles on a new
-  // detent - but only while a tracking mode is active. `contentInset`
-  // affects what the map considers "centered" even in `idle` (changing it
-  // shifts which pixel the current center coordinate sits at), so updating
-  // it with nothing driving the camera would visibly nudge the map for no
-  // reason - only `focused`/`heading` should react to the sheet resizing.
-  // Registers via `setOnSheetSettled` (state), not a ref mutated directly -
-  // the React Compiler rejects mutating a ref that didn't originate from a
-  // local `useRef` ("may reassign or mutate `onSheetSettled` after render
-  // ... consider using state instead", which is exactly what this is).
-  useEffect(() => {
-    setOnSheetSettled(() => () => {
-      if (locateMode === 'idle') return;
-      setCameraPadding(
-        getVisibleAreaPadding({ headerHeight, windowHeight, sheetTop: sheetPosition.value }),
-      );
-    });
-  }, [headerHeight, windowHeight, sheetPosition, setOnSheetSettled, locateMode]);
+  const handleReportButtonPress = useCallback(() => {
+    router.push('/report');
+  }, [router]);
 
   const rawBbox = useMemo(() => {
     if (!bounds) return undefined;
@@ -250,11 +213,6 @@ const MapMap = () => {
   const getLocalReports = useCallback(() => observeAllReports(), []);
   const localReports = useObservable(getLocalReports, [] as Report[]);
 
-  // `useState`'s initializer is the one place a component is allowed an
-  // impure read (same reasoning as `initialCenter` above) - computing
-  // "now" directly inside the `useMemo` below would make it an impure
-  // function per React's rules. Frozen for the session: fine in
-  // practice, a map screen isn't kept mounted for 6+ hours straight.
   const [mountedAt] = useState(() => Date.now());
 
   const reportsFeatureCollection = useMemo(() => {
@@ -262,9 +220,6 @@ const MapMap = () => {
     const serverIds = new Set(serverReports.map((report) => report.id));
     const ttlCutoff = mountedAt - REPORT_TTL_MS;
 
-    // Local-only: not already covered by the server fetch (once synced,
-    // the server copy takes over), not expired, and within the current
-    // viewport - same scoping the server query already gets for free.
     const localOnlyReports = localReports.filter((report) => {
       if (serverIds.has(report.id)) return false;
       if (report.occurredAt.getTime() < ttlCutoff) return false;
@@ -277,11 +232,6 @@ const MapMap = () => {
       );
     });
 
-    // Same same-type/within-radius grouping as the server (see
-    // `lib/watermelon/grouping.ts`), applied only among local-only reports -
-    // not merged with the already-grouped server ones, since a local report
-    // near an existing server group just shows as its own marker until it
-    // syncs and the next refetch re-groups everything server-side.
     const localOnlyGroups = groupReports(localOnlyReports, GROUP_RADIUS_METERS);
 
     return {
@@ -430,24 +380,28 @@ const MapMap = () => {
           />
         </GeoJSONSource>
       </Map>
+
       {__DEV__ && (
-        <Animated.View
+        <View
           pointerEvents="none"
-          style={[
-            { position: 'absolute', left: 0, right: 0, backgroundColor: 'rgba(255, 0, 0, 0.25)' },
-            visibleAreaDebugStyle,
-          ]}
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: cameraPadding.top,
+            bottom: cameraPadding.bottom,
+            backgroundColor: 'rgba(255, 0, 0, 0.25)',
+          }}
         />
       )}
-      <Animated.View
-        style={[
-          {
-            position: 'absolute',
-            right: insets.right + theme.spaces.horizontal,
-            gap: stackGap,
-          },
-          containerAnimatedStyle,
-        ]}
+
+      <View
+        style={{
+          position: 'absolute',
+          top: insets.top + theme.spaces.md,
+          right: insets.right + theme.spaces.horizontal,
+          gap: stackGap,
+        }}
       >
         <Pressable onPress={handleLocatePress}>
           <GlassView style={circleStyle}>
@@ -460,14 +414,66 @@ const MapMap = () => {
             </Host>
           </GlassView>
         </Pressable>
-        <Pressable onPress={() => router.push('/map/settings')}>
+        <Pressable onPress={() => router.push('/settings-map')}>
           <GlassView style={circleStyle}>
             <Settings color={colors.foreground} size={theme.icons.sizes.md} />
           </GlassView>
         </Pressable>
-      </Animated.View>
+      </View>
+
+      <View
+        onLayout={handleFooterLayout}
+        style={{
+          position: 'absolute',
+          left: insets.left + theme.spaces.horizontal,
+          right: insets.right + theme.spaces.horizontal,
+          bottom: insets.bottom + theme.spaces.md,
+          alignItems: 'center',
+        }}
+      >
+        {/* Both axes are pinned to a concrete number on the `Host` (width
+            via `100%`, height via a fixed value) - `RNHostView`'s default
+            (non-`matchContents`) sizing fills whatever box the button ends
+            up with, and that box is only unambiguous (no SwiftUI<->Yoga
+            measurement race, which drops the label/lets the icon spill
+            out otherwise) when neither axis is left to "shrink to
+            content". Capped at `Breakpoints.sm` and centered so it
+            doesn't stretch edge-to-edge on a tablet. */}
+        <Host style={{ width: '100%', maxWidth: Breakpoints.sm, height: reportButtonHeight }}>
+          <NativeButton
+            onPress={handleReportButtonPress}
+            colors={{ containerColor: colors.warning, contentColor: colors.warningForeground }}
+            iosModifiers={[
+              buttonStyle('glassProminent'),
+              controlSize('extraLarge'),
+              tint(colors.warning),
+              frame({ maxWidth: Infinity, maxHeight: Infinity }),
+            ]}
+            androidModifiers={[fillMaxSize()]}
+          >
+            <RNHostView>
+              <View
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: theme.spaces.sm,
+                }}
+              >
+                <RNIcon
+                  name={TriangleAlert}
+                  color={colors.warningForeground}
+                  size={theme.icons.sizes.md}
+                />
+                <Text style={{ color: colors.warningForeground }}>{t('messages.report')}</Text>
+              </View>
+            </RNHostView>
+          </NativeButton>
+        </Host>
+      </View>
     </>
   );
 };
 
-export default MapMap;
+export default HomeMap;

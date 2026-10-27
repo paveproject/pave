@@ -1,12 +1,3 @@
-import { Text } from '../../../components/ui/text';
-import { View } from '../../../components/ui/view';
+import HomeMap from '../../../screens/home/HomeMap';
 
-const HomeScreen = () => {
-  return (
-    <View>
-      <Text>Home Screen</Text>
-    </View>
-  );
-};
-
-export default HomeScreen;
+export default HomeMap;
