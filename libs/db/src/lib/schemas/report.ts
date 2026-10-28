@@ -1,17 +1,58 @@
-import { pgTable, pgEnum, text, timestamp, uuid, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  index,
+  smallint,
+  boolean,
+  check,
+} from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { geometryPoint } from '../customTypes/geometryPoint';
 
-export const reportTypeEnum = pgEnum('report_type_enum', [
-  'tear_gas',
-  'police_presence',
-  'arrest',
-  'violence',
-  'road_block',
-  'medical',
-  'water_cannon',
-  'kettling',
-  'other',
-]);
+/**
+ * A projection of `REPORT_FAMILIES` in @libs/constants, not a source of truth -
+ * it exists so `report_type.family_key` has something to reference.
+ */
+export const reportFamily = pgTable('report_family', {
+  key: text('key').primaryKey(),
+});
+
+/**
+ * A projection of `REPORT_TYPES` in @libs/constants, written by the seed. A
+ * table rather than the old `report_type_enum` so `report.type` keeps a FK
+ * (and so the API can validate a posted key) without a migration per added
+ * type - but the taxonomy itself is declared in code, because a type is
+ * unusable by a client that has no icon and no label for it and both ship
+ * with the bundle.
+ */
+export const reportType = pgTable(
+  'report_type',
+  {
+    key: text('key').primaryKey(),
+    familyKey: text('family_key')
+      .notNull()
+      .references(() => reportFamily.key, { onDelete: 'restrict' }),
+    /**
+     * Mirrors `REPORT_TYPES[key].wire`. Stored only for the unique constraint,
+     * which is what catches a duplicate hand-written wire code at seed time.
+     */
+    wireCode: smallint('wire_code').notNull().unique(),
+    /**
+     * Checked when a report is posted - defence in depth, since a client
+     * shouldn't offer a disabled type in the first place.
+     */
+    enabled: boolean('enabled').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check('report_type_wire_code_u8', sql`${table.wireCode} between 0 and 254`),
+    index('idx_report_type_family').on(table.familyKey),
+  ],
+);
 
 /**
  * A situation reported at a point in time/space, created offline-first on
@@ -29,7 +70,11 @@ export const report = pgTable(
   'report',
   {
     id: uuid('id').primaryKey(),
-    type: reportTypeEnum('type').notNull(),
+    // `restrict`, not `cascade`: retiring a type must never delete the reports
+    // filed under it. Disable it with `report_type.enabled` instead.
+    type: text('type')
+      .notNull()
+      .references(() => reportType.key, { onDelete: 'restrict' }),
     // SRID 4326 = WGS84 (plain lat/lng). `x` is longitude, `y` is latitude.
     location: geometryPoint('location').notNull(),
     // When the situation actually happened, as reported by the device - not
@@ -47,5 +92,6 @@ export const report = pgTable(
   (table) => [
     index('idx_report_location').using('gist', table.location),
     index('idx_report_expires_at').on(table.expiresAt),
+    index('idx_report_type').on(table.type),
   ],
 );

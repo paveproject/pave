@@ -1,6 +1,6 @@
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { db } from '../src/lib/client';
-import { seedI18n, seedSystemConfig } from '../src/lib/seed';
+import { seedI18n, seedReportTaxonomy, seedSystemConfig } from '../src/lib/seed';
 
 async function main() {
   console.log('⏳ Starting database setup...');
@@ -13,6 +13,9 @@ async function main() {
     console.log('🌱 Starting reference data seeding...');
     await seedI18n(db);
     await seedSystemConfig(db);
+    // Migration 0035 inserts the taxonomy itself (its FK needs the rows in the
+    // same transaction); this converges it afterwards on every deploy.
+    await seedReportTaxonomy(db);
     console.log('✅ Seeding completed successfully!');
 
     process.exit(0);

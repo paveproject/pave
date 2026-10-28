@@ -18,6 +18,7 @@
     "baseUrl": ".",
     "paths": {
       "@libs/assets": ["libs/assets/src/index.ts"],
+      "@libs/constants": ["libs/constants/src/index.ts"],
       "@libs/db": ["libs/db/src/index.ts"],
       "@libs/db/*": ["libs/db/src/lib/*"],
       "@libs/i18n": ["libs/i18n/src/index.ts"],

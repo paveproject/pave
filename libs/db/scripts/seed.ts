@@ -1,5 +1,5 @@
 import { db } from '../src/lib/client';
-import { seedI18n, seedSystemConfig } from '../src/lib/seed';
+import { seedI18n, seedReportTaxonomy, seedSystemConfig } from '../src/lib/seed';
 
 async function main() {
   console.log('🌱 Starting reference data seeding...');
@@ -7,6 +7,7 @@ async function main() {
   try {
     await seedI18n(db);
     await seedSystemConfig(db);
+    await seedReportTaxonomy(db);
     console.log('🚀 Seeding completed successfully!');
     process.exit(0);
   } catch (error) {
