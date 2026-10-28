@@ -67,22 +67,19 @@ const RootLayoutNav = () => {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         {/* REPORT - half/full sheet (not 'fitToContents' like the other
             formSheets below) since its content is a scrollable grid, not a
-            form that should size to itself. */}
+            form that should size to itself. `headerShown: false` because
+            `app/report/_layout.tsx` is a nested stack that owns the headers
+            for its two steps (pick a family, then a type) - leaving this one
+            on would draw a second header above them. */}
         <Stack.Screen
           name="report"
           options={{
-            title: t('pages.map.report.title'),
-            headerTransparent: true,
+            headerShown: false,
             presentation: 'formSheet',
             sheetGrabberVisible: true,
             sheetAllowedDetents: [0.5, 1],
             sheetInitialDetentIndex: 0,
-            ...(isLiquidGlassAvailable
-              ? {
-                  contentStyle: { backgroundColor: 'transparent' },
-                  headerStyle: { backgroundColor: 'transparent' },
-                }
-              : {}),
+            ...(isLiquidGlassAvailable ? { contentStyle: { backgroundColor: 'transparent' } } : {}),
           }}
         />
         {/* SETTINGS-MAP - fits its content (one segmented control), unlike
