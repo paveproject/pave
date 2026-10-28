@@ -1,32 +1,27 @@
+import {
+  REPORT_TYPES,
+  cellSizeDegrees,
+  groupsByFamily,
+  snapToGrid,
+  type ReportTypeKey,
+} from '@libs/constants';
+
 /**
- * Collapses same-type, nearby reports into one entry with a `count` -
- * client-side port of `apps/api/src/app/reports/grouping.rs`'s
- * `group_reports`/`haversine_distance_m`, used only for not-yet-synced
- * local/mesh reports (confirmed server rows are already grouped
- * server-side, see `useReportsQuery`/`ReportsResponse.count`).
+ * Collapses nearby reports into one entry with a `count`, for the local and
+ * mesh-relayed rows that haven't synced yet (confirmed server rows arrive
+ * already grouped - see `reportsOptions`).
+ *
+ * Deliberately the same rule the API applies, from the same constants in
+ * @libs/constants: both sets are drawn on one map, so a different rule here
+ * showed coarse server clusters next to a scatter of individual local pins at
+ * the same zoom. It replaced a fixed 20m radius with pairwise union-find,
+ * which neither tracked the viewport nor scaled - it was O(n²), the same
+ * reason it was taken out of the API.
  */
-
-/** Mirrors `apps/api/src/app/reports/grouping.rs`'s `GROUP_RADIUS_METERS` -
- * keep both in sync if the radius ever changes. */
-export const GROUP_RADIUS_METERS = 20;
-
-const EARTH_RADIUS_M = 6_371_000;
-
-const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
-
-function haversineDistanceM(aLat: number, aLng: number, bLat: number, bLng: number): number {
-  const dLat = toRadians(bLat - aLat);
-  const dLng = toRadians(bLng - aLng);
-  const sinLat = Math.sin(dLat / 2);
-  const sinLng = Math.sin(dLng / 2);
-  const h =
-    sinLat * sinLat + Math.cos(toRadians(aLat)) * Math.cos(toRadians(bLat)) * sinLng * sinLng;
-  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h));
-}
 
 export interface GroupableReport {
   id: string;
-  type: string;
+  type: ReportTypeKey;
   lat: number;
   lng: number;
   occurredAt: Date;
@@ -34,79 +29,64 @@ export interface GroupableReport {
 
 export interface GroupedReport {
   id: string;
+  /** A type key, or a family key when `kind` is `family`. */
   type: string;
+  kind: 'type' | 'family';
   lat: number;
   lng: number;
   occurredAt: Date;
   count: number;
 }
 
-function find(parent: number[], x: number): number {
-  if (parent[x] !== x) {
-    parent[x] = find(parent, parent[x]);
-  }
-  return parent[x];
+export interface GroupingViewport {
+  minLng: number;
+  maxLng: number;
 }
 
-function union(parent: number[], a: number, b: number): void {
-  const rootA = find(parent, a);
-  const rootB = find(parent, b);
-  if (rootA !== rootB) {
-    parent[rootA] = rootB;
-  }
-}
-
-/**
- * Single-linkage clustering via union-find: two reports are only ever
- * compared/unioned when their `type` also matches, so distinct types
- * never interact. Linkage is transitive - a chain of reports each within
- * `radiusM` of the next can end up in one group even if the two ends are
- * farther apart than `radiusM` (same tradeoff as the server-side version).
- */
-export function groupReports<T extends GroupableReport>(
-  reports: T[],
-  radiusM: number,
+export function groupReports(
+  reports: GroupableReport[],
+  viewport: GroupingViewport,
 ): GroupedReport[] {
-  const n = reports.length;
-  const parent = Array.from({ length: n }, (_, i) => i);
+  const cell = cellSizeDegrees(viewport.minLng, viewport.maxLng);
+  const byFamily = groupsByFamily(cell);
 
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      if (
-        reports[i].type === reports[j].type &&
-        haversineDistanceM(reports[i].lat, reports[i].lng, reports[j].lat, reports[j].lng) <=
-          radiusM
-      ) {
-        union(parent, i, j);
-      }
+  const cells = new Map<
+    string,
+    { members: GroupableReport[]; types: Set<string>; bucket: string }
+  >();
+
+  for (const report of reports) {
+    const family = REPORT_TYPES[report.type]?.family;
+    // A type this build doesn't know (relayed from a newer peer) has no family
+    // to bucket under, so it stands on its own rather than being dropped.
+    const bucket = byFamily && family ? family : report.type;
+    const key = `${bucket}@${snapToGrid(report.lng, cell)},${snapToGrid(report.lat, cell)}`;
+
+    const existing = cells.get(key);
+    if (existing) {
+      existing.members.push(report);
+      existing.types.add(report.type);
+    } else {
+      cells.set(key, { members: [report], types: new Set([report.type]), bucket });
     }
   }
 
-  const groups = new Map<number, number[]>();
-  for (let i = 0; i < n; i++) {
-    const root = find(parent, i);
-    const existing = groups.get(root);
-    if (existing) existing.push(i);
-    else groups.set(root, [i]);
-  }
+  return [...cells.values()].map(({ members, types, bucket }) => {
+    // Same fallback as the API: "Aid, 1" tells a reader less than "Medical, 1",
+    // and only a real mix inside a family has anything to summarise.
+    const single = types.size === 1;
+    const newest = members.reduce((a, b) => (b.occurredAt > a.occurredAt ? b : a));
 
-  return Array.from(groups.values()).map((indices) => buildGroup(reports, indices));
-}
-
-function buildGroup<T extends GroupableReport>(reports: T[], indices: number[]): GroupedReport {
-  const centroidLat = indices.reduce((sum, i) => sum + reports[i].lat, 0) / indices.length;
-  const centroidLng = indices.reduce((sum, i) => sum + reports[i].lng, 0) / indices.length;
-  const representativeIndex = indices.reduce((bestIndex, i) =>
-    reports[i].occurredAt > reports[bestIndex].occurredAt ? i : bestIndex,
-  );
-  const representative = reports[representativeIndex];
-
-  return {
-    id: representative.id,
-    type: representative.type,
-    lat: centroidLat,
-    lng: centroidLng,
-    occurredAt: representative.occurredAt,
-    count: indices.length,
-  };
+    return {
+      // The newest member's own id when it stands alone, so a later server
+      // row for the same report dedups against it.
+      id: members.length === 1 ? members[0].id : `${bucket}@${newest.lng},${newest.lat}`,
+      type: single ? newest.type : bucket,
+      kind: single ? ('type' as const) : ('family' as const),
+      lat: members.reduce((sum, r) => sum + r.lat, 0) / members.length,
+      lng: members.reduce((sum, r) => sum + r.lng, 0) / members.length,
+      occurredAt: newest.occurredAt,
+      count: members.length,
+    };
+  });
 }

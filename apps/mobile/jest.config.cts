@@ -22,6 +22,9 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/src/test-setup.ts'],
   moduleNameMapper: {
     '\\.svg$': '@nx/expo/plugins/jest/svg-mock',
+    // Metro and tsc resolve `@libs/*` through `tsconfig.base.json` paths;
+    // Jest reads neither, so workspace imports need spelling out here.
+    '^@libs/constants$': '<rootDir>/../../libs/constants/src/index.ts',
   },
   transformIgnorePatterns: jestExpoTransformIgnorePatterns,
   transform: {
