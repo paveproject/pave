@@ -125,3 +125,42 @@ export const reportTypesFor = (country?: string): ReportTypeKey[] =>
 
 export const reportTypesInFamily = (family: ReportFamily): ReportTypeKey[] =>
   REPORT_TYPE_KEYS.filter((key) => REPORT_TYPES[key].family === family);
+
+/* ------------------------------- grouping -------------------------------- */
+
+/**
+ * How markers are collapsed, shared by the API and the app.
+ *
+ * Both sides have to agree: the server groups confirmed reports, the app
+ * groups the local and mesh-relayed ones that haven't synced yet, and they are
+ * drawn on the same map. When the two rules differ, a city-wide view shows
+ * coarse server clusters next to a scatter of individual local pins.
+ *
+ * Rust keeps its own copy of these three numbers (see
+ * `apps/api/src/app/reports/grouping.rs`) because it cannot import TypeScript.
+ * That file points back here as the source of record.
+ */
+
+/** Grid cells across the viewport's width. */
+export const CELLS_ACROSS_VIEWPORT = 4;
+
+/** Below this cell size, markers are labelled by type rather than family.
+ * Times `CELLS_ACROSS_VIEWPORT`, it is the viewport width where the handover
+ * happens - about 900m. */
+export const FAMILY_GROUPING_MIN_CELL_DEGREES = 0.0031;
+
+/** Floor on the cell, so a degenerate bbox can't ask for a grid finer than
+ * GPS precision. ~1m. */
+export const MIN_CELL_DEGREES = 0.00001;
+
+/** Cell size from the viewport the client is showing. The bbox span *is* the
+ * zoom, and it knows the screen's real width where a zoom level does not. */
+export const cellSizeDegrees = (minLng: number, maxLng: number): number =>
+  Math.max(Math.abs(maxLng - minLng) / CELLS_ACROSS_VIEWPORT, MIN_CELL_DEGREES);
+
+export const groupsByFamily = (cell: number): boolean => cell > FAMILY_GROUPING_MIN_CELL_DEGREES;
+
+/** Matches PostGIS `ST_SnapToGrid`, which rounds to the nearest grid point
+ * rather than flooring - verified against the database, because a mismatch
+ * would put the same report in different cells on the two sides. */
+export const snapToGrid = (value: number, cell: number): number => Math.round(value / cell) * cell;
