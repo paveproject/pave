@@ -1,4 +1,4 @@
-import { queryOptions, useQuery, type QueryClient } from '@tanstack/react-query';
+import { queryOptions, type QueryClient } from '@tanstack/react-query';
 import { listReports, type ReportsResponse } from '@libs/api-js';
 import { reportsKeys } from './reportsKeys';
 
@@ -9,7 +9,8 @@ export interface ReportsBoundingBox {
   maxLng: number;
 }
 
-const reportsOptions = (bbox: ReportsBoundingBox) => {
+/** Non-expired reports within the map's current viewport. */
+export const reportsOptions = (bbox: ReportsBoundingBox) => {
   return queryOptions({
     queryKey: reportsKeys.list(bbox),
     queryFn: async () => {
@@ -18,14 +19,6 @@ const reportsOptions = (bbox: ReportsBoundingBox) => {
       if (data === undefined) throw new Error('No data');
       return data;
     },
-  });
-};
-
-/** Non-expired reports within the map's current viewport. */
-export const useReportsQuery = (bbox: ReportsBoundingBox | undefined) => {
-  return useQuery({
-    ...reportsOptions(bbox ?? { minLat: 0, minLng: 0, maxLat: 0, maxLng: 0 }),
-    enabled: !!bbox,
   });
 };
 

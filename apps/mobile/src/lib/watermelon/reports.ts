@@ -1,5 +1,6 @@
 import { Q } from '@nozbe/watermelondb';
-import type { ReportType, ReportsCreateRequest } from '@libs/api-js';
+import type { ReportsCreateRequest } from '@libs/api-js';
+import type { ReportTypeKey } from '@libs/constants';
 import { database } from './database';
 import { Report } from './models/Report';
 import { REPORT_TABLE } from './schema';
@@ -21,7 +22,7 @@ const reports = () => database.get<Report>(REPORT_TABLE);
  * error is thrown back to the caller either way.
  */
 export const createReport = async (params: {
-  type: ReportType;
+  type: ReportTypeKey;
   lat: number;
   lng: number;
 }): Promise<Report> => {
@@ -131,7 +132,7 @@ export const observeAllReports = () => reports().query().observe();
  */
 export const receiveMeshReport = async (packet: {
   reportId: string;
-  type: ReportType;
+  type: ReportTypeKey;
   lat: number;
   lng: number;
   occurredAt: Date;

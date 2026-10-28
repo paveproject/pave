@@ -1,2 +1,2 @@
 export * from './reportsKeys';
-export * from './reportsQueries';
+export * from './reportsOptions';

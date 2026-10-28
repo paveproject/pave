@@ -20,7 +20,7 @@ const queryStorage = createMMKV({
  * `QueryClient`) - called from `AuthProvider`'s `setSession`/`logout`
  * alongside `queryClient.resetQueries()`.
  *
- * The in-memory reset alone isn't enough: `PERSISTED_QUERY_KEYS` below
+ * The in-memory reset alone isn't enough: `PERSISTED_QUERY_KEY_PREFIXES` below
  * (trusted contacts, `/me`) survive to disk specifically so the recovery-
  * key bootstrap has something to read on a cold start, before the first
  * refetch lands - but every account currently shares the *same* on-disk
@@ -67,7 +67,16 @@ const createMMKVPersister = (key: string) => ({
 // survive a cold start, same reasoning as `meKeys.base` - the recovery-key
 // bootstrap (see `Providers.tsx`'s `RecoveryKeyBootstrap`) and its debug
 // screen both read off these on launch, before the first refetch lands.
-const PERSISTED_QUERY_KEYS = [meKeys.base, trustedContactsKeys.base, persistKey];
+/**
+ * Matched segment by segment as a prefix rather than by `queryKey[0]` alone,
+ * so a base can be allowlisted without dragging in everything nested under it
+ * (and so a future `members` key can't match the `me` base by accident).
+ */
+const PERSISTED_QUERY_KEY_PREFIXES: readonly unknown[][] = [
+  [meKeys.base],
+  [trustedContactsKeys.base],
+  [persistKey],
+];
 
 const createQueryClient = () =>
   new QueryClient({
@@ -92,7 +101,9 @@ const createQueryClient = () =>
 const dehydrateOptions: PersistQueryClientProviderProps['persistOptions']['dehydrateOptions'] = {
   shouldDehydrateMutation: () => false,
   shouldDehydrateQuery: (query) => {
-    return PERSISTED_QUERY_KEYS.some((key) => String(query.queryKey[0]).startsWith(key));
+    return PERSISTED_QUERY_KEY_PREFIXES.some((prefix) =>
+      prefix.every((segment, i) => query.queryKey[i] === segment),
+    );
   },
 };
 
