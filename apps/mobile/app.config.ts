@@ -8,7 +8,38 @@ const getUniqueIdentifier = () => {
   return 'org.paveproject.app';
 };
 
+/**
+ * ASCII only, on purpose - this is not what the user sees.
+ *
+ * Expo derives the Xcode target name from `name` by stripping everything that
+ * is not a letter or a number, and two versions of that sanitiser disagree
+ * about accents. The @expo/config-plugins 58 that ships with this SDK (and
+ * runs `prebuild`) normalises first, so 'Pavé' becomes 'Pave'. The 55 bundled
+ * inside eas-cli-local-build-plugin strips non-ASCII first, so it drops the
+ * 'é' outright and then goes looking for a target called 'Pav'. The build dies
+ * at CONFIGURE_XCODE_PROJECT with "Could not find target 'Pav' in
+ * project.pbxproj". Before SDK 58 both sides produced 'Pav' and it lined up by
+ * accident.
+ *
+ * So the name that reaches the native projects stays ASCII, and the accent is
+ * put back for display only: `CFBundleDisplayName` on iOS, `app_name` via
+ * ./plugins/withAndroidAppName on Android. Drop this once eas-cli ships
+ * config-plugins >= 58.
+ */
 const getAppName = () => {
+  if (IS_DEV) {
+    return 'Pave (Dev)';
+  }
+
+  if (IS_PREVIEW) {
+    return 'Pave (Preview)';
+  }
+
+  return 'Pave';
+};
+
+/** What actually shows under the icon on the home screen. */
+const getDisplayName = () => {
   if (IS_DEV) {
     return 'Pavé (Dev)';
   }
@@ -72,6 +103,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       tinted: './src/assets/images/app/icons/icon-tinted.png',
     },
     infoPlist: {
+      // Wins over `name`, which has to stay ASCII - see `getAppName`.
+      CFBundleDisplayName: getDisplayName(),
       ITSAppUsesNonExemptEncryption: false,
       // UIDesignRequiresCompatibility: true, // Disable iOS 26 Liquid Glass effect
       NSLocationWhenInUseUsageDescription:
@@ -123,6 +156,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     favicon: './src/assets/images/app/icons/favicon.png',
   },
   plugins: [
+    ['./plugins/withAndroidAppName', { name: getDisplayName() }],
     'expo-router',
     'expo-localization',
     'expo-video',
