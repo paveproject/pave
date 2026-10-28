@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs><radialGradient id="ground" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#152532" stop-opacity=".38"/><stop offset="60%" stop-color="#152532" stop-opacity=".16"/><stop offset="100%" stop-color="#152532" stop-opacity="0"/></radialGradient><linearGradient id="g-amber" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#F7C978"/><stop offset="42%" stop-color="#E8A33D"/><stop offset="100%" stop-color="#A86D12"/></linearGradient><linearGradient id="g-red" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#F2857F"/><stop offset="42%" stop-color="#D8453F"/><stop offset="100%" stop-color="#8E2520"/></linearGradient></defs>
+  <ellipse cx="24" cy="43" rx="10" ry="2.2" fill="url(#ground)"/>
+  <path d="M42.00 24.00 L31.95 27.29 L36.73 36.73 L27.29 31.95 L24.00 42.00 L20.71 31.95 L11.27 36.73 L16.05 27.29 L6.00 24.00 L16.05 20.71 L11.27 11.27 L20.71 16.05 L24.00 6.00 L27.29 16.05 L36.73 11.27 L31.95 20.71Z" fill="url(#g-red)"/>
+  <path d="M33.20 24.00 L28.07 25.68 L30.51 30.51 L25.68 28.07 L24.00 33.20 L22.32 28.07 L17.49 30.51 L19.93 25.68 L14.80 24.00 L19.93 22.32 L17.49 17.49 L22.32 19.93 L24.00 14.80 L25.68 19.93 L30.51 17.49 L28.07 22.32Z" fill="url(#g-amber)"/>
+  <ellipse cx="18.5" cy="17" rx="2.6" ry="1.9" fill="#FFFFFF" opacity="0.5"/>
+</svg>

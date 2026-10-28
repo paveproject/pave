@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs><radialGradient id="ground" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#152532" stop-opacity=".38"/><stop offset="60%" stop-color="#152532" stop-opacity=".16"/><stop offset="100%" stop-color="#152532" stop-opacity="0"/></radialGradient><linearGradient id="g-red" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#F2857F"/><stop offset="42%" stop-color="#D8453F"/><stop offset="100%" stop-color="#8E2520"/></linearGradient><linearGradient id="g-slate" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#92A6B4"/><stop offset="42%" stop-color="#5C7486"/><stop offset="100%" stop-color="#374856"/></linearGradient></defs>
+  <ellipse cx="24" cy="43" rx="13" ry="2.4" fill="url(#ground)"/>
+  <rect x="8.8" y="30.8" width="5.2" height="8" rx="1.2" fill="url(#g-slate)"/>
+  <rect x="16.4" y="26" width="5.2" height="12.8" rx="1.2" fill="url(#g-slate)"/>
+  <rect x="24" y="21.2" width="5.2" height="17.6" rx="1.2" fill="url(#g-slate)"/>
+  <rect x="31.6" y="16.4" width="5.2" height="22.4" rx="1.2" fill="url(#g-slate)"/>
+  <path d="M8 39.2 40 10.8" fill="none" stroke="url(#g-red)" stroke-width="5.6" stroke-linecap="round"/>
+</svg>

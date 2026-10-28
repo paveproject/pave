@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs><radialGradient id="ground" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#152532" stop-opacity=".38"/><stop offset="60%" stop-color="#152532" stop-opacity=".16"/><stop offset="100%" stop-color="#152532" stop-opacity="0"/></radialGradient><linearGradient id="g-brass" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#F0CE86"/><stop offset="42%" stop-color="#C8821F"/><stop offset="100%" stop-color="#8A5A0F"/></linearGradient><linearGradient id="g-metal" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#D6DEE3"/><stop offset="42%" stop-color="#A2AEB7"/><stop offset="100%" stop-color="#6E7A84"/></linearGradient></defs>
+  <ellipse cx="24" cy="43" rx="12" ry="2.4" fill="url(#ground)"/>
+  <path d="M10.8 22.8 15.8 13.6 20.8 22.8Z" fill="url(#g-metal)"/>
+  <rect x="10.8" y="22.8" width="10" height="16" rx="1.6" fill="url(#g-brass)"/>
+  <rect x="10.8" y="34.8" width="10" height="2.4" fill="#17200F" opacity="0.3"/>
+  <rect x="12.4" y="25" width="2" height="10" rx="1" fill="#FFFFFF" opacity="0.32"/>
+  <path d="M27.2 22.8 32.2 13.6 37.2 22.8Z" fill="url(#g-metal)"/>
+  <rect x="27.2" y="22.8" width="10" height="16" rx="1.6" fill="url(#g-brass)"/>
+  <rect x="27.2" y="34.8" width="10" height="2.4" fill="#17200F" opacity="0.3"/>
+</svg>

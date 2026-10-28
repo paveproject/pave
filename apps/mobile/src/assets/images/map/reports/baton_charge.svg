@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs><radialGradient id="ground" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#152532" stop-opacity=".38"/><stop offset="60%" stop-color="#152532" stop-opacity=".16"/><stop offset="100%" stop-color="#152532" stop-opacity="0"/></radialGradient><linearGradient id="g-amber" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#F7C978"/><stop offset="42%" stop-color="#E8A33D"/><stop offset="100%" stop-color="#A86D12"/></linearGradient><linearGradient id="g-metal" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#D6DEE3"/><stop offset="42%" stop-color="#A2AEB7"/><stop offset="100%" stop-color="#6E7A84"/></linearGradient><linearGradient id="g-steel" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#5A6A76"/><stop offset="42%" stop-color="#2B3A44"/><stop offset="100%" stop-color="#141F27"/></linearGradient></defs>
+  <ellipse cx="24" cy="43" rx="12" ry="2.4" fill="url(#ground)"/>
+  <path d="M36.8 11.2 40.8 8.4" fill="none" stroke="url(#g-amber)" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M31.6 7.6 34 4" fill="none" stroke="url(#g-amber)" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M12.8 35.2 32.8 15.2" fill="none" stroke="url(#g-steel)" stroke-width="6.4" stroke-linecap="round"/>
+  <path d="M12.8 35.2 18.8 29.2" fill="none" stroke="url(#g-metal)" stroke-width="6.8" stroke-linecap="round"/>
+</svg>

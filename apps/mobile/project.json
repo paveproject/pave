@@ -35,8 +35,17 @@
     },
     "update": {
       "command": "eas update",
-      "options": { "cwd": "{projectRoot}" },
+      "options": {
+        "cwd": "{projectRoot}"
+      },
       "dependsOn": ["^build"]
+    },
+    "render-icons": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun scripts/render-report-icons.ts",
+        "cwd": "apps/mobile"
+      }
     }
   }
 }

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs><radialGradient id="ground" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#152532" stop-opacity=".38"/><stop offset="60%" stop-color="#152532" stop-opacity=".16"/><stop offset="100%" stop-color="#152532" stop-opacity="0"/></radialGradient><linearGradient id="g-amber" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#F7C978"/><stop offset="42%" stop-color="#E8A33D"/><stop offset="100%" stop-color="#A86D12"/></linearGradient><linearGradient id="g-metal" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#D6DEE3"/><stop offset="42%" stop-color="#A2AEB7"/><stop offset="100%" stop-color="#6E7A84"/></linearGradient><linearGradient id="g-steel" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#5A6A76"/><stop offset="42%" stop-color="#2B3A44"/><stop offset="100%" stop-color="#141F27"/></linearGradient></defs>
+  <ellipse cx="24" cy="43" rx="10" ry="2.4" fill="url(#ground)"/>
+  <path d="M41.00 18.00 L31.39 21.06 L36.02 30.02 L27.06 25.39 L24.00 35.00 L20.94 25.39 L11.98 30.02 L16.61 21.06 L7.00 18.00 L16.61 14.94 L11.98 5.98 L20.94 10.61 L24.00 1.00 L27.06 10.61 L36.02 5.98 L31.39 14.94Z" fill="url(#g-amber)"/>
+  <rect x="19.2" y="22" width="9.6" height="16" rx="3.2" fill="url(#g-metal)"/>
+  <rect x="19.2" y="27.2" width="9.6" height="2.8" fill="#17200F" opacity="0.35"/>
+  <rect x="21.2" y="18.8" width="5.6" height="3.6" rx="1.2" fill="url(#g-steel)"/>
+  <rect x="21.4" y="24" width="2.2" height="10" rx="1.1" fill="#FFFFFF" opacity="0.32"/>
+</svg>

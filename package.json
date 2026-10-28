@@ -164,6 +164,7 @@
     "metro-resolver": "~0.84.4",
     "nx": "23.2.1",
     "prettier": "~3.6.2",
+    "sharp": "^0.35.5",
     "typescript": "~5.9.2",
     "typescript-eslint": "^8.40.0"
   },

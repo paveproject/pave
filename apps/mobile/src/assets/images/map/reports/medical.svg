@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs><radialGradient id="ground" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#152532" stop-opacity=".38"/><stop offset="60%" stop-color="#152532" stop-opacity=".16"/><stop offset="100%" stop-color="#152532" stop-opacity="0"/></radialGradient><linearGradient id="g-bone" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="42%" stop-color="#EDF2F6"/><stop offset="100%" stop-color="#C6D2DB"/></linearGradient><linearGradient id="g-maroon" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#C2443E"/><stop offset="42%" stop-color="#9A2F2A"/><stop offset="100%" stop-color="#5F1A16"/></linearGradient><linearGradient id="g-metal" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#D6DEE3"/><stop offset="42%" stop-color="#A2AEB7"/><stop offset="100%" stop-color="#6E7A84"/></linearGradient><linearGradient id="g-red" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#F2857F"/><stop offset="42%" stop-color="#D8453F"/><stop offset="100%" stop-color="#8E2520"/></linearGradient></defs>
+  <ellipse cx="24" cy="43" rx="14" ry="2.6" fill="url(#ground)"/>
+  <path d="M19.2 16.8v-2a4.8 4.8 0 0 1 9.6 0v2" fill="none" stroke="url(#g-metal)" stroke-width="3.2" stroke-linecap="round"/>
+  <rect x="5.2" y="16.4" width="37.6" height="22.4" rx="4.8" fill="url(#g-red)"/>
+  <rect x="5.2" y="20.8" width="37.6" height="3.2" rx="0" fill="url(#g-maroon)"/>
+  <rect x="21.2" y="24.6" width="5.6" height="11.2" rx="1.4" fill="url(#g-bone)"/>
+  <rect x="18" y="27.4" width="12" height="5.6" rx="1.4" fill="url(#g-bone)"/>
+  <rect x="8" y="18.4" width="12" height="2.4" rx="1.2" fill="#FFFFFF" opacity="0.3"/>
+</svg>

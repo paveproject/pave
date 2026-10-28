@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs><radialGradient id="ground" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#152532" stop-opacity=".38"/><stop offset="60%" stop-color="#152532" stop-opacity=".16"/><stop offset="100%" stop-color="#152532" stop-opacity="0"/></radialGradient><linearGradient id="g-blue" x1="16%" y1="0%" x2="84%" y2="100%"><stop offset="0%" stop-color="#7FA9D4"/><stop offset="42%" stop-color="#3A6EA5"/><stop offset="100%" stop-color="#1E4068"/></linearGradient><radialGradient id="s-slate" cx="34%" cy="28%" r="78%"><stop offset="0%" stop-color="#A2B4C0"/><stop offset="52%" stop-color="#5C7486"/><stop offset="100%" stop-color="#2E3D49"/></radialGradient></defs>
+  <ellipse cx="24" cy="43" rx="12" ry="2.4" fill="url(#ground)"/>
+  <circle cx="18.4" cy="19.6" r="4" fill="url(#s-slate)"/>
+  <circle cx="29.6" cy="19.6" r="4" fill="url(#s-slate)"/>
+  <circle cx="18.4" cy="28.4" r="4" fill="url(#s-slate)"/>
+  <circle cx="29.6" cy="28.4" r="4" fill="url(#s-slate)"/>
+  <circle cx="24" cy="24" r="16.8" fill="none" stroke="url(#g-blue)" stroke-width="5.2"/>
+</svg>
