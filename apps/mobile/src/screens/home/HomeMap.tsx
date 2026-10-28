@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Alert, Pressable, View, type LayoutChangeEvent } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  View,
+  type LayoutChangeEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { useFormatter, useTranslations } from 'use-intl';
 import { GlassView } from 'expo-glass-effect';
 import { Settings, TriangleAlert } from 'lucide-react-native';
@@ -22,8 +28,7 @@ import {
   type TrackUserLocation,
   type TrackUserLocationChangeEvent,
 } from '@maplibre/maplibre-react-native';
-import type { NativeSyntheticEvent } from 'react-native';
-import { useReportsQuery } from '@libs/query-client';
+import { reportsOptions } from '@libs/query-client';
 import { useReportsSocket } from './useReportsSocket';
 import useDebounce from '../../hooks/useDebounce';
 import { useObservable } from '../../hooks/useObservable';
@@ -41,6 +46,7 @@ import { Breakpoints } from '../../constants/breakpoints';
 import { Text } from '../../components/ui/text';
 import { Icon as RNIcon } from '../../components/ui/icon';
 import { NativeButton } from '../../components/ui/NativeButton';
+import { useQuery } from '@tanstack/react-query';
 
 /**
  * The locate button's 3 states, cycled on each tap - same idea as Apple/
@@ -93,15 +99,18 @@ const DEFAULT_CENTER: [number, number] = [2.3522, 48.8566];
 // this a not-yet/never-synced row would render as a pin forever.
 const REPORT_TTL_MS = 6 * 60 * 60 * 1000;
 
-const CLUSTER_SEVERITY_STOPS = {
-  medium: 10,
-  high: 50,
-  extreme: 100,
-} as const;
+// Clustering is off (see the GeoJSONSource below): a single count can't
+// speak for a group that mixes `live_ammunition` with `safe_route`, so the
+// severity tiers have nothing meaningful to scale.
+// const CLUSTER_SEVERITY_STOPS = {
+//   medium: 10,
+//   high: 50,
+//   extreme: 100,
+// } as const;
 
 /**
  * The Home tab's live map - reports (server + local/mesh-pending, grouped
- * by type/proximity) rendered as clustered markers, plus the locate and
+ * by type/proximity) rendered one marker per report, plus the locate and
  * report-creation controls. No bottom sheet on this screen, so camera
  * padding/button placement are plain fixed reserves (`cameraPadding`)
  * rather than anything tracking a draggable sheet position.
@@ -207,7 +216,10 @@ const HomeMap = () => {
   }, [bounds]);
   const bbox = useDebounce(rawBbox, 500);
 
-  const reportsQuery = useReportsQuery(bbox);
+  const reportsQuery = useQuery({
+    ...reportsOptions(bbox ?? { minLat: 0, minLng: 0, maxLat: 0, maxLng: 0 }),
+    enabled: !!bbox,
+  });
   useReportsSocket(bbox);
 
   const getLocalReports = useCallback(() => observeAllReports(), []);
@@ -270,14 +282,15 @@ const HomeMap = () => {
 
       const properties = (feature.properties ?? {}) as Record<string, unknown>;
 
-      if (properties.cluster) {
-        const clusterId = properties.cluster_id as number;
-        const expansionZoom = await reportsSourceRef.current?.getClusterExpansionZoom(clusterId);
-        if (expansionZoom === undefined || feature.geometry.type !== 'Point') return;
-        const [lng, lat] = feature.geometry.coordinates as [number, number];
-        cameraRef.current?.flyTo({ center: [lng, lat], zoom: expansionZoom, duration: 500 });
-        return;
-      }
+      // No clusters to expand while clustering is off.
+      // if (properties.cluster) {
+      //   const clusterId = properties.cluster_id as number;
+      //   const expansionZoom = await reportsSourceRef.current?.getClusterExpansionZoom(clusterId);
+      //   if (expansionZoom === undefined || feature.geometry.type !== 'Point') return;
+      //   const [lng, lat] = feature.geometry.coordinates as [number, number];
+      //   cameraRef.current?.flyTo({ center: [lng, lat], zoom: expansionZoom, duration: 500 });
+      //   return;
+      // }
 
       const reportType = properties.type as string | undefined;
       const occurredAt = properties.occurredAt as string | undefined;
@@ -329,16 +342,23 @@ const HomeMap = () => {
           onTrackUserLocationChange={handleTrackUserLocationChange}
         />
         <UserLocation />
-        <Images images={{ ...Assets.reports, ...Assets.clusterSeverity }} />
+        <Images images={{ ...Assets.reports /*, ...Assets.clusterSeverity */ }} />
         <GeoJSONSource
           id="reports"
           ref={reportsSourceRef}
           data={reportsFeatureCollection}
-          cluster
-          clusterRadius={50}
-          clusterMaxZoom={14}
+          // Clustering disabled: a cluster bubble would average hazards and
+          // safe spots into one number. Re-enable here together with the
+          // `reports-clusters` layer below if it ever earns its place.
+          // cluster
+          // clusterRadius={50}
+          // clusterMaxZoom={14}
           onPress={handleReportsPress}
         >
+          {/* Cluster layer, disabled with the source options above. A
+              count over a group that mixes hazards and safe spots says
+              nothing useful, so there is no severity to render.
+
           <Layer
             id="reports-clusters"
             type="symbol"
@@ -355,7 +375,8 @@ const HomeMap = () => {
                 CLUSTER_SEVERITY_STOPS.extreme,
                 Assets.clusterSeverity.extreme,
               ],
-              'icon-size': ['interpolate', ['linear'], ['zoom'], 10, 0.025, 14, 0.045, 18, 0.08],
+              'icon-size': ['interpolate', ['linear'], ['zoom'], -14, 0.1, 18, 0.2],
+              // 'icon-size': ['interpolate', ['linear'], ['zoom'], 10, 0.025, 14, 0.045, 18, 0.08],
               'icon-allow-overlap': true,
               'text-field': ['get', 'point_count'],
               'text-size': 11,
@@ -368,13 +389,16 @@ const HomeMap = () => {
               'text-halo-width': 1.5,
             }}
           />
+          */}
+
           <Layer
             id="reports-unclustered"
             type="symbol"
-            filter={['!', ['has', 'point_count']]}
+            // filter={['!', ['has', 'point_count']]}
             layout={{
               'icon-image': ['get', 'type'],
-              'icon-size': ['interpolate', ['linear'], ['zoom'], 10, 0.017, 14, 0.033, 18, 0.067],
+              'icon-size': ['interpolate', ['linear'], ['zoom'], 14, 0.1, 18, 0.2],
+              // 'icon-size': ['interpolate', ['linear'], ['zoom'], 10, 0.04, 14, 0.066, 18, 0.094],
               'icon-allow-overlap': true,
             }}
           />
