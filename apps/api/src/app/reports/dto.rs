@@ -2,6 +2,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
+/// Websocket events carry single reports, which are always a concrete type.
+fn default_kind() -> String {
+    "type".to_string()
+}
+
 /// `id` is always client-generated (a UUID minted offline, before any server
 /// round-trip is possible) - WatermelonDB re-pushes unsynced rows on every
 /// reconnect, so creating the same report twice must be a no-op, not a
@@ -29,14 +34,20 @@ pub struct ReportsCreateRequest {
 #[serde(rename_all = "camelCase")]
 pub struct ReportsResponse {
     pub id: String,
-    /// A `report_type.key`, see `ReportsCreateRequest::type`.
+    /// A `report_type.key`, see `ReportsCreateRequest::type` - or a
+    /// `report_family.key` when `kind` is `family`.
     pub r#type: String,
+    /// `"family"` or `"type"`: which level `type` names. Needed because the
+    /// key alone can't say - `other` is both a family and a type.
+    #[serde(default = "default_kind")]
+    pub kind: String,
     pub lat: f64,
     pub lng: f64,
     pub occurred_at: String,
     pub expires_at: String,
-    /// Number of reports of this `type` within `grouping::GROUP_RADIUS_METERS`
-    /// of each other that this marker represents. `1` if ungrouped.
+    /// How many reports this marker stands for - everything of the same
+    /// family (or type, when zoomed in) inside one grid cell. `1` when the
+    /// cell holds a single report.
     pub count: u32,
 }
 

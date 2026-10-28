@@ -1,165 +1,150 @@
-use super::dto::ReportsResponse;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::FromQueryResult;
-use std::collections::HashMap;
 
-/// Max real-world distance (meters) between two reports of the SAME type
-/// before they're folded into one marker with a `count`. Deliberately
-/// tight: GPS jitter during a protest (open sky ~5-15m, degraded
-/// urban-canyon ~15-30m) overlaps with how close two genuinely distinct
-/// streets can sit in a dense city center (as little as ~15-25m) - no
-/// radius perfectly satisfies both "always merge true duplicates" and
-/// "never merge two different streets". This picks the tight side on
-/// purpose, per explicit product requirement: better to occasionally show
-/// two pins for the same event than to ever merge two distinct ones.
-/// Provisional - revisit after real field testing during an actual protest.
-pub const GROUP_RADIUS_METERS: f64 = 20.0;
+/// Mirrors `CELLS_ACROSS_VIEWPORT` in @libs/constants, which is the source of
+/// record - the mobile app applies the same rule to local and mesh-relayed
+/// reports, and the two sets are drawn on one map. Rust can't import it.
+///
+/// How many grid cells the viewport is cut into across its width. Four: at six
+/// a march-sized crowd still came back as ~36 markers inside a 400m view,
+/// where the same points collapse to ~22 at four. Lower than this and the grid
+/// starts reading as a pattern - markers snap to three columns on screen, and
+/// a dense cluster sitting on a boundary visibly splits in two.
+const CELLS_ACROSS_VIEWPORT: f64 = 4.0;
 
+/// Floor on the cell, so a degenerate or absurdly tight bbox can't ask for a
+/// grid finer than GPS precision. ~1m.
+const MIN_CELL_DEGREES: f64 = 0.00001;
+
+/// Above this cell size, markers group by family instead of by type. Six
+/// families instead of twenty-nine types is the difference between ~330 and
+/// ~110 markers for a city-wide view, and it is what the family level of the
+/// taxonomy exists for. Below it the viewport is tight enough that the precise
+/// type is what a reader needs.
+///
+/// Mirrors `FAMILY_GROUPING_MIN_CELL_DEGREES` in @libs/constants.
+///
+/// Tracks `CELLS_ACROSS_VIEWPORT`: the handover happens at
+/// `FAMILY_GROUPING_MIN_CELL * CELLS_ACROSS_VIEWPORT` degrees of viewport,
+/// so changing the grid density without this would silently move it. Both
+/// together keep it at about 480m across - that is the number to move if the
+/// handover feels early or late.
+const FAMILY_GROUPING_MIN_CELL: f64 = 0.0031;
+
+/// Hard ceiling on markers per viewport. Never reached in practice once the
+/// grid does its work (~1k at the worst zoom over 100k reports in Paris), so
+/// it is a backstop against a pathological viewport, not a tuning knob.
+pub const MAX_MARKERS: u32 = 2000;
+
+/// Grid cell size in degrees, taken from the viewport the client already
+/// sends. No `zoom` parameter: the bbox span *is* the zoom, and it is the more
+/// honest input - a tablet and a phone at the same zoom see very different
+/// areas, and only the span knows that. It also means no client change, and
+/// nothing to default when an older build calls.
+///
+/// The cell shrinks as the viewport does, which is what makes clusters
+/// dissolve into individual pins at street level with no special case for it.
+pub fn cell_size_degrees(min_lng: f64, max_lng: f64) -> f64 {
+    let span = (max_lng - min_lng).abs();
+    (span / CELLS_ACROSS_VIEWPORT).max(MIN_CELL_DEGREES)
+}
+
+/// Whether a marker speaks for a family or for a single report type. The
+/// client needs it to pick the icon, and because `other` is both a family key
+/// and a type key, the key alone cannot say.
+pub fn groups_by_family(cell: f64) -> bool {
+    cell > FAMILY_GROUPING_MIN_CELL
+}
+
+/// One grid cell, already aggregated by Postgres.
+///
+/// The pairwise union-find this module used to run is gone: it was O(n²) with
+/// a haversine per pair, so a Paris-wide viewport over 100k reports meant
+/// ~3.6e9 distance computations in the request. The database groups instead,
+/// and returns ~1k rows whatever the zoom.
 #[derive(Debug, FromQueryResult)]
-pub struct ReportRow {
+pub struct ReportCluster {
+    /// The report's own id when the cell holds exactly one, so a live
+    /// websocket event still dedups against it; a deterministic cell key
+    /// otherwise, so a cluster keeps its identity across refetches.
     pub id: String,
+    /// A `report_type.key`, or a `report_family.key` when `kind` is `family`.
     pub r#type: String,
+    /// `"family"` or `"type"`.
+    pub kind: String,
     pub lng: f64,
     pub lat: f64,
     pub occurred_at: DateTimeWithTimeZone,
     pub expires_at: DateTimeWithTimeZone,
-}
-
-const EARTH_RADIUS_M: f64 = 6_371_000.0;
-
-fn haversine_distance_m(a_lat: f64, a_lng: f64, b_lat: f64, b_lng: f64) -> f64 {
-    let (a_lat_rad, b_lat_rad) = (a_lat.to_radians(), b_lat.to_radians());
-    let d_lat = b_lat_rad - a_lat_rad;
-    let d_lng = (b_lng - a_lng).to_radians();
-
-    let sin_lat = (d_lat / 2.0).sin();
-    let sin_lng = (d_lng / 2.0).sin();
-    let h = sin_lat * sin_lat + a_lat_rad.cos() * b_lat_rad.cos() * sin_lng * sin_lng;
-
-    2.0 * EARTH_RADIUS_M * h.sqrt().asin()
-}
-
-fn find(parent: &mut [usize], x: usize) -> usize {
-    if parent[x] != x {
-        parent[x] = find(parent, parent[x]);
-    }
-    parent[x]
-}
-
-fn union(parent: &mut [usize], a: usize, b: usize) {
-    let (root_a, root_b) = (find(parent, a), find(parent, b));
-    if root_a != root_b {
-        parent[root_a] = root_b;
-    }
-}
-
-/// Collapses same-type reports within `radius_m` of each other (true
-/// geodesic distance, not degree- or Mercator-based) into one
-/// `ReportsResponse` with a `count`. Single-linkage clustering via
-/// union-find: two rows are only ever compared/unioned when their `type`
-/// also matches, so distinct types never interact. Linkage is transitive -
-/// a chain of reports each within `radius_m` of the next can end up in one
-/// group even if the two ends are farther apart than `radius_m`.
-pub fn group_reports(rows: Vec<ReportRow>, radius_m: f64) -> Vec<ReportsResponse> {
-    let n = rows.len();
-    let mut parent: Vec<usize> = (0..n).collect();
-
-    for i in 0..n {
-        for j in (i + 1)..n {
-            if rows[i].r#type == rows[j].r#type
-                && haversine_distance_m(rows[i].lat, rows[i].lng, rows[j].lat, rows[j].lng)
-                    <= radius_m
-            {
-                union(&mut parent, i, j);
-            }
-        }
-    }
-
-    let mut groups: HashMap<usize, Vec<usize>> = HashMap::new();
-    for i in 0..n {
-        let root = find(&mut parent, i);
-        groups.entry(root).or_default().push(i);
-    }
-
-    groups
-        .into_values()
-        .map(|idxs| build_group_response(&rows, &idxs))
-        .collect()
-}
-
-fn build_group_response(rows: &[ReportRow], idxs: &[usize]) -> ReportsResponse {
-    let centroid_lat = idxs.iter().map(|&i| rows[i].lat).sum::<f64>() / idxs.len() as f64;
-    let centroid_lng = idxs.iter().map(|&i| rows[i].lng).sum::<f64>() / idxs.len() as f64;
-    let rep = idxs
-        .iter()
-        .map(|&i| &rows[i])
-        .max_by_key(|r| r.occurred_at)
-        .expect("group is never empty");
-
-    ReportsResponse {
-        id: rep.id.clone(),
-        r#type: rep.r#type.clone(),
-        lat: centroid_lat,
-        lng: centroid_lng,
-        occurred_at: rep.occurred_at.to_rfc3339(),
-        expires_at: rep.expires_at.to_rfc3339(),
-        count: idxs.len() as u32,
-    }
+    pub count: i64,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{DateTime, Utc};
 
-    fn row(id: &str, r#type: String, lat: f64, lng: f64, occurred_at_secs: i64) -> ReportRow {
-        let occurred_at: DateTimeWithTimeZone =
-            DateTime::<Utc>::from_timestamp(occurred_at_secs, 0)
-                .unwrap()
-                .into();
-        ReportRow {
-            id: id.to_string(),
-            r#type,
-            lng,
-            lat,
-            occurred_at,
-            expires_at: occurred_at,
+    #[test]
+    fn cell_shrinks_with_the_viewport() {
+        // Paris end to end, then one street.
+        let wide = cell_size_degrees(2.24, 2.43);
+        let street = cell_size_degrees(2.3516, 2.3528);
+
+        assert!(street < wide);
+        // Expressed against the constant, not a literal, so retuning the grid
+        // density doesn't mean editing the test that guards it.
+        assert!((wide - (2.43 - 2.24) / CELLS_ACROSS_VIEWPORT).abs() < 1e-9);
+    }
+
+    #[test]
+    fn groups_by_family_only_when_zoomed_out() {
+        // A city-wide viewport, then one street.
+        assert!(groups_by_family(cell_size_degrees(2.24, 2.43)));
+        assert!(!groups_by_family(cell_size_degrees(2.3516, 2.3528)));
+    }
+
+    /// The three constants above are hand-copied from @libs/constants because
+    /// Rust cannot import TypeScript. Nothing but this test stops one side
+    /// from being retuned alone, and the symptom would be coarse server
+    /// clusters next to finer local ones at the same zoom - easy to misread as
+    /// a rendering bug.
+    #[test]
+    fn mirrors_the_constants_lib() {
+        let src = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../libs/constants/src/lib/reports.ts"
+        ))
+        .expect("@libs/constants is the source of record for the grouping rule");
+
+        for (name, value) in [
+            ("CELLS_ACROSS_VIEWPORT", CELLS_ACROSS_VIEWPORT),
+            ("MIN_CELL_DEGREES", MIN_CELL_DEGREES),
+            ("FAMILY_GROUPING_MIN_CELL_DEGREES", FAMILY_GROUPING_MIN_CELL),
+        ] {
+            let decl = format!("export const {name} = ");
+            let rest = src
+                .split_once(&decl)
+                .unwrap_or_else(|| panic!("{name} is gone from @libs/constants"))
+                .1;
+            let declared: f64 = rest
+                .split(';')
+                .next()
+                .and_then(|v| v.trim().parse().ok())
+                .unwrap_or_else(|| panic!("{name} is no longer a plain number literal"));
+
+            assert!(
+                (declared - value).abs() < f64::EPSILON,
+                "{name} is {declared} in @libs/constants but {value} here"
+            );
         }
     }
 
     #[test]
-    fn merges_gps_jitter_of_the_same_event() {
-        // ~8m apart at Paris latitude - well within typical open-sky GPS noise.
-        let rows = vec![
-            row("a", "tear_gas".to_string(), 48.8566, 2.3522, 100),
-            row("b", "tear_gas".to_string(), 48.85665, 2.35225, 200),
-        ];
-        let grouped = group_reports(rows, GROUP_RADIUS_METERS);
-        assert_eq!(grouped.len(), 1);
-        assert_eq!(grouped[0].count, 2);
-        assert_eq!(grouped[0].id, "b"); // most recent occurred_at
-    }
-
-    #[test]
-    fn keeps_two_distinct_streets_separate() {
-        // ~28m apart at Paris latitude - beyond the 20m radius, like two
-        // parallel streets.
-        let rows = vec![
-            row("a", "tear_gas".to_string(), 48.8566, 2.3522, 100),
-            row("b", "tear_gas".to_string(), 48.85685, 2.3522, 200),
-        ];
-        let grouped = group_reports(rows, GROUP_RADIUS_METERS);
-        assert_eq!(grouped.len(), 2);
-        assert!(grouped.iter().all(|r| r.count == 1));
-    }
-
-    #[test]
-    fn never_merges_across_types() {
-        let rows = vec![
-            row("a", "tear_gas".to_string(), 48.8566, 2.3522, 100),
-            row("b", "violence".to_string(), 48.8566, 2.3522, 200),
-        ];
-        let grouped = group_reports(rows, GROUP_RADIUS_METERS);
-        assert_eq!(grouped.len(), 2);
+    fn never_grids_finer_than_gps() {
+        // A zero-width bbox would otherwise ask for a cell of zero degrees.
+        assert_eq!(cell_size_degrees(2.35, 2.35), MIN_CELL_DEGREES);
+        assert!(
+            (cell_size_degrees(2.43, 2.24) - cell_size_degrees(2.24, 2.43)).abs() < f64::EPSILON,
+            "order must not matter"
+        );
     }
 }

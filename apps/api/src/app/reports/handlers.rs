@@ -1,6 +1,6 @@
 use super::dto::{ReportsCreateRequest, ReportsListQuery, ReportsResponse};
 use super::geohash_util;
-use super::grouping::{self, ReportRow};
+use super::grouping::{self, ReportCluster};
 use super::hub::{self, ReportsHub};
 use super::rate_limit;
 use super::ws_dto::{ReportsClientMessage, ReportsServerMessage};
@@ -109,6 +109,9 @@ pub async fn create_report(
     let response = ReportsResponse {
         id: body.id,
         r#type: body.r#type,
+        // A freshly created report is always one concrete type, never a family
+        // bucket - only the clustered list produces those.
+        kind: "type".to_string(),
         lat: body.lat,
         lng: body.lng,
         occurred_at: body.occurred_at.to_rfc3339(),
@@ -127,6 +130,81 @@ pub async fn create_report(
     Json(response).into_response()
 }
 
+/// Grouped by family - six buckets instead of twenty-nine, for a viewport wide
+/// enough that the precise type isn't what a reader needs yet.
+///
+/// The label still falls back to the type whenever a cell holds only one:
+/// "Aid, 1" is strictly worse than "Medical, 1", and "Force used, 12" worse
+/// than "Tear gas, 12". Only a genuine mix inside one family has anything to
+/// summarise, so only a mix is labelled as one.
+const REPORTS_BY_FAMILY_SQL: &str = r#"
+    WITH cells AS (
+        SELECT
+            rt.family_key                     AS bucket,
+            ST_SnapToGrid(r.location, $5, $5) AS cell,
+            count(*)                          AS n,
+            count(DISTINCT r.type)            AS kinds,
+            min(r.type)                       AS lone_type,
+            avg(ST_X(r.location))             AS lng,
+            avg(ST_Y(r.location))             AS lat,
+            max(r.occurred_at)                AS occurred_at,
+            max(r.expires_at)                 AS expires_at,
+            min(r.id::text)                   AS lone_id
+        FROM report r
+        JOIN report_type rt ON rt.key = r.type
+        WHERE r.expires_at > now()
+          AND ST_Within(r.location, ST_MakeEnvelope($1, $2, $3, $4, 4326))
+        GROUP BY rt.family_key, ST_SnapToGrid(r.location, $5, $5)
+    ),
+    labelled AS (
+        SELECT *,
+            CASE WHEN kinds = 1 THEN lone_type ELSE bucket END AS label,
+            CASE WHEN kinds = 1 THEN 'type'    ELSE 'family' END AS kind
+        FROM cells
+    )
+    SELECT
+        CASE WHEN n = 1 THEN lone_id
+             ELSE label || '@' || ST_X(cell)::text || ',' || ST_Y(cell)::text
+        END          AS id,
+        label        AS type,
+        kind,
+        lng, lat, occurred_at, expires_at,
+        n            AS count
+    FROM labelled
+    ORDER BY n DESC
+    LIMIT $6
+"#;
+
+/// Grouped by type, for a viewport tight enough that the distinction matters.
+const REPORTS_BY_TYPE_SQL: &str = r#"
+    WITH cells AS (
+        SELECT
+            r.type                            AS bucket,
+            ST_SnapToGrid(r.location, $5, $5) AS cell,
+            count(*)                          AS n,
+            avg(ST_X(r.location))             AS lng,
+            avg(ST_Y(r.location))             AS lat,
+            max(r.occurred_at)                AS occurred_at,
+            max(r.expires_at)                 AS expires_at,
+            min(r.id::text)                   AS lone_id
+        FROM report r
+        WHERE r.expires_at > now()
+          AND ST_Within(r.location, ST_MakeEnvelope($1, $2, $3, $4, 4326))
+        GROUP BY r.type, ST_SnapToGrid(r.location, $5, $5)
+    )
+    SELECT
+        CASE WHEN n = 1 THEN lone_id
+             ELSE bucket || '@' || ST_X(cell)::text || ',' || ST_Y(cell)::text
+        END          AS id,
+        bucket       AS type,
+        'type'       AS kind,
+        lng, lat, occurred_at, expires_at,
+        n            AS count
+    FROM cells
+    ORDER BY n DESC
+    LIMIT $6
+"#;
+
 #[utoipa::path(
     get,
     path = "/reports",
@@ -138,35 +216,58 @@ pub async fn list_reports(
     State(state): State<AppState>,
     Query(query): Query<ReportsListQuery>,
 ) -> impl IntoResponse {
+    let cell = grouping::cell_size_degrees(query.min_lng, query.max_lng);
+    let by_family = grouping::groups_by_family(cell);
+
+    // Grouped by Postgres, not in this process. Returning every row in the
+    // viewport meant 84k rows for a Paris-wide view over 100k reports, and the
+    // pairwise grouping that followed was O(n²). Snapping to a grid sized from
+    // the viewport keeps the answer around a thousand rows at every zoom, and
+    // costs one hash aggregate over a set the GiST index already narrowed.
+    //
+    // `type` is part of the grouping key on purpose: a count that mixes
+    // `live_ammunition` with `safe_route` says nothing a reader can use.
     let stmt = Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
-        r#"
-        SELECT
-            id::text AS id,
-            type,
-            ST_X(location) AS lng,
-            ST_Y(location) AS lat,
-            occurred_at,
-            expires_at
-        FROM report
-        WHERE expires_at > now()
-          AND ST_Within(location, ST_MakeEnvelope($1, $2, $3, $4, 4326))
-        ORDER BY occurred_at DESC
-        "#,
+        if by_family {
+            REPORTS_BY_FAMILY_SQL
+        } else {
+            REPORTS_BY_TYPE_SQL
+        },
         [
             query.min_lng.into(),
             query.min_lat.into(),
             query.max_lng.into(),
             query.max_lat.into(),
+            cell.into(),
+            i64::from(grouping::MAX_MARKERS).into(),
         ],
     );
 
-    let rows = ReportRow::find_by_statement(stmt)
-        .all(&state.db)
-        .await
-        .expect("failed to query reports");
+    let clusters = match ReportCluster::find_by_statement(stmt).all(&state.db).await {
+        Ok(clusters) => clusters,
+        Err(error) => {
+            tracing::error!(?error, "failed to query reports");
+            return (StatusCode::INTERNAL_SERVER_ERROR, "could not load reports").into_response();
+        }
+    };
 
-    Json(grouping::group_reports(rows, grouping::GROUP_RADIUS_METERS))
+    Json(
+        clusters
+            .into_iter()
+            .map(|c| ReportsResponse {
+                id: c.id,
+                r#type: c.r#type,
+                lat: c.lat,
+                lng: c.lng,
+                kind: c.kind,
+                occurred_at: c.occurred_at.to_rfc3339(),
+                expires_at: c.expires_at.to_rfc3339(),
+                count: c.count.max(1) as u32,
+            })
+            .collect::<Vec<_>>(),
+    )
+    .into_response()
 }
 
 /// Live feed of newly created reports for the client's current viewport.
