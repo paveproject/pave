@@ -26,7 +26,7 @@ export const useModalHeaderOptions = ({
   const navigation = useNavigation();
   const router = useRouter();
   const t = useTranslations();
-  const { mode } = useTheme();
+  const { mode, colors } = useTheme();
 
   const shouldShowCross = forceCross || navigation.getState()?.index === 0;
 
@@ -66,6 +66,7 @@ export const useModalHeaderOptions = ({
     (): Partial<NativeStackNavigationOptions> =>
       shouldShowCross
         ? {
+            headerTintColor: colors.foreground,
             headerLeft: () => {
               return (
                 <Button
