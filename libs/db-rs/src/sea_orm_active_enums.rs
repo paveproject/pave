@@ -96,9 +96,8 @@ pub enum RecoveryRequestContactStatusEnum {
 
 // Hand-added (not sea-orm-codegen output, unlike the rest of this file):
 // mirrors Postgres `system.platform`/`system.version_release_state` (see
-// libs/db/src/lib/schemas/system.ts) the same way `ReportTypeEnum` below
-// mirrors `report_type_enum` - sea-orm-cli was never run against these
-// either, to keep every DB enum in this file hand-maintained consistently.
+// libs/db/src/lib/schemas/system.ts) - sea-orm-cli was never run against
+// these, to keep every DB enum in this file hand-maintained consistently.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(rs_type = "Enum", db_type = "Enum", enum_name = "platform")]
 pub enum AppPlatformEnum {
@@ -121,35 +120,4 @@ pub enum VersionReleaseStateEnum {
     Pending,
     #[sea_orm(string_value = "live")]
     Live,
-}
-
-// Hand-added (not sea-orm-codegen output, unlike the rest of this file):
-// `sea-orm-cli generate entity` can't introspect a table containing a
-// PostGIS `geometry` column at all (it errors with "type geometry does not
-// exist" partway through discovering `report`'s other columns), so that
-// table has no generated Model/Entity - see apps/api/src/app/reports, which
-// queries it with raw SQL instead. This enum still mirrors the Postgres
-// `report_type_enum` exactly, the same way the generated ones above do.
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "Enum", db_type = "Enum", enum_name = "report_type_enum")]
-pub enum ReportTypeEnum {
-    #[sea_orm(string_value = "tear_gas")]
-    TearGas,
-    #[sea_orm(string_value = "police_presence")]
-    PolicePresence,
-    #[sea_orm(string_value = "arrest")]
-    Arrest,
-    #[sea_orm(string_value = "violence")]
-    Violence,
-    #[sea_orm(string_value = "road_block")]
-    RoadBlock,
-    #[sea_orm(string_value = "medical")]
-    Medical,
-    #[sea_orm(string_value = "water_cannon")]
-    WaterCannon,
-    // "Nasse" in French - police encircling and containing a crowd.
-    #[sea_orm(string_value = "kettling")]
-    Kettling,
-    #[sea_orm(string_value = "other")]
-    Other,
 }

@@ -15,7 +15,6 @@ use axum::Router;
 #[openapi(
     paths(handlers::create_report, handlers::list_reports),
     components(schemas(
-        dto::ReportType,
         dto::ReportsCreateRequest,
         dto::ReportsResponse,
         ws_dto::ReportsClientMessage,

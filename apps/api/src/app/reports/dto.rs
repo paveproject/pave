@@ -1,58 +1,6 @@
 use chrono::{DateTime, Utc};
-use db_rs::sea_orm_active_enums::ReportTypeEnum;
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
-
-/// Mirrors the Postgres `report_type_enum` (see
-/// `libs/db/src/lib/schemas/report.ts`) - a separate wire-facing enum rather
-/// than exposing `ReportTypeEnum` directly, same convention as
-/// `me::push_token::dto::DeviceType`/`PushProvider`.
-#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum ReportType {
-    TearGas,
-    PolicePresence,
-    Arrest,
-    Violence,
-    RoadBlock,
-    Medical,
-    WaterCannon,
-    /// "Nasse" in French - police encircling and containing a crowd.
-    Kettling,
-    Other,
-}
-
-impl From<ReportType> for ReportTypeEnum {
-    fn from(value: ReportType) -> Self {
-        match value {
-            ReportType::TearGas => ReportTypeEnum::TearGas,
-            ReportType::PolicePresence => ReportTypeEnum::PolicePresence,
-            ReportType::Arrest => ReportTypeEnum::Arrest,
-            ReportType::Violence => ReportTypeEnum::Violence,
-            ReportType::RoadBlock => ReportTypeEnum::RoadBlock,
-            ReportType::Medical => ReportTypeEnum::Medical,
-            ReportType::WaterCannon => ReportTypeEnum::WaterCannon,
-            ReportType::Kettling => ReportTypeEnum::Kettling,
-            ReportType::Other => ReportTypeEnum::Other,
-        }
-    }
-}
-
-impl From<ReportTypeEnum> for ReportType {
-    fn from(value: ReportTypeEnum) -> Self {
-        match value {
-            ReportTypeEnum::TearGas => ReportType::TearGas,
-            ReportTypeEnum::PolicePresence => ReportType::PolicePresence,
-            ReportTypeEnum::Arrest => ReportType::Arrest,
-            ReportTypeEnum::Violence => ReportType::Violence,
-            ReportTypeEnum::RoadBlock => ReportType::RoadBlock,
-            ReportTypeEnum::Medical => ReportType::Medical,
-            ReportTypeEnum::WaterCannon => ReportType::WaterCannon,
-            ReportTypeEnum::Kettling => ReportType::Kettling,
-            ReportTypeEnum::Other => ReportType::Other,
-        }
-    }
-}
 
 /// `id` is always client-generated (a UUID minted offline, before any server
 /// round-trip is possible) - WatermelonDB re-pushes unsynced rows on every
@@ -62,7 +10,10 @@ impl From<ReportTypeEnum> for ReportType {
 #[serde(rename_all = "camelCase")]
 pub struct ReportsCreateRequest {
     pub id: String,
-    pub r#type: ReportType,
+    /// A `report_type.key` (see `libs/db/src/lib/schemas/report.ts`), not a
+    /// closed enum: the taxonomy is a table because it grows and varies by
+    /// country, so validating the key is the handler's job now.
+    pub r#type: String,
     pub lat: f64,
     pub lng: f64,
     /// When the situation actually happened, as recorded by the device -
@@ -78,7 +29,8 @@ pub struct ReportsCreateRequest {
 #[serde(rename_all = "camelCase")]
 pub struct ReportsResponse {
     pub id: String,
-    pub r#type: ReportType,
+    /// A `report_type.key`, see `ReportsCreateRequest::type`.
+    pub r#type: String,
     pub lat: f64,
     pub lng: f64,
     pub occurred_at: String,

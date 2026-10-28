@@ -1,5 +1,4 @@
 use super::dto::ReportsResponse;
-use db_rs::sea_orm_active_enums::ReportTypeEnum;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::FromQueryResult;
 use std::collections::HashMap;
@@ -19,7 +18,7 @@ pub const GROUP_RADIUS_METERS: f64 = 20.0;
 #[derive(Debug, FromQueryResult)]
 pub struct ReportRow {
     pub id: String,
-    pub r#type: ReportTypeEnum,
+    pub r#type: String,
     pub lng: f64,
     pub lat: f64,
     pub occurred_at: DateTimeWithTimeZone,
@@ -99,7 +98,7 @@ fn build_group_response(rows: &[ReportRow], idxs: &[usize]) -> ReportsResponse {
 
     ReportsResponse {
         id: rep.id.clone(),
-        r#type: rep.r#type.clone().into(),
+        r#type: rep.r#type.clone(),
         lat: centroid_lat,
         lng: centroid_lng,
         occurred_at: rep.occurred_at.to_rfc3339(),
@@ -113,13 +112,7 @@ mod tests {
     use super::*;
     use chrono::{DateTime, Utc};
 
-    fn row(
-        id: &str,
-        r#type: ReportTypeEnum,
-        lat: f64,
-        lng: f64,
-        occurred_at_secs: i64,
-    ) -> ReportRow {
+    fn row(id: &str, r#type: String, lat: f64, lng: f64, occurred_at_secs: i64) -> ReportRow {
         let occurred_at: DateTimeWithTimeZone =
             DateTime::<Utc>::from_timestamp(occurred_at_secs, 0)
                 .unwrap()
@@ -138,8 +131,8 @@ mod tests {
     fn merges_gps_jitter_of_the_same_event() {
         // ~8m apart at Paris latitude - well within typical open-sky GPS noise.
         let rows = vec![
-            row("a", ReportTypeEnum::TearGas, 48.8566, 2.3522, 100),
-            row("b", ReportTypeEnum::TearGas, 48.85665, 2.35225, 200),
+            row("a", "tear_gas".to_string(), 48.8566, 2.3522, 100),
+            row("b", "tear_gas".to_string(), 48.85665, 2.35225, 200),
         ];
         let grouped = group_reports(rows, GROUP_RADIUS_METERS);
         assert_eq!(grouped.len(), 1);
@@ -152,8 +145,8 @@ mod tests {
         // ~28m apart at Paris latitude - beyond the 20m radius, like two
         // parallel streets.
         let rows = vec![
-            row("a", ReportTypeEnum::TearGas, 48.8566, 2.3522, 100),
-            row("b", ReportTypeEnum::TearGas, 48.85685, 2.3522, 200),
+            row("a", "tear_gas".to_string(), 48.8566, 2.3522, 100),
+            row("b", "tear_gas".to_string(), 48.85685, 2.3522, 200),
         ];
         let grouped = group_reports(rows, GROUP_RADIUS_METERS);
         assert_eq!(grouped.len(), 2);
@@ -163,8 +156,8 @@ mod tests {
     #[test]
     fn never_merges_across_types() {
         let rows = vec![
-            row("a", ReportTypeEnum::TearGas, 48.8566, 2.3522, 100),
-            row("b", ReportTypeEnum::Violence, 48.8566, 2.3522, 200),
+            row("a", "tear_gas".to_string(), 48.8566, 2.3522, 100),
+            row("b", "violence".to_string(), 48.8566, 2.3522, 200),
         ];
         let grouped = group_reports(rows, GROUP_RADIUS_METERS);
         assert_eq!(grouped.len(), 2);

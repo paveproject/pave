@@ -13,15 +13,19 @@ use axum::response::IntoResponse;
 use axum::Json;
 use better_auth::integrations::axum::CurrentSession;
 use chrono::Duration;
-use db_rs::sea_orm_active_enums::ReportTypeEnum;
-use sea_orm::{ActiveEnum, ConnectionTrait, DatabaseBackend, FromQueryResult, Statement};
+use sea_orm::{ConnectionTrait, DatabaseBackend, FromQueryResult, Statement};
 use std::collections::HashSet;
 use tokio::sync::mpsc;
 
 /// How long a report stays visible on the map after it happened. A fixed
-/// constant for v1 - may end up varying by `ReportType` later (e.g. an arrest
+/// constant for v1 - may end up varying by report type later (e.g. an arrest
 /// report probably shouldn't expire as fast as a tear-gas one).
 const REPORT_TTL_HOURS: i64 = 6;
+
+#[derive(FromQueryResult)]
+struct EnabledType {
+    exists: bool,
+}
 
 #[utoipa::path(
     post,
@@ -46,19 +50,50 @@ pub async fn create_report(
             .into_response();
     }
 
-    let report_type: ReportTypeEnum = body.r#type.clone().into();
+    // The FK on report.type would surface an unknown key as a raw DB error, so
+    // check it here and answer 400 for a key the taxonomy doesn't have. One
+    // extra round-trip per report - cache the enabled set in state if it ever
+    // shows up in a profile.
+    let lookup = EnabledType::find_by_statement(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        r#"SELECT EXISTS (
+             SELECT 1 FROM report_type WHERE key = $1 AND enabled
+           ) AS "exists""#,
+        [body.r#type.clone().into()],
+    ))
+    .one(&state.db)
+    .await;
+
+    match lookup {
+        Ok(Some(row)) if row.exists => {}
+        Ok(_) => {
+            return (StatusCode::BAD_REQUEST, "unknown or disabled report type").into_response();
+        }
+        // Kept distinct from the 400 above on purpose: swallowing this into
+        // "unknown type" once made an unapplied migration look like every
+        // client sending a bad payload, which is a long way to debug.
+        Err(error) => {
+            tracing::error!(?error, "failed to look up the report type");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "could not validate the report type",
+            )
+                .into_response();
+        }
+    }
+
     let expires_at = body.occurred_at + Duration::hours(REPORT_TTL_HOURS);
 
     let stmt = Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
         r#"
         INSERT INTO report (id, type, location, occurred_at, expires_at)
-        VALUES ($1::uuid, $2::report_type_enum, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6)
+        VALUES ($1::uuid, $2::text, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6)
         ON CONFLICT (id) DO NOTHING
         "#,
         [
             body.id.clone().into(),
-            report_type.to_value().into(),
+            body.r#type.clone().into(),
             body.lng.into(),
             body.lat.into(),
             body.occurred_at.into(),
