@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { decodeMeshPacket, encodeMeshPacket } from '../../lib/mesh/packet';
+import { decodeMeshEnvelope, decodeMeshPacket, relayBytes } from '../../lib/mesh/packet';
 import { decideRelay, markSeen, rebroadcastJitterMs } from '../../lib/mesh/relay';
 import { subscribeOutgoingBridge } from '../../lib/mesh/outgoingBridge';
 import { meshTransport } from '../../lib/mesh/transport';
@@ -28,21 +28,29 @@ export const useMeshRelay = ({ enabled }: { enabled: boolean }): void => {
     reporter.reportStart();
 
     const unsubscribeReceive = meshTransport.onReceive((bytes) => {
-      const packet = decodeMeshPacket(bytes);
-      if (!packet) return;
+      // Envelope first: dedup and relay only need version/ttl/reportId, so a
+      // report type this build doesn't know yet still gets forwarded instead
+      // of dying here.
+      const envelope = decodeMeshEnvelope(bytes);
+      if (!envelope) return;
 
-      const { shouldProcessLocally, shouldRebroadcast } = decideRelay(packet);
+      const { shouldProcessLocally, shouldRebroadcast } = decideRelay(envelope);
       if (!shouldProcessLocally) return;
-      markSeen(packet.reportId);
+      markSeen(envelope.reportId);
 
-      receiveMeshReport(packet)
-        .then(() => useMeshDebugStore.getState().recordReceived())
-        .catch((error) => logger.error('mesh: failed to ingest received report', { error }));
+      const packet = decodeMeshPacket(bytes);
+      if (packet) {
+        receiveMeshReport(packet)
+          .then(() => useMeshDebugStore.getState().recordReceived())
+          .catch((error) => logger.error('mesh: failed to ingest received report', { error }));
+      } else {
+        logger.info('mesh: relaying a report type this build has no wire code for');
+      }
 
       if (shouldRebroadcast) {
         setTimeout(() => {
           meshTransport
-            .send(encodeMeshPacket({ ...packet, ttl: packet.ttl - 1 }))
+            .send(relayBytes(bytes))
             .then(() => useMeshDebugStore.getState().recordRelayed())
             .catch((error) => logger.error('mesh: failed to rebroadcast packet', { error }));
         }, rebroadcastJitterMs());

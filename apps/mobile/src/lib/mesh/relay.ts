@@ -1,4 +1,4 @@
-import type { MeshPacket } from './packet';
+import type { MeshEnvelope } from './packet';
 
 /** Comfortably longer than any plausible multi-hop relay window, short
  * enough to bound memory. In-memory, module-level, not persisted -
@@ -29,7 +29,7 @@ export interface RelayDecision {
 /** Call once per received packet, before acting on it. Dedup key is the
  * report's own UUID (`packet.reportId`) - no separate message-id/LRU
  * scheme needed, see `packet.ts`'s own doc comment. */
-export const decideRelay = (packet: MeshPacket): RelayDecision => {
+export const decideRelay = (packet: MeshEnvelope): RelayDecision => {
   evictExpired();
   const alreadySeen = seen.has(packet.reportId);
   const nextTtl = packet.ttl - 1;
