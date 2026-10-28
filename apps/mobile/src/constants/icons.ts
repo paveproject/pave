@@ -31,6 +31,10 @@ export const Icons = {
     android: import('@expo/material-symbols/visibility_off.xml'),
   }),
   user: Icon.select({ ios: 'person', android: import('@expo/material-symbols/person.xml') }),
+  people: Icon.select({
+    ios: 'person.2',
+    android: import('@expo/material-symbols/group.xml'),
+  }),
   peopleOff: Icon.select({
     ios: 'person.2.slash',
     android: import('@expo/material-symbols/group_off.xml'),

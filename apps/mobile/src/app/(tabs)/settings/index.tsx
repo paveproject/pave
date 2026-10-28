@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef } from 'react';
 import { Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Application from 'expo-application';
-import { Host, Icon, Row, FieldGroup, Spacer, Text as NativeText } from '@expo/ui';
+import { Host, Icon, Row, FieldGroup, RNHostView, Spacer, Text as NativeText } from '@expo/ui';
 import {
   background,
   buttonStyle,
@@ -182,10 +182,17 @@ const SettingsScreen = () => {
                   alignment="center"
                   modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
                 >
-                  <Avatar uri={user.image} size={theme.spaces['4xl']} />
+                  {/* `RNHostView` defaults to `matchContents: false`, which
+                      sizes a hosted RN view to its *parent* - the avatar then
+                      ate the whole row and pushed the name to the trailing
+                      edge. */}
+                  <RNHostView matchContents>
+                    <Avatar uri={user.image} size={theme.spaces['4xl']} />
+                  </RNHostView>
                   <NativeText textStyle={{ color: colors.foreground }}>
                     {user.username ? `@${user.username}` : user.name || user.email || ''}
                   </NativeText>
+                  <Spacer flexible />
                 </Row>
                 <Row
                   spacing={theme.spaces.md}
@@ -210,7 +217,7 @@ const SettingsScreen = () => {
                   onPress={handleTrustedContacts}
                   modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
                 >
-                  <Icon name={Icons.user} size={theme.icons.sizes.md} color={colors.foreground} />
+                  <Icon name={Icons.people} size={theme.icons.sizes.md} color={colors.foreground} />
                   <NativeText textStyle={{ color: colors.foreground }}>
                     {t('messages.trusted_contacts')}
                   </NativeText>
