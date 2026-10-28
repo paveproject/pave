@@ -14,6 +14,70 @@ import type { ReportFamily, ReportTypeKey } from '@libs/constants';
  * Metro picks up by device density) needs no change here.
  */
 const reportIcons = {
+  tear_gas: require('../assets/images/reports/tear_gas.png') as ImageRequireSource,
+  police_presence: require('../assets/images/reports/police_presence.png') as ImageRequireSource,
+  arrest: require('../assets/images/reports/arrest.png') as ImageRequireSource,
+  violence: require('../assets/images/reports/violence.png') as ImageRequireSource,
+  road_block: require('../assets/images/reports/road_block.png') as ImageRequireSource,
+  medical: require('../assets/images/reports/medical.png') as ImageRequireSource,
+  water_cannon: require('../assets/images/reports/water_cannon.png') as ImageRequireSource,
+  kettling: require('../assets/images/reports/kettling.png') as ImageRequireSource,
+  other: require('../assets/images/reports/other.png') as ImageRequireSource,
+  stun_grenade: require('../assets/images/reports/stun_grenade.png') as ImageRequireSource,
+  kinetic_rounds: require('../assets/images/reports/kinetic_rounds.png') as ImageRequireSource,
+  live_ammunition: require('../assets/images/reports/live_ammunition.png') as ImageRequireSource,
+  pepper_spray: require('../assets/images/reports/pepper_spray.png') as ImageRequireSource,
+  baton_charge: require('../assets/images/reports/baton_charge.png') as ImageRequireSource,
+  mounted_police: require('../assets/images/reports/mounted_police.png') as ImageRequireSource,
+  vehicle_ramming: require('../assets/images/reports/vehicle_ramming.png') as ImageRequireSource,
+  military_presence:
+    require('../assets/images/reports/military_presence.png') as ImageRequireSource,
+  checkpoint: require('../assets/images/reports/checkpoint.png') as ImageRequireSource,
+  abduction: require('../assets/images/reports/abduction.png') as ImageRequireSource,
+  riot_police: require('../assets/images/reports/riot_police.png') as ImageRequireSource,
+  fire: require('../assets/images/reports/fire.png') as ImageRequireSource,
+  transit_closed: require('../assets/images/reports/transit_closed.png') as ImageRequireSource,
+  exit_blocked: require('../assets/images/reports/exit_blocked.png') as ImageRequireSource,
+  safe_route: require('../assets/images/reports/safe_route.png') as ImageRequireSource,
+  legal_support: require('../assets/images/reports/legal_support.png') as ImageRequireSource,
+  water_supply: require('../assets/images/reports/water_supply.png') as ImageRequireSource,
+  internet_shutdown:
+    require('../assets/images/reports/internet_shutdown.png') as ImageRequireSource,
+  surveillance: require('../assets/images/reports/surveillance.png') as ImageRequireSource,
+  press_targeted: require('../assets/images/reports/press_targeted.png') as ImageRequireSource,
+} satisfies Record<ReportTypeKey, ImageRequireSource>;
+
+/**
+ * Families carry the cluster marker, where 29 distinct pictograms would just
+ * be noise.
+ */
+const reportFamilyIcons = {
+  force_used: require('../assets/images/reports/family_force_used.png') as ImageRequireSource,
+  presence: require('../assets/images/reports/family_presence.png') as ImageRequireSource,
+  movement: require('../assets/images/reports/family_movement.png') as ImageRequireSource,
+  aid: require('../assets/images/reports/family_aid.png') as ImageRequireSource,
+  surveillance: require('../assets/images/reports/family_surveillance.png') as ImageRequireSource,
+  other: require('../assets/images/reports/family_other.png') as ImageRequireSource,
+} satisfies Record<ReportFamily, ImageRequireSource>;
+
+/** Exhaustive by construction, so indexing needs no fallback. */
+export const reportIcon = (type: ReportTypeKey): ImageRequireSource => reportIcons[type];
+
+export const reportFamilyIcon = (family: ReportFamily): ImageRequireSource =>
+  reportFamilyIcons[family];
+
+/**
+ * The 128px set, and the only one MapLibre registers. Every image handed to
+ * `<Images>` is packed into a single uncompressed GPU texture, so size here is
+ * paid in VRAM, not disk: the 512px artwork this started as came to 35 MB of
+ * atlas and held the UI thread at 0 fps. The picker uses `reportIcon` instead,
+ * which is the larger set and never touches the atlas.
+ *
+ * Families are prefixed because `other` is a key at both levels, so a flat
+ * merge would silently drop one of them - and the prefix matches the PNG
+ * filenames, so a missing sprite is findable.
+ */
+export const mapSprites: Record<string, ImageRequireSource> = {
   tear_gas: require('../assets/images/map/reports/tear_gas.png') as ImageRequireSource,
   police_presence:
     require('../assets/images/map/reports/police_presence.png') as ImageRequireSource,
@@ -48,27 +112,17 @@ const reportIcons = {
     require('../assets/images/map/reports/internet_shutdown.png') as ImageRequireSource,
   surveillance: require('../assets/images/map/reports/surveillance.png') as ImageRequireSource,
   press_targeted: require('../assets/images/map/reports/press_targeted.png') as ImageRequireSource,
-} satisfies Record<ReportTypeKey, ImageRequireSource>;
-
-/**
- * Families carry the cluster marker, where 29 distinct pictograms would just
- * be noise.
- */
-const reportFamilyIcons = {
-  force_used: require('../assets/images/map/reports/family_force_used.png') as ImageRequireSource,
-  presence: require('../assets/images/map/reports/family_presence.png') as ImageRequireSource,
-  movement: require('../assets/images/map/reports/family_movement.png') as ImageRequireSource,
-  aid: require('../assets/images/map/reports/family_aid.png') as ImageRequireSource,
-  surveillance:
+  family_force_used:
+    require('../assets/images/map/reports/family_force_used.png') as ImageRequireSource,
+  family_presence:
+    require('../assets/images/map/reports/family_presence.png') as ImageRequireSource,
+  family_movement:
+    require('../assets/images/map/reports/family_movement.png') as ImageRequireSource,
+  family_aid: require('../assets/images/map/reports/family_aid.png') as ImageRequireSource,
+  family_surveillance:
     require('../assets/images/map/reports/family_surveillance.png') as ImageRequireSource,
-  other: require('../assets/images/map/reports/family_other.png') as ImageRequireSource,
-} satisfies Record<ReportFamily, ImageRequireSource>;
-
-/** Exhaustive by construction, so indexing needs no fallback. */
-export const reportIcon = (type: ReportTypeKey): ImageRequireSource => reportIcons[type];
-
-export const reportFamilyIcon = (family: ReportFamily): ImageRequireSource =>
-  reportFamilyIcons[family];
+  family_other: require('../assets/images/map/reports/family_other.png') as ImageRequireSource,
+};
 
 /**
  * Cluster severity tiers - how "bad" a cluster looks scales with how many
