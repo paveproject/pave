@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { useQueryClient } from '@tanstack/react-query';
-import { applyReportCreated, type ReportsBoundingBox } from '@libs/query-client';
-import type { ReportsClientMessage, ReportsServerMessage } from '@libs/api-js';
+import { applyReportsCreated, reportsKeys, type ReportsBoundingBox } from '@libs/query-client';
+import type { ReportsClientMessage, ReportsResponse, ReportsServerMessage } from '@libs/api-js';
 import { REPORTS_WS_URL } from '../../env/common';
 
 /**
@@ -12,10 +12,21 @@ import { REPORTS_WS_URL } from '../../env/common';
  * screen's own lifecycle (connect on mount, close on unmount) rather than
  * an app-root provider, since reports only matter while the map is open.
  */
+/** How often buffered live reports are folded into the cache. Long enough
+ * that a burst costs one array rebuild instead of hundreds, short enough to
+ * still read as live. */
+const FLUSH_INTERVAL_MS = 700;
+
+/** Past this many in a single flush, refetch instead of merging. Merging
+ * hands the map raw single-report pins, which neither cluster nor stay
+ * bounded; one refetch returns the viewport properly grouped by the server. */
+const MERGE_LIMIT = 25;
+
 export const useReportsSocket = (bbox: ReportsBoundingBox | undefined) => {
   const queryClient = useQueryClient();
   const socketRef = useRef<WebSocket | null>(null);
   const bboxRef = useRef(bbox);
+  const pendingRef = useRef<ReportsResponse[]>([]);
 
   // Keeps `bboxRef` fresh without re-running the connect effect below (that
   // one only depends on `queryClient` - tearing the socket down and
@@ -46,8 +57,9 @@ export const useReportsSocket = (bbox: ReportsBoundingBox | undefined) => {
       socket.onmessage = (event) => {
         try {
           const message: ReportsServerMessage = JSON.parse(event.data);
-          if (message.event === 'report_created' && bboxRef.current) {
-            applyReportCreated(queryClient, bboxRef.current, message);
+          if (message.event === 'report_created') {
+            // Buffered, not applied here: see the flush effect below.
+            pendingRef.current.push(message);
           }
         } catch {
           // Malformed frame - ignore rather than crash the socket loop.
@@ -79,6 +91,29 @@ export const useReportsSocket = (bbox: ReportsBoundingBox | undefined) => {
       socketRef.current?.close();
       socketRef.current = null;
     };
+  }, [queryClient]);
+
+  // Drains the buffer on a fixed interval rather than per message. Applying
+  // each one meant an O(n) array rebuild, a `useMemo` pass over every feature
+  // and a MapLibre source update, all per event - which is what crashed the
+  // app under a sustained feed.
+  useEffect(() => {
+    const flush = setInterval(() => {
+      const batch = pendingRef.current;
+      if (batch.length === 0) return;
+      pendingRef.current = [];
+
+      const current = bboxRef.current;
+      if (!current) return;
+
+      if (batch.length > MERGE_LIMIT) {
+        queryClient.invalidateQueries({ queryKey: reportsKeys.list(current) });
+        return;
+      }
+      applyReportsCreated(queryClient, current, batch);
+    }, FLUSH_INTERVAL_MS);
+
+    return () => clearInterval(flush);
   }, [queryClient]);
 
   // Re-subscribes on the already-open socket whenever the viewport changes

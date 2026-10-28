@@ -33,14 +33,14 @@ import { useReportsSocket } from './useReportsSocket';
 import useDebounce from '../../hooks/useDebounce';
 import { useObservable } from '../../hooks/useObservable';
 import { observeAllReports } from '../../lib/watermelon/reports';
-import { groupReports, GROUP_RADIUS_METERS } from '../../lib/watermelon/grouping';
+import { groupReports } from '../../lib/watermelon/grouping';
 import type { Report } from '../../lib/watermelon/models/Report';
 import type { ReportsResponse } from '@libs/api-js';
 import { useUIStore } from '../../stores/useUIStore';
 import { useTheme } from '../../providers/ThemeProvider';
 import { useLocation } from '../../providers/LocationProvider';
 import { MAPTILER_API_KEY } from '../../env/common';
-import { Assets } from '../../constants/assets';
+import { mapSprites } from '../../constants/assets';
 import { Icons } from '../../constants/icons';
 import { Breakpoints } from '../../constants/breakpoints';
 import { Text } from '../../components/ui/text';
@@ -99,6 +99,10 @@ const DEFAULT_CENTER: [number, number] = [2.3522, 48.8566];
 // this a not-yet/never-synced row would render as a pin forever.
 const REPORT_TTL_MS = 6 * 60 * 60 * 1000;
 
+/** Matches `SIZE` in scripts/render-report-icons.ts - only used by the dev
+ * overlay, to show what the sprite atlas actually costs on the GPU. */
+const SPRITE_PX = 128;
+
 // Clustering is off (see the GeoJSONSource below): a single count can't
 // speak for a group that mixes `live_ammunition` with `safe_route`, so the
 // severity tiers have nothing meaningful to scale.
@@ -115,6 +119,87 @@ const REPORT_TTL_MS = 6 * 60 * 60 * 1000;
  * padding/button placement are plain fixed reserves (`cameraPadding`)
  * rather than anything tracking a draggable sheet position.
  */
+
+/**
+ * What the map is actually being handed, which is the thing that is hard to
+ * guess from the outside. Added after a stall that looked like too much data
+ * and was in fact a 35 MB sprite atlas - `sprites` is here so that cost is
+ * visible rather than inferred.
+ *
+ * `heap` is the JS side only. The sprite atlas, the tile cache and the layer's
+ * own buffers all live in native memory, which JS cannot see - read those in
+ * Xcode's memory graph, not here.
+ */
+/** Hermes' own heap accounting; absent on JSC and on web. */
+const jsHeapMB = (): number | undefined => {
+  const stats = (
+    global as unknown as {
+      HermesInternal?: { getInstrumentedStats?: () => Record<string, number> };
+    }
+  ).HermesInternal?.getInstrumentedStats?.();
+  const bytes = stats?.js_heapSize;
+  return typeof bytes === 'number' ? bytes / 1024 / 1024 : undefined;
+};
+
+const MapDebugOverlay = ({
+  features,
+  bbox,
+}: {
+  features: { properties: { kind?: string; count: number } }[];
+  bbox: { minLat: number; minLng: number; maxLat: number; maxLng: number } | undefined;
+}) => {
+  const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  // Sampled on a timer rather than per render: the heap moving while nothing
+  // on screen changes is exactly the signal worth seeing.
+  const [heapMB, setHeapMB] = useState(jsHeapMB);
+  useEffect(() => {
+    const id = setInterval(() => setHeapMB(jsHeapMB), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const stats = useMemo(() => {
+    let covered = 0;
+    let families = 0;
+    let biggest = 0;
+    for (const feature of features) {
+      covered += feature.properties.count;
+      if (feature.properties.kind === 'family') families++;
+      if (feature.properties.count > biggest) biggest = feature.properties.count;
+    }
+    // Metres per degree of longitude at Paris' latitude; good enough to read a
+    // viewport width off, not a geodesy result.
+    const spanM = bbox ? (bbox.maxLng - bbox.minLng) * 111_320 * 0.658 : 0;
+    return { covered, families, biggest, spanM };
+  }, [features, bbox]);
+
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: insets.left + theme.spaces.horizontal,
+        top: insets.top + theme.spaces.vertical,
+        padding: 6,
+        borderRadius: 4,
+        backgroundColor: 'rgba(0,0,0,0.65)',
+      }}
+    >
+      <Text style={{ color: '#fff', fontSize: 10, fontVariant: ['tabular-nums'] }}>
+        {`${features.length} markers · ${stats.covered} reports · max ${stats.biggest}`}
+      </Text>
+      <Text style={{ color: '#fff', fontSize: 10, fontVariant: ['tabular-nums'] }}>
+        {`${stats.families} family / ${features.length - stats.families} type · viewport ${Math.round(stats.spanM)}m`}
+      </Text>
+      <Text style={{ color: '#fff', fontSize: 10, fontVariant: ['tabular-nums'] }}>
+        {`${Object.keys(mapSprites).length} sprites · atlas ${((Object.keys(mapSprites).length * SPRITE_PX * SPRITE_PX * 4) / 1024 / 1024).toFixed(1)}MB`}
+      </Text>
+      <Text style={{ color: '#fff', fontSize: 10, fontVariant: ['tabular-nums'] }}>
+        {heapMB === undefined ? 'js heap n/a' : `js heap ${heapMB.toFixed(1)}MB`}
+      </Text>
+    </View>
+  );
+};
+
 const HomeMap = () => {
   const router = useRouter();
   const t = useTranslations();
@@ -244,7 +329,11 @@ const HomeMap = () => {
       );
     });
 
-    const localOnlyGroups = groupReports(localOnlyReports, GROUP_RADIUS_METERS);
+    // Same viewport the server grouped against, so local and confirmed
+    // markers collapse at the same rate instead of looking like two systems.
+    // No camera yet means no viewport to scale the grid to: an empty span
+    // floors at `MIN_CELL_DEGREES`, which collapses nothing.
+    const localOnlyGroups = groupReports(localOnlyReports, bbox ?? { minLng: 0, maxLng: 0 });
 
     return {
       type: 'FeatureCollection' as const,
@@ -255,6 +344,11 @@ const HomeMap = () => {
           properties: {
             id: report.id,
             type: report.type,
+            kind: report.kind ?? 'type',
+            // A family marker's `type` is a family key, for which there is no
+            // sprite of that name - `other` is also a key at both levels, so
+            // the prefix is what keeps the two apart.
+            icon: report.kind === 'family' ? `family_${report.type}` : report.type,
             occurredAt: report.occurredAt,
             count: report.count,
           },
@@ -266,6 +360,8 @@ const HomeMap = () => {
           properties: {
             id: group.id,
             type: group.type,
+            kind: group.kind,
+            icon: group.kind === 'family' ? `family_${group.type}` : group.type,
             occurredAt: group.occurredAt.toISOString(),
             count: group.count,
           },
@@ -293,6 +389,7 @@ const HomeMap = () => {
       // }
 
       const reportType = properties.type as string | undefined;
+      const isFamily = properties.kind === 'family';
       const occurredAt = properties.occurredAt as string | undefined;
       const count = (properties.count as number | undefined) ?? 1;
       if (reportType) {
@@ -307,7 +404,15 @@ const HomeMap = () => {
           : undefined;
         const countLine = count > 1 ? t('pages.map.report.count', { count }) : undefined;
         const message = [formattedOccurredAt, countLine].filter(Boolean).join('\n') || undefined;
-        Alert.alert(t(`pages.map.report.types.${reportType}`), message);
+        // A clustered marker's `type` is a family key when `kind` says so, and
+        // the two live in different dictionaries - looking a family up under
+        // `types` is what produced MISSING_MESSAGE on screen.
+        const titleKey = (
+          isFamily
+            ? `pages.map.report.families.${reportType}`
+            : `pages.map.report.types.${reportType}`
+        ) as Parameters<typeof t.has>[0];
+        Alert.alert(t.has(titleKey) ? t(titleKey) : reportType, message);
       }
     },
     [t, format],
@@ -342,7 +447,7 @@ const HomeMap = () => {
           onTrackUserLocationChange={handleTrackUserLocationChange}
         />
         <UserLocation />
-        <Images images={{ ...Assets.reports /*, ...Assets.clusterSeverity */ }} />
+        <Images images={mapSprites} />
         <GeoJSONSource
           id="reports"
           ref={reportsSourceRef}
@@ -396,8 +501,18 @@ const HomeMap = () => {
             type="symbol"
             // filter={['!', ['has', 'point_count']]}
             layout={{
-              'icon-image': ['get', 'type'],
-              'icon-size': ['interpolate', ['linear'], ['zoom'], 14, 0.1, 18, 0.2],
+              // A plain property lookup, never an expression: `icon-image`
+              // wants a resolvedImage, and a `case`/`concat` producing a
+              // string does not reliably coerce to one - it renders nothing at
+              // all rather than falling back. The sprite name is resolved in
+              // JS where the feature is built.
+              'icon-image': ['get', 'icon'],
+              // On-screen size is `source px * icon-size`, and the sprites are
+              // 128 (see scripts/render-report-icons.ts) - so these are 51 and
+              // 102 px. Both numbers move together: re-rendering at a
+              // different size without recalibrating here resizes every
+              // marker on the map.
+              'icon-size': ['interpolate', ['linear'], ['zoom'], 14, 0.4, 18, 0.8],
               // 'icon-size': ['interpolate', ['linear'], ['zoom'], 10, 0.04, 14, 0.066, 18, 0.094],
               'icon-allow-overlap': true,
             }}
@@ -418,6 +533,8 @@ const HomeMap = () => {
           }}
         />
       )}
+
+      {__DEV__ && <MapDebugOverlay features={reportsFeatureCollection.features} bbox={bbox} />}
 
       <View
         style={{
