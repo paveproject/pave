@@ -38,6 +38,40 @@ forces `nx run-many -t docker-build --all` as the escape hatch - use
 it whenever only a shared lib changed and you're not sure every
 dependent image got rebuilt.
 
+## Route conventions (`apps/api`)
+
+- **Singular segment for one resource, plural for a collection.**
+  `GET /user/{user_id}/protest-sessions` lists; `PUT
+/protest-session/{protest_session_id}` addresses one. A sub-resource nests
+  under the singular namespace: `/user/{user_id}/trusted-contact/invite`,
+  `/trusted-contact/invite/redeem`.
+- **Path params are snake_case and named after the resource** - `{user_id}`,
+  `{protest_session_id}`, `{blob_id}`, never a bare `{id}`, which goes
+  ambiguous as soon as a path carries two.
+- **`/me` is only for what has no sense addressed by an id**: the profile,
+  avatar, push token, recovery-phrase blob, DEK generation counter, the
+  aggregate pending-actions feed, the per-user websocket. Anything owned by an
+  account that a trusted contact could one day read goes under
+  `/user/{user_id}/...`, so the path can express that access even while the
+  guard still refuses it.
+- **404, never 403, for a resource or a `user_id` belonging to someone else** -
+  a 403 confirms it exists. 403 is reserved for capability and state (the
+  caller's own device isn't `active`, "already active"). The single
+  user-scope check is `app::access::authorize_user_scope`; item routes push
+  ownership into the `WHERE` clause (`find_owned_*`).
+- **Routers declare absolute paths and are merged, not nested** (except `/me`).
+  `#[utoipa::path]` already spells the absolute path by hand, so keeping both
+  absolute means a grep finds the route and its doc, and they must match.
+- The folder tree mirrors the URL tree: `app/users/trusted_contact/invite/`
+  serves `/user/{user_id}/trusted-contact/invite`. Folders are snake_case
+  because a Rust module name cannot contain a hyphen. DTOs and query helpers
+  live in the domain module that also serves the item routes
+  (`app::trusted_contacts`), imported from `app::users::*`.
+- `libs/query-client` mirrors this: a `/user/{user_id}/...` resource gets a
+  `userKeys`/`user*Options` entry, an item route its own domain folder. Every
+  user-scoped factory takes an optional `userId` with `enabled: !!userId`,
+  because several screens mount before `/me` has answered.
+
 ## Conventions
 
 - Never add an AI co-author trailer to commits.
