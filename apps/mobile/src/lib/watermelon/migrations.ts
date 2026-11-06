@@ -48,5 +48,34 @@ export const watermelonMigrations = schemaMigrations({
         unsafeExecuteSql('DROP TABLE IF EXISTS location_points;'),
       ],
     },
+    {
+      // New table names rather than the v2 ones the step above dropped: an
+      // install that never reached v3 could still hold those, and
+      // `createTable` on an existing table fails the whole migration.
+      toVersion: 4,
+      steps: [
+        createTable({
+          name: 'protest_session_rows',
+          columns: [
+            { name: 'started_at', type: 'number' },
+            { name: 'ended_at', type: 'number', isOptional: true },
+            { name: 'sealed_key', type: 'string' },
+            { name: 'next_seq', type: 'number' },
+            { name: 'synced', type: 'boolean' },
+          ],
+        }),
+        createTable({
+          name: 'protest_position_rows',
+          columns: [
+            { name: 'session_id', type: 'string', isIndexed: true },
+            { name: 'lat', type: 'number' },
+            { name: 'lng', type: 'number' },
+            { name: 'accuracy', type: 'number', isOptional: true },
+            { name: 'recorded_at', type: 'number' },
+            { name: 'synced', type: 'boolean' },
+          ],
+        }),
+      ],
+    },
   ],
 });

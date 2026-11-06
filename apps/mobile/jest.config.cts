@@ -11,9 +11,20 @@
 // transformed and crashes on load with "Must use import to load ES
 // Module". Derived from the installed preset (not hand-copied) so this
 // stays correct if jest-expo's own list changes on upgrade.
+// `@noble`/`@scure` ship ESM only and aren't in jest-expo's allowlist. They
+// resolve to `node_modules/.bun/@noble+x@v/node_modules/@noble/x/...`, and the
+// pattern isn't anchored, so it also tries to match at that *second*
+// `/node_modules/` - where the next segment is `@noble`, not `.bun`. Without
+// them listed, `lib/protestMode/crypto.ts` fails to load at all.
+const ESM_ONLY_PACKAGES = ['@noble', '@scure'];
+
 const jestExpoTransformIgnorePatterns = (
   require('jest-expo/jest-preset').transformIgnorePatterns as string[]
-).map((pattern) => (pattern.includes('.pnpm') ? pattern.replace('.pnpm', '.pnpm|.bun') : pattern));
+).map((pattern) =>
+  pattern.includes('.pnpm')
+    ? pattern.replace('.pnpm', ['.pnpm', '.bun', ...ESM_ONLY_PACKAGES].join('|'))
+    : pattern,
+);
 
 module.exports = {
   displayName: 'mobile',

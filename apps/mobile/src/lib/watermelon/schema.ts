@@ -1,6 +1,10 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const REPORT_TABLE = 'reports';
+/** Not the `protest_sessions`/`location_points` of v2: those were dropped in
+ * v3 and a residual SQLite file could still hold them. */
+export const PROTEST_SESSION_TABLE = 'protest_session_rows';
+export const PROTEST_POSITION_TABLE = 'protest_position_rows';
 
 /**
  * Local-only outbox for map reports (see `models/Report.ts`) - not a
@@ -13,10 +17,14 @@ export const REPORT_TABLE = 'reports';
  *
  * `protest_sessions`/`location_points` (v2) were removed in v3 - the
  * protest-mode recording feature built on them never worked reliably and
- * was pulled out entirely (see `migrations.ts`).
+ * was pulled out entirely (see `migrations.ts`). Protest mode came back in
+ * v4 under the two tables below.
+ *
+ * A session's symmetric key is deliberately absent: SQLite is not encrypted,
+ * so it lives in SecureStore and only its sealed form reaches a row.
  */
 export const watermelonSchema = appSchema({
-  version: 3,
+  version: 4,
   tables: [
     tableSchema({
       name: REPORT_TABLE,
@@ -27,6 +35,30 @@ export const watermelonSchema = appSchema({
         { name: 'occurred_at', type: 'number' },
         { name: 'synced', type: 'boolean' },
         { name: 'created_at', type: 'number' },
+      ],
+    }),
+    tableSchema({
+      name: PROTEST_SESSION_TABLE,
+      columns: [
+        { name: 'started_at', type: 'number' },
+        // Null while recording - mirrors the server's `active`.
+        { name: 'ended_at', type: 'number', isOptional: true },
+        { name: 'sealed_key', type: 'string' },
+        { name: 'next_seq', type: 'number' },
+        { name: 'synced', type: 'boolean' },
+      ],
+    }),
+    tableSchema({
+      name: PROTEST_POSITION_TABLE,
+      columns: [
+        { name: 'session_id', type: 'string', isIndexed: true },
+        { name: 'lat', type: 'number' },
+        { name: 'lng', type: 'number' },
+        { name: 'accuracy', type: 'number', isOptional: true },
+        { name: 'recorded_at', type: 'number' },
+        // Flipped once the batch holding this point is stored server-side,
+        // never on enqueue.
+        { name: 'synced', type: 'boolean' },
       ],
     }),
   ],

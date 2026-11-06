@@ -5,6 +5,8 @@ import { randomUUID } from 'expo-crypto';
 import { watermelonSchema } from './schema';
 import { watermelonMigrations } from './migrations';
 import { Report } from './models/Report';
+import { ProtestSession } from './models/ProtestSession';
+import { ProtestPosition } from './models/ProtestPosition';
 import { logger } from '../../logger';
 
 // Global override (applies to every table, no per-collection option exists
@@ -24,5 +26,5 @@ const adapter = new SQLiteAdapter({
 
 export const database = new Database({
   adapter,
-  modelClasses: [Report],
+  modelClasses: [Report, ProtestSession, ProtestPosition],
 });
