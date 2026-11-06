@@ -14,6 +14,7 @@ const config = defineConfig({
     './libs/db/src/lib/schemas/i18n.ts',
     './libs/db/src/lib/schemas/recoveryDekGeneration.ts',
     './libs/db/src/lib/schemas/recoveryKeyMnemonic.ts',
+    './libs/db/src/lib/schemas/protestSession.ts',
     './libs/db/src/lib/schemas/recoveryRequest.ts',
     './libs/db/src/lib/schemas/report.ts',
     './libs/db/src/lib/schemas/system.ts',

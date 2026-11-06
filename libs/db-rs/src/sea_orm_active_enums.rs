@@ -22,6 +22,23 @@ pub enum PushProviderEnum {
     Apns,
 }
 
+// Hand-added: mirrors Postgres `protest_blob_kind_enum` (see
+// libs/db/src/lib/schemas/protestSession.ts). `AudioChunk` is declared from
+// the start even though only position batches are written today - the audio
+// slice then needs no type migration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "Enum",
+    db_type = "Enum",
+    enum_name = "protest_blob_kind_enum"
+)]
+pub enum ProtestBlobKindEnum {
+    #[sea_orm(string_value = "position_batch")]
+    PositionBatch,
+    #[sea_orm(string_value = "audio_chunk")]
+    AudioChunk,
+}
+
 // Hand-added (not sea-orm-codegen output, same reasoning as the enums
 // below it): mirrors Postgres `trusted_contact_status_enum` (see
 // libs/db/src/lib/schemas/trustedContact.ts).

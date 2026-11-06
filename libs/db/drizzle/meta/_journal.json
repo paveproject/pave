@@ -253,6 +253,13 @@
       "when": 1793183253495,
       "tag": "0035_fearless_captain_marvel",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793348615994,
+      "tag": "0036_futuristic_lyja",
+      "breakpoints": true
     }
   ]
 }

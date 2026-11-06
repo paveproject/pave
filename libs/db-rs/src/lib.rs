@@ -9,6 +9,8 @@
 pub mod prelude;
 
 pub mod device;
+pub mod protest_blob;
+pub mod protest_session;
 pub mod push_token;
 pub mod recovery_dek_generation;
 pub mod recovery_key_mnemonic;
