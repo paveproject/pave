@@ -39,19 +39,6 @@ export const getProtestSessionKey = async (
   return value ? hexToBytes(value) : null;
 };
 
-export const listProtestSessionIds = readIndex;
-
-/** Only for a session deleted outright: forgetting a key makes it unreadable
- * on this device. */
-export const clearProtestSessionKey = async (userId: string, sessionId: string): Promise<void> => {
-  await SecureStore.deleteItemAsync(sessionKeyId(userId, sessionId));
-  const index = await readIndex(userId);
-  await SecureStore.setItemAsync(
-    sessionIndexId(userId),
-    JSON.stringify(index.filter((id) => id !== sessionId)),
-  );
-};
-
 /** Sign-out / account switch - the sealed copies on the server survive. */
 export const clearAllProtestSessionKeys = async (userId: string): Promise<void> => {
   for (const sessionId of await readIndex(userId)) {

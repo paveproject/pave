@@ -10,7 +10,7 @@ when working inside it - this file only covers what spans packages.
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/api`              | Rust/Axum HTTP API. Auth via `better-auth-rs` (SeaORM entities, see `libs/auth`). Emits its own OpenAPI spec (`--emit-openapi <path>`).                                                                                |
 | `apps/notify`           | Rust worker, BullMQ-style jobs over Redis. Shares `libs/notify-contracts` with `apps/api`.                                                                                                                             |
-| `apps/mobile`           | Expo/React Native. Consumes `libs/query-client`, not `libs/api-js` directly.                                                                                                                                           |
+| `apps/mobile`           | Expo/React Native. Consumes `libs/query-client`, not `libs/api-js` directly - except where there is no React tree to hold a hook, see the route conventions below.                                                     |
 | `apps/postgres`         | Just the Dockerfile for the Postgres image deployed in `infra` - no app code.                                                                                                                                          |
 | `libs/db`               | Drizzle schema + migrations. Sole owner of every Postgres schema, `auth` included - see its own `AGENTS.md`.                                                                                                           |
 | `libs/auth`             | SeaORM entities `better-auth-rs` reads/writes at runtime. Issues no DDL itself (`libs/db` does) - don't add a `create_*_tables` function back here.                                                                    |
@@ -77,6 +77,17 @@ dependent image got rebuilt.
   convention of the reference project): a call site can then feed them to
   `useQuery`, `prefetchQuery`, `setQueryData` or `invalidateQueries`, which a
   hook cannot. Writes are hooks, since they need `useQueryClient`.
+- **The offline executors call `libs/api-js` directly, and have to.**
+  `providers/sync/offlineExecutor/*` and the watermelon domain modules that
+  enqueue into them run outside React: `startOfflineExecutor` builds a
+  module-level singleton, and its `mutationFns` are invoked by the executor -
+  including when it replays the on-disk outbox at launch, with no component
+  mounted. There is no `useQueryClient` to reach, so a `use*Mutation` is
+  structurally unusable there. Don't "fix" those call sites.
+- An **imperative** read inside a component (a submit handler needing fresh
+  data once) still goes through the query client, as
+  `queryClient.fetchQuery(xOptions())` - it shares the one `queryFn` and fills
+  the cache, where a direct SDK call does neither.
 - Every user-scoped factory takes an optional `userId` with
   `enabled: !!userId`, because several screens mount before `/me` has
   answered.

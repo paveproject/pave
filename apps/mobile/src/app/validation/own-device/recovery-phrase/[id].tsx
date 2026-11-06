@@ -13,11 +13,11 @@ import {
   tint,
 } from '@expo/ui/swift-ui/modifiers';
 import { useTranslations } from 'use-intl';
-import { getRecoveryKeyMnemonic, listDevices, listTrustedContacts } from '@libs/api-js';
 import {
   userDevicesOptions,
   isForbiddenError,
   mePendingActionsOptions,
+  meRecoveryKeyMnemonicOptions,
   userTrustedContactsOptions,
   useMeRecoveryKeyMnemonicActivateMutation,
 } from '@libs/query-client';
@@ -87,8 +87,11 @@ const RecoveryPhraseEntryScreen = () => {
 
     setIsSubmitting(true);
     try {
-      const { data, response } = await getRecoveryKeyMnemonic();
-      if (response.status === 404 || !data) {
+      // `fetchQuery`, not `useQuery`: this is needed at submit time, once.
+      // It also has to be fresh - a blob cached before a DEK rotation would
+      // fail to decrypt and read as a wrong phrase.
+      const data = await queryClient.fetchQuery(meRecoveryKeyMnemonicOptions());
+      if (!data) {
         setError(t('pages.pending_actions.own_device.mnemonic.wrong_phrase'));
         return;
       }
@@ -119,13 +122,10 @@ const RecoveryPhraseEntryScreen = () => {
       // 403-as-success path above never ran the mutation's own
       // `onSuccess` cache updates.
       if (!userId) return;
-      const [{ data: devices }, { data: contacts }] = await Promise.all([
-        listDevices({ path: { user_id: userId } }),
-        listTrustedContacts({ path: { user_id: userId } }),
+      const [devices, contacts] = await Promise.all([
+        queryClient.fetchQuery(userDevicesOptions({ userId })),
+        queryClient.fetchQuery(userTrustedContactsOptions({ userId })),
       ]);
-      if (devices) queryClient.setQueryData(userDevicesOptions({ userId }).queryKey, devices);
-      if (contacts)
-        queryClient.setQueryData(userTrustedContactsOptions({ userId }).queryKey, contacts);
       await queryClient.invalidateQueries({ queryKey: mePendingActionsOptions().queryKey });
 
       const eligibleContactIds = (contacts ?? [])
