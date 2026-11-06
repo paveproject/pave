@@ -486,14 +486,17 @@ async fn another_account_cannot_upload_into_a_session() {
 }
 
 // ---------------------------------------------------------------------------
-// delete_session (DELETE /protest-session/{id})
+// no delete route
 // ---------------------------------------------------------------------------
 
-/// There is no automatic expiry by design, so this is the only way data ever
-/// leaves the server - and it has to take the blobs with it.
+/// Recordings are append-only on purpose. A seized unlocked phone still holds
+/// an authenticated session, and while it cannot read them, a delete endpoint
+/// would let whoever holds the device destroy them - server copies included,
+/// which is the exact failure this feature exists to prevent. This test is
+/// what keeps that decision from being undone by adding a handler back.
 #[tokio::test]
 #[serial_test::serial]
-async fn deleting_a_session_removes_its_blobs() {
+async fn a_session_cannot_be_deleted() {
     let env = shared_test_env().await;
     let app = fresh_app(env).await;
     let token = app.sign_in("owner@example.com").await;
@@ -507,18 +510,6 @@ async fn deleting_a_session_removes_its_blobs() {
     )
     .await;
 
-    let blob = Uuid::new_v4().to_string();
-    let blob_path = format!("/protest-session/{session}/blob/{blob}");
-    let boundary = "x-test-boundary";
-    app.request_multipart(
-        "PUT",
-        &blob_path,
-        &token,
-        boundary,
-        blob_body(boundary, "position_batch", 0, b"payload"),
-    )
-    .await;
-
     let (status, _) = app
         .request(
             "DELETE",
@@ -527,13 +518,10 @@ async fn deleting_a_session_removes_its_blobs() {
             None,
         )
         .await;
-    assert_eq!(status, StatusCode::NO_CONTENT);
-
-    let (status, _) = app.request_bytes("GET", &blob_path, &token).await;
     assert_eq!(
         status,
-        StatusCode::NOT_FOUND,
-        "the blob must be unreachable once its session is gone"
+        StatusCode::METHOD_NOT_ALLOWED,
+        "there must be no way to delete a recording"
     );
 
     let (_, list) = app
@@ -544,5 +532,5 @@ async fn deleting_a_session_removes_its_blobs() {
             None,
         )
         .await;
-    assert_eq!(list.as_array().map(|rows| rows.len()), Some(0), "{list}");
+    assert_eq!(list.as_array().map(|rows| rows.len()), Some(1), "{list}");
 }

@@ -12,10 +12,7 @@ use axum::Json;
 use better_auth::integrations::axum::CurrentSession;
 use db_rs::sea_orm_active_enums::ProtestBlobKindEnum;
 use db_rs::{protest_blob, protest_session};
-use sea_orm::{
-    ActiveValue::Set, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, QueryOrder,
-    TransactionTrait,
-};
+use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use uuid::Uuid;
 
 /// A session id the caller doesn't own must look absent, not forbidden: a 403
@@ -513,82 +510,6 @@ pub async fn download_blob(
         Err(error) => {
             tracing::error!(?error, "failed to read the protest blob stream");
             (StatusCode::INTERNAL_SERVER_ERROR, "could not read the blob").into_response()
-        }
-    }
-}
-
-/// The only way a session ever leaves the server - there is no expiry by
-/// design.
-///
-/// S3 objects go first: a failure there leaves rows pointing at bytes that
-/// still exist, which a retry fixes, whereas rows-first would orphan the
-/// objects with nothing left to find them by.
-#[utoipa::path(
-    delete,
-    path = "/protest-session/{protest_session_id}",
-    tag = "ProtestSessions",
-    params(("protest_session_id" = String, Path, description = "Session id")),
-    responses(
-        (status = 204, description = "Session and all its blobs deleted"),
-        (status = 404, description = "No such session for this account"),
-    )
-)]
-pub async fn delete_session(
-    State(state): State<AppState>,
-    session: CurrentSession<AppAuthSchema>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
-    let user_id = session.user.id.clone();
-    let Ok(session_id) = Uuid::parse_str(&id) else {
-        return (StatusCode::BAD_REQUEST, "id must be a uuid").into_response();
-    };
-
-    let existing = match find_owned_session(&state.db, session_id, &user_id).await {
-        Ok(Some(row)) => row,
-        Ok(None) => return (StatusCode::NOT_FOUND, "no such session").into_response(),
-        Err(error) => {
-            tracing::error!(?error, "failed to look up the protest session");
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "could not read the session",
-            )
-                .into_response();
-        }
-    };
-
-    for blob in load_blobs(&state.db, session_id).await {
-        if let Err(error) = state
-            .s3
-            .delete_object()
-            .bucket(&state.config.s3_bucket_private)
-            .key(&blob.s3_key)
-            .send()
-            .await
-        {
-            tracing::error!(?error, key = %blob.s3_key, "failed to delete a protest blob");
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "could not delete the stored data",
-            )
-                .into_response();
-        }
-    }
-
-    // `protest_blob` rows go with it through the FK's ON DELETE CASCADE.
-    let deleted = state
-        .db
-        .transaction(|tx| Box::pin(async move { existing.delete(tx).await }))
-        .await;
-
-    match deleted {
-        Ok(_) => StatusCode::NO_CONTENT.into_response(),
-        Err(error) => {
-            tracing::error!(?error, "failed to delete the protest session");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "could not delete the session",
-            )
-                .into_response()
         }
     }
 }
