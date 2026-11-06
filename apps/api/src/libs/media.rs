@@ -4,6 +4,11 @@ use crate::config::ApiConfig;
 /// the day a new media folder is needed.
 pub const AVATARS_FOLDER: &str = "avatars";
 
+/// Protest-mode blobs, in the *private* bucket. Never passed to
+/// `resolve_media_url`: that bucket has no public URL, so reads go through
+/// `protest_sessions::handlers::download_blob`.
+pub const PROTEST_SESSIONS_FOLDER: &str = "protest-sessions";
+
 /// Resolves a stored media reference (avatar, ...) into a URL the client
 /// can load directly.
 ///
