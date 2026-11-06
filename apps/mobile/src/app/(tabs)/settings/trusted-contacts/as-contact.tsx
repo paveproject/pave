@@ -6,7 +6,7 @@ import { AnimatedLegendList } from '@legendapp/list/reanimated';
 import { LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Host, Button as UIButton } from '@expo/ui';
-import { pendingActionsOptions, trustedByOptions } from '@libs/query-client';
+import { pendingActionsOptions, userTrustedContactOfOptions } from '@libs/query-client';
 import type { MeTrustedContactsAsContactResponse } from '@libs/api-js';
 import { useFormatter, useTranslations } from 'use-intl';
 import { Text } from '../../../../components/ui/text';
@@ -17,6 +17,7 @@ import { Icons as NativeIcons } from '../../../../constants/icons';
 import { useTheme } from '../../../../providers/ThemeProvider';
 import { useDeviceId } from '../../../../hooks/useDeviceId';
 import tw from '../../../../lib/tw';
+import { useAuth } from '../../../../providers/AuthProvider';
 
 interface Row {
   readonly contact: MeTrustedContactsAsContactResponse;
@@ -72,9 +73,11 @@ const TrustedByScreen = () => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
+  const { user } = useAuth();
+  const userId = user?.id;
   const deviceId = useDeviceId();
   const { data, isPending, isRefetching, refetch } = useQuery(
-    trustedByOptions(deviceId ?? undefined),
+    userTrustedContactOfOptions({ userId, deviceId: deviceId ?? undefined }),
   );
   // Same source `usePendingActionsGate` reads - this contact only shows
   // up here as a `recovery_request_contact` item once the server has

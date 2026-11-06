@@ -2,10 +2,10 @@ import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
 import {
-  devicesOptions,
-  recoveryRequestCurrentOptions,
+  userDevicesOptions,
+  userRecoveryRequestCurrentOptions,
   recoveryRequestSharesOptions,
-  trustedContactsOptions,
+  userTrustedContactsOptions,
   useCancelRecoveryRequestMutation,
   useCompleteRecoveryRequestMutation,
 } from '@libs/query-client';
@@ -52,18 +52,25 @@ export const useRecoveryRequestCompletion = () => {
   const t = useTranslations();
   const toast = useToast();
   const { user } = useAuth();
-  const { data: request } = useQuery({ ...recoveryRequestCurrentOptions(), enabled: !!user });
+  const userId = user?.id;
+  const { data: request } = useQuery({
+    ...userRecoveryRequestCurrentOptions({ userId }),
+    enabled: !!user,
+  });
   const requestId = request?.status === 'pending' ? request.id : undefined;
 
   const { data: shares } = useQuery({
-    ...recoveryRequestSharesOptions(requestId ?? ''),
+    ...recoveryRequestSharesOptions({ recoveryRequestId: requestId ?? '' }),
     enabled: !!requestId,
     refetchInterval: POLL_INTERVAL_MS,
   });
-  const { data: contacts } = useQuery({ ...trustedContactsOptions(), enabled: !!requestId });
-  const { data: devices } = useQuery({ ...devicesOptions(), enabled: !!requestId });
-  const complete = useCompleteRecoveryRequestMutation();
-  const cancel = useCancelRecoveryRequestMutation();
+  const { data: contacts } = useQuery({
+    ...userTrustedContactsOptions({ userId }),
+    enabled: !!requestId,
+  });
+  const { data: devices } = useQuery({ ...userDevicesOptions({ userId }), enabled: !!requestId });
+  const complete = useCompleteRecoveryRequestMutation({ userId });
+  const cancel = useCancelRecoveryRequestMutation({ userId });
   const reporter = useSyncTaskReporter({
     id: SYNC_TASK_IDS.recoveryRequestCompletion,
     enabled: !!requestId,

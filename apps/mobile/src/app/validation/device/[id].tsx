@@ -21,6 +21,7 @@ import { Icons } from '../../../constants/IconsOld';
 import { logger } from '../../../logger';
 import { DEVICE_TYPE_LABEL } from '../../../utils/deviceTypeLabel';
 import tw from '../../../lib/tw';
+import { useAuth } from '../../../providers/AuthProvider';
 
 /**
  * Pushed by `usePendingActionsGate`, only ever reachable while
@@ -47,8 +48,10 @@ const ValidationDeviceScreen = () => {
   const modalHeaderOptions = useModalHeaderOptions({ forceCross: true });
   const bottomInset = isIpad || isAndroid ? insets.bottom : 0;
   const action = usePendingAction('device_registration', id);
-  const approve = useApproveDeviceMutation();
-  const decline = useDeclineDeviceMutation();
+  const { user } = useAuth();
+  const userId = user?.id;
+  const approve = useApproveDeviceMutation({ userId });
+  const decline = useDeclineDeviceMutation({ userId });
   const isBusy = approve.isPending || decline.isPending;
 
   useEffect(() => {

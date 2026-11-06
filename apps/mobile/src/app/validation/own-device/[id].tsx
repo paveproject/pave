@@ -9,8 +9,8 @@ import { buttonStyle, controlSize, frame, tint } from '@expo/ui/swift-ui/modifie
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { useFormatter, useNow, useTranslations } from 'use-intl';
 import {
-  recoveryRequestCurrentOptions,
-  trustedContactsOptions,
+  userRecoveryRequestCurrentOptions,
+  userTrustedContactsOptions,
   useCancelRecoveryRequestMutation,
   useCreateRecoveryRequestMutation,
 } from '@libs/query-client';
@@ -27,6 +27,7 @@ import { isAndroid, isIpad } from '../../../platform/detection';
 import { Icons } from '../../../constants/IconsOld';
 import { logger } from '../../../logger';
 import tw from '../../../lib/tw';
+import { useAuth } from '../../../providers/AuthProvider';
 
 /**
  * Pushed by `usePendingActionsGate` when *this* device is the one
@@ -77,10 +78,12 @@ const ValidationOwnDeviceScreen = () => {
   const bottomInset = isIpad ? insets.bottom : 0;
   const now = useNow();
   const action = usePendingAction('own_device_registration', id);
-  const { data: request } = useQuery(recoveryRequestCurrentOptions());
-  const { data: contacts } = useQuery(trustedContactsOptions());
-  const createRecovery = useCreateRecoveryRequestMutation();
-  const cancelRecovery = useCancelRecoveryRequestMutation();
+  const { user } = useAuth();
+  const userId = user?.id;
+  const { data: request } = useQuery(userRecoveryRequestCurrentOptions({ userId }));
+  const { data: contacts } = useQuery(userTrustedContactsOptions({ userId }));
+  const createRecovery = useCreateRecoveryRequestMutation({ userId });
+  const cancelRecovery = useCancelRecoveryRequestMutation({ userId });
   const { isImpossible } = useRecoveryOutcome(request);
   const isRecovering = request?.status === 'pending';
   const title = isRecovering

@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  devicesOptions,
+  userDevicesOptions,
   isConflictError,
-  trustedContactsOptions,
+  userTrustedContactsOptions,
   useReserveRecoveryDekGenerationMutation,
   useSetDeviceDekMutation,
   useSetSharesMutation,
@@ -44,10 +44,14 @@ export const useRecoveryKeySync = () => {
   useEnsureRecoveryIdentity();
 
   const { user } = useAuth();
-  const { data: contacts } = useQuery({ ...trustedContactsOptions(), enabled: !!user });
-  const { data: devices } = useQuery({ ...devicesOptions(), enabled: !!user });
-  const setShares = useSetSharesMutation();
-  const setDeviceDek = useSetDeviceDekMutation();
+  const userId = user?.id;
+  const { data: contacts } = useQuery({
+    ...userTrustedContactsOptions({ userId }),
+    enabled: !!user,
+  });
+  const { data: devices } = useQuery({ ...userDevicesOptions({ userId }), enabled: !!user });
+  const setShares = useSetSharesMutation({ userId });
+  const setDeviceDek = useSetDeviceDekMutation({ userId });
   const reserveGeneration = useReserveRecoveryDekGenerationMutation();
   const reconcileMnemonicUpload = useReconcileMnemonicUpload();
   // Guards against overlapping runs if `contacts`/`devices` change again

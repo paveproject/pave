@@ -10,6 +10,7 @@ import { useToast } from '../../../components/Toast';
 import { logger } from '../../../logger';
 import { Icons } from '../../../constants/icons';
 import { useRecoveryOutcome } from '../../../hooks/sync/useRecoveryOutcome';
+import { useAuth } from '../../../providers/AuthProvider';
 
 interface RecoveryProgressSectionProps {
   request: MeRecoveryRequestsResponse;
@@ -31,7 +32,9 @@ export const RecoveryProgressSection = ({ request }: RecoveryProgressSectionProp
   const { theme, colors, mode } = useTheme();
   const toast = useToast();
   const now = useNow();
-  const cancel = useCancelRecoveryRequestMutation();
+  const { user } = useAuth();
+  const userId = user?.id;
+  const cancel = useCancelRecoveryRequestMutation({ userId });
   const { isImpossible } = useRecoveryOutcome(request);
 
   const releaseAt = new Date(request.releaseAt);

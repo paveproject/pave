@@ -11,7 +11,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Host, Button as UIButton } from '@expo/ui';
-import { devicesOptions, pendingActionsOptions, useRevokeDeviceMutation } from '@libs/query-client';
+import {
+  userDevicesOptions,
+  pendingActionsOptions,
+  useRevokeDeviceMutation,
+} from '@libs/query-client';
 import type { MeDevicesResponse } from '@libs/api-js';
 import { useFormatter, useTranslations } from 'use-intl';
 import { Text } from '../../../../components/ui/text';
@@ -29,6 +33,7 @@ import { logger } from '../../../../logger';
 import { DEVICE_TYPE_LABEL } from '../../../../utils/deviceTypeLabel';
 import tw from '../../../../lib/tw';
 import { scheduleOnRN } from 'react-native-worklets';
+import { useAuth } from '../../../../providers/AuthProvider';
 
 interface Row {
   readonly device: MeDevicesResponse;
@@ -140,7 +145,9 @@ const MyDevicesScreen = () => {
   const thisDeviceId = useDeviceId();
   const router = useRouter();
 
-  const { data, isPending, isRefetching, refetch } = useQuery(devicesOptions());
+  const { user } = useAuth();
+  const userId = user?.id;
+  const { data, isPending, isRefetching, refetch } = useQuery(userDevicesOptions({ userId }));
   // Same source `usePendingActionsGate` reads - a device only shows up
   // here as a `device_registration` item once the server has confirmed
   // this caller actually has standing to approve/decline it (see
@@ -148,7 +155,7 @@ const MyDevicesScreen = () => {
   // that's safe to read instead of re-deriving "is this caller active"
   // client-side.
   const { data: pendingActions } = useQuery(pendingActionsOptions());
-  const revoke = useRevokeDeviceMutation();
+  const revoke = useRevokeDeviceMutation({ userId });
 
   const devices = useMemo(() => data ?? [], [data]);
   const approvableIds = useMemo(

@@ -8,7 +8,7 @@ import {
   PersistQueryClientProviderProps,
 } from '@tanstack/react-query-persist-client';
 import { persistKey } from '../api';
-import { meKeys, trustedContactsKeys } from '@libs/query-client';
+import { meKeys, userKeys } from '@libs/query-client';
 // import { useReactQueryDevTools } from "@dev-plugins/react-query";
 
 const queryStorage = createMMKV({
@@ -63,10 +63,11 @@ const createMMKVPersister = (key: string) => ({
   },
 });
 
-// `trustedContactsKeys.base` is here so the "mine"/"as-contact" lists
-// survive a cold start, same reasoning as `meKeys.base` - the recovery-key
-// bootstrap (see `Providers.tsx`'s `RecoveryKeyBootstrap`) and its debug
-// screen both read off these on launch, before the first refetch lands.
+// `userKeys.base` covers everything addressed by a user id - devices,
+// trusted contacts both ways, protest sessions, the current recovery request.
+// They have to survive a cold start for the same reason as `meKeys.base`: the
+// recovery-key bootstrap and its debug screen read them on launch, before the
+// first refetch lands.
 /**
  * Matched segment by segment as a prefix rather than by `queryKey[0]` alone,
  * so a base can be allowlisted without dragging in everything nested under it
@@ -74,7 +75,7 @@ const createMMKVPersister = (key: string) => ({
  */
 const PERSISTED_QUERY_KEY_PREFIXES: readonly unknown[][] = [
   [meKeys.base],
-  [trustedContactsKeys.base],
+  [userKeys.base],
   [persistKey],
 ];
 

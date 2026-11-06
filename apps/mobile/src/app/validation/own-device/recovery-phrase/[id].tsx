@@ -15,10 +15,10 @@ import {
 import { useTranslations } from 'use-intl';
 import { getRecoveryKeyMnemonic, listDevices, listTrustedContacts } from '@libs/api-js';
 import {
-  devicesOptions,
+  userDevicesOptions,
   isForbiddenError,
   pendingActionsOptions,
-  trustedContactsOptions,
+  userTrustedContactsOptions,
   useActivateRecoveryKeyMnemonicMutation,
 } from '@libs/query-client';
 import {
@@ -64,8 +64,9 @@ const RecoveryPhraseEntryScreen = () => {
   const { theme, colors, isLiquidGlassAvailable } = useTheme();
   const toast = useToast();
   const { user } = useAuth();
+  const userId = user?.id;
   const queryClient = useQueryClient();
-  const activate = useActivateRecoveryKeyMnemonicMutation();
+  const activate = useActivateRecoveryKeyMnemonicMutation({ userId });
   const insets = useSafeAreaInsets();
   const navigationHeaderHeight = useHeaderHeight();
   const modalHeaderOptions = useModalHeaderOptions({ forceCross: true });
@@ -117,12 +118,14 @@ const RecoveryPhraseEntryScreen = () => {
       // `activate_via_recovery_key_mnemonic`'s own doc comment), and the
       // 403-as-success path above never ran the mutation's own
       // `onSuccess` cache updates.
+      if (!userId) return;
       const [{ data: devices }, { data: contacts }] = await Promise.all([
-        listDevices(),
-        listTrustedContacts(),
+        listDevices({ path: { user_id: userId } }),
+        listTrustedContacts({ path: { user_id: userId } }),
       ]);
-      if (devices) queryClient.setQueryData(devicesOptions().queryKey, devices);
-      if (contacts) queryClient.setQueryData(trustedContactsOptions().queryKey, contacts);
+      if (devices) queryClient.setQueryData(userDevicesOptions({ userId }).queryKey, devices);
+      if (contacts)
+        queryClient.setQueryData(userTrustedContactsOptions({ userId }).queryKey, contacts);
       await queryClient.invalidateQueries({ queryKey: pendingActionsOptions().queryKey });
 
       const eligibleContactIds = (contacts ?? [])

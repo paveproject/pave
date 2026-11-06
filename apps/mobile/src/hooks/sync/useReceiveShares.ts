@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { devicesOptions, trustedByOptions } from '@libs/query-client';
+import { userDevicesOptions, userTrustedContactOfOptions } from '@libs/query-client';
 import { receiveDek, receiveShare } from '../../lib/recoveryKey';
 import { useAuth } from '../../providers/AuthProvider';
 import { useDeviceId } from '../useDeviceId';
@@ -26,12 +26,13 @@ import { SYNC_TASK_IDS } from '../../providers/sync/types';
  */
 export const useReceiveShares = () => {
   const { user } = useAuth();
+  const userId = user?.id;
   const deviceId = useDeviceId();
   const { data: trustedBy } = useQuery({
-    ...trustedByOptions(deviceId ?? undefined),
+    ...userTrustedContactOfOptions({ userId, deviceId: deviceId ?? undefined }),
     enabled: !!user && !!deviceId,
   });
-  const { data: devices } = useQuery({ ...devicesOptions(), enabled: !!user });
+  const { data: devices } = useQuery({ ...userDevicesOptions({ userId }), enabled: !!user });
   const reporter = useSyncTaskReporter({
     id: SYNC_TASK_IDS.receiveShares,
     enabled: !!user,

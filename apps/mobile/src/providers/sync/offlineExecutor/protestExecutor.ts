@@ -57,7 +57,7 @@ const positions = () => database.get<ProtestPosition>(PROTEST_POSITION_TABLE);
 const ensureServerSession = async (meta: ProtestPushBase): Promise<void> => {
   const attempt = () =>
     upsertSession({
-      path: { id: meta.sessionId },
+      path: { protest_session_id: meta.sessionId },
       body: { sealedKey: meta.sealedKey, metadata: meta.metadata },
     });
 
@@ -71,7 +71,7 @@ const ensureServerSession = async (meta: ProtestPushBase): Promise<void> => {
     logger.debug('protest: 409 on session push, closing the conflicting session', {
       sessionId: meta.sessionId,
     });
-    await closeOtherActiveSessions(meta.sessionId);
+    await closeOtherActiveSessions(meta.userId, meta.sessionId);
     ({ error, response } = await attempt());
   }
 
@@ -110,14 +110,14 @@ const describeFailure = (
 
 /** Metadata is sent back untouched: this device may have no key for those
  * sessions and cannot rewrite what it cannot read. */
-const closeOtherActiveSessions = async (exceptSessionId: string): Promise<void> => {
-  const { data, error } = await listSessions();
+const closeOtherActiveSessions = async (userId: string, exceptSessionId: string): Promise<void> => {
+  const { data, error } = await listSessions({ path: { user_id: userId } });
   if (error || !data) return;
 
   for (const remote of data) {
     if (!remote.active || remote.id === exceptSessionId) continue;
     const { error: closeError } = await endSession({
-      path: { id: remote.id },
+      path: { protest_session_id: remote.id },
       body: { metadata: remote.metadata },
     });
     if (closeError) {
@@ -160,7 +160,7 @@ export const protestExecutor = startOfflineExecutor({
 
       if (meta.ended) {
         const { error, response } = await endSession({
-          path: { id: meta.sessionId },
+          path: { protest_session_id: meta.sessionId },
           body: { metadata: meta.metadata },
         });
         if (error) throwForFailedResponse(response?.status, 'protest session close');
@@ -241,7 +241,7 @@ export const protestExecutor = startOfflineExecutor({
         form.append('file', staged as unknown as Blob);
 
         const { error, response } = await uploadBlob({
-          path: { id: meta.sessionId, blob_id: meta.blobId },
+          path: { protest_session_id: meta.sessionId, blob_id: meta.blobId },
           // Multipart isn't representable in the generated types - same
           // escape hatch as the avatar upload.
           body: form as never,

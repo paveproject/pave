@@ -12,10 +12,10 @@ import {
 import { PullToRefreshBox } from '@expo/ui/jetpack-compose';
 import { useTranslations } from 'use-intl';
 import {
-  devicesOptions,
+  userDevicesOptions,
   pendingActionsOptions,
-  recoveryRequestCurrentOptions,
-  trustedContactsOptions,
+  userRecoveryRequestCurrentOptions,
+  userTrustedContactsOptions,
   useCreateRecoveryRequestMutation,
   useMeUpdateMutation,
   useSetDeviceMutation,
@@ -55,16 +55,17 @@ const SettingsRecovery = () => {
   const t = useTranslations();
   const { theme, colors, mode } = useTheme();
   const { user } = useAuth();
+  const userId = user?.id;
   const toast = useToast();
   const deviceId = useDeviceId();
 
   const pendingActionsQuery = useQuery(pendingActionsOptions());
-  const devicesQuery = useQuery(devicesOptions());
-  const recoveryRequestQuery = useQuery(recoveryRequestCurrentOptions());
-  const contactsQuery = useQuery(trustedContactsOptions());
+  const devicesQuery = useQuery(userDevicesOptions({ userId }));
+  const recoveryRequestQuery = useQuery(userRecoveryRequestCurrentOptions({ userId }));
+  const contactsQuery = useQuery(userTrustedContactsOptions({ userId }));
 
-  const setDevice = useSetDeviceMutation();
-  const createRecovery = useCreateRecoveryRequestMutation();
+  const setDevice = useSetDeviceMutation({ userId });
+  const createRecovery = useCreateRecoveryRequestMutation({ userId });
   const { mutateAsync: updateMe } = useMeUpdateMutation();
   const durationLabel = useDurationLabel();
 

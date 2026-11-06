@@ -8,10 +8,10 @@ import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '../components/Toast';
 import {
-  devicesOptions,
+  userDevicesOptions,
   pendingActionsOptions,
-  recoveryRequestCurrentOptions,
-  trustedContactsOptions,
+  userRecoveryRequestCurrentOptions,
+  userTrustedContactsOptions,
   usePushTokenUpdateMutation,
 } from '@libs/query-client';
 import { useTranslations } from 'use-intl';
@@ -39,6 +39,7 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, pushToken, setPushToken } = useAuth();
+  const userId = user?.id;
   const notificationsPermission = usePermissions().notifications;
   const [notifications, setNotifications] = useState<Notifications.Notification[] | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -99,7 +100,9 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
     (data: PushContent) => {
       switch (data.kind) {
         case 'trusted-contact-accepted':
-          queryClient.invalidateQueries({ queryKey: trustedContactsOptions().queryKey });
+          queryClient.invalidateQueries({
+            queryKey: userTrustedContactsOptions({ userId }).queryKey,
+          });
           break;
         case 'recovery-request-created':
           queryClient.invalidateQueries({ queryKey: pendingActionsOptions().queryKey });
@@ -107,17 +110,21 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
         case 'recovery-request-contact-responded':
         case 'recovery-request-ready':
         case 'recovery-request-failed':
-          queryClient.invalidateQueries({ queryKey: recoveryRequestCurrentOptions().queryKey });
+          queryClient.invalidateQueries({
+            queryKey: userRecoveryRequestCurrentOptions({ userId }).queryKey,
+          });
           break;
         case 'device-approval-requested':
           queryClient.invalidateQueries({ queryKey: pendingActionsOptions().queryKey });
-          queryClient.invalidateQueries({ queryKey: devicesOptions().queryKey });
+          queryClient.invalidateQueries({ queryKey: userDevicesOptions({ userId }).queryKey });
           break;
         case 'device-approved':
         case 'device-declined':
           queryClient.invalidateQueries({ queryKey: pendingActionsOptions().queryKey });
-          queryClient.invalidateQueries({ queryKey: devicesOptions().queryKey });
-          queryClient.invalidateQueries({ queryKey: recoveryRequestCurrentOptions().queryKey });
+          queryClient.invalidateQueries({ queryKey: userDevicesOptions({ userId }).queryKey });
+          queryClient.invalidateQueries({
+            queryKey: userRecoveryRequestCurrentOptions({ userId }).queryKey,
+          });
           break;
         default:
           data satisfies never;

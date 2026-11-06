@@ -12,7 +12,11 @@ import {
 import { PullToRefreshBox } from '@expo/ui/jetpack-compose';
 import { setStringAsync } from 'expo-clipboard';
 import { useTranslations } from 'use-intl';
-import { devicesOptions, trustedByOptions, trustedContactsOptions } from '@libs/query-client';
+import {
+  userDevicesOptions,
+  userTrustedContactOfOptions,
+  userTrustedContactsOptions,
+} from '@libs/query-client';
 import {
   getDebugSnapshot,
   getReceivedShareDebugInfo,
@@ -95,13 +99,17 @@ const InfoRow = ({
 const RecoveryKeysDebugScreen = () => {
   const { theme, colors, mode } = useTheme();
   const { user } = useAuth();
+  const userId = user?.id;
   const deviceId = useDeviceId();
   const [snapshot, setSnapshot] = useState<RecoveryKeyDebugSnapshot | null>(null);
   const [receivedShares, setReceivedShares] = useState<Record<string, string>>({});
 
-  const mine = useQuery(trustedContactsOptions());
-  const asContact = useQuery({ ...trustedByOptions(deviceId ?? undefined), enabled: !!deviceId });
-  const devices = useQuery(devicesOptions());
+  const mine = useQuery(userTrustedContactsOptions({ userId }));
+  const asContact = useQuery({
+    ...userTrustedContactOfOptions({ userId, deviceId: deviceId ?? undefined }),
+    enabled: !!deviceId,
+  });
+  const devices = useQuery(userDevicesOptions({ userId }));
   const asContactRows = asContact.data;
 
   const reload = useCallback(async () => {

@@ -1,7 +1,8 @@
 import { activateViaRecoveryKeyMnemonic, setRecoveryKeyMnemonic } from '@libs/api-js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toApiCallError } from '../apiError';
-import { devicesOptions, pendingActionsOptions } from '../me/meOptions';
+import { pendingActionsOptions } from '../me/meOptions';
+import { userDevicesOptions } from '../user/userOptions';
 import { recoveryKeyMnemonicOptions } from './recoveryKeyMnemonicOptions';
 
 /** Idempotent upsert - called both at initial setup and silently on every
@@ -23,7 +24,7 @@ export const useSetRecoveryKeyMnemonicMutation = () => {
 
 /** Activates the calling device immediately - no delay, no quorum (see
  * `handlers::activate_via_recovery_key_mnemonic`'s own doc comment). */
-export const useActivateRecoveryKeyMnemonicMutation = () => {
+export const useActivateRecoveryKeyMnemonicMutation = ({ userId }: { userId?: string }) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
@@ -41,7 +42,7 @@ export const useActivateRecoveryKeyMnemonicMutation = () => {
     // invalidated, so Settings > Devices doesn't keep showing a sibling as
     // `active` until some unrelated refetch happens to land.
     onSuccess: (device) => {
-      queryClient.setQueryData(devicesOptions().queryKey, (previous) =>
+      queryClient.setQueryData(userDevicesOptions({ userId }).queryKey, (previous) =>
         previous?.map((d) => (d.id === device.id ? device : { ...d, status: 'suspended' })),
       );
       queryClient.setQueryData(pendingActionsOptions().queryKey, (previous) =>

@@ -78,7 +78,7 @@ export const startSession = async (userId: string): Promise<ProtestSession> => {
 
   // A session left open server-side with nothing local pointing at it makes
   // every future start fail with a permanent 409, with no way out of the UI.
-  await closeOrphanedServerSessions();
+  await closeOrphanedServerSessions(userId);
 
   const sessionId = randomUUID();
   const key = mintSessionKey();
@@ -110,8 +110,8 @@ export const startSession = async (userId: string): Promise<ProtestSession> => {
 
 /** Best-effort: offline there is nothing to reconcile and the start proceeds,
  * the push simply sits in the outbox. */
-const closeOrphanedServerSessions = async (): Promise<void> => {
-  const { data, error } = await listSessions();
+const closeOrphanedServerSessions = async (userId: string): Promise<void> => {
+  const { data, error } = await listSessions({ path: { user_id: userId } });
   if (error || !data) return;
 
   // "Not open on this device", not "absent from it": a session already closed
@@ -123,7 +123,10 @@ const closeOrphanedServerSessions = async (): Promise<void> => {
     if (!remote.active || openLocally.has(remote.id)) continue;
     logger.debug('protest: closing an orphaned server session', { sessionId: remote.id });
     // Metadata re-sent untouched: this device can no longer open it.
-    await endSession({ path: { id: remote.id }, body: { metadata: remote.metadata } });
+    await endSession({
+      path: { protest_session_id: remote.id },
+      body: { metadata: remote.metadata },
+    });
   }
 };
 

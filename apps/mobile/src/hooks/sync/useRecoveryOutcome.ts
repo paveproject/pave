@@ -26,7 +26,7 @@ export const useRecoveryOutcome = (request: MeRecoveryRequestsResponse | null | 
   // just reads whatever it (or this hook, if it mounts first) already
   // fetched, no duplicate network traffic.
   const { data: shares } = useQuery({
-    ...recoveryRequestSharesOptions(requestId ?? ''),
+    ...recoveryRequestSharesOptions({ recoveryRequestId: requestId ?? '' }),
     enabled: !!requestId,
   });
 

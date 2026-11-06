@@ -8,7 +8,7 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'ex
 import QRCode from 'react-native-qrcode-svg';
 import { Stack, useRouter } from 'expo-router';
 import { useTranslations } from 'use-intl';
-import { trustedContactInviteOptions, useRedeemInviteMutation } from '@libs/query-client';
+import { userTrustedContactInviteOptions, useRedeemInviteMutation } from '@libs/query-client';
 import { useTheme } from '../../../../providers/ThemeProvider';
 import { useModalHeaderOptions } from '../../../../hooks/useModalHeaderOptions';
 import { useToast } from '../../../../components/Toast';
@@ -23,6 +23,7 @@ import Empty from '../../../../components/ui/empty';
 import { Icons as NativeIcons } from '../../../../constants/icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isIpad } from '../../../../platform/detection';
+import { useAuth } from '../../../../providers/AuthProvider';
 
 type Mode = 'share' | 'scan';
 
@@ -43,14 +44,17 @@ const AddTrustedContactScreen = () => {
   const [mode, setMode] = useState<Mode>('share');
   const [manualCode, setManualCode] = useState('');
 
+  const { user } = useAuth();
+  const userId = user?.id;
+
   const {
     data: invite,
     isPending: isGeneratingInvite,
     isFetching: isRefreshingInvite,
     isError: inviteFailed,
     refetch: refetchInvite,
-  } = useQuery(trustedContactInviteOptions());
-  const redeemInvite = useRedeemInviteMutation();
+  } = useQuery(userTrustedContactInviteOptions({ userId }));
+  const redeemInvite = useRedeemInviteMutation({ userId });
 
   const [permission, requestPermission] = useCameraPermissions();
   const autoRequestedRef = useRef(false);

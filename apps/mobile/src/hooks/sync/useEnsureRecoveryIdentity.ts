@@ -29,7 +29,7 @@ import { logger } from '../../logger';
 export const useEnsureRecoveryIdentity = () => {
   const { user } = useAuth();
   const userId = user?.id;
-  const setDevice = useSetDeviceMutation();
+  const setDevice = useSetDeviceMutation({ userId });
 
   // Kept fresh every render so the effect below can call the current
   // mutation without needing it in its dependency array.

@@ -9,7 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { trustedContactsOptions, useRevokeTrustedContactMutation } from '@libs/query-client';
+import { userTrustedContactsOptions, useRevokeTrustedContactMutation } from '@libs/query-client';
 import type { MeTrustedContactsResponse } from '@libs/api-js';
 import { useFormatter, useTranslations } from 'use-intl';
 import { Text } from '../../../../components/ui/text';
@@ -26,6 +26,7 @@ import { useToast } from '../../../../components/Toast';
 import { logger } from '../../../../logger';
 import tw from '../../../../lib/tw';
 import { scheduleOnRN } from 'react-native-worklets';
+import { useAuth } from '../../../../providers/AuthProvider';
 
 interface ContactRow {
   readonly contact: MeTrustedContactsResponse;
@@ -111,8 +112,12 @@ const MyTrustedContactsScreen = () => {
   const toast = useToast();
   const insets = useSafeAreaInsets();
 
-  const { data, isPending, isRefetching, refetch } = useQuery(trustedContactsOptions());
-  const revoke = useRevokeTrustedContactMutation();
+  const { user } = useAuth();
+  const userId = user?.id;
+  const { data, isPending, isRefetching, refetch } = useQuery(
+    userTrustedContactsOptions({ userId }),
+  );
+  const revoke = useRevokeTrustedContactMutation({ userId });
 
   const contacts = useMemo(() => data?.filter((c) => c.status === 'accepted') ?? [], [data]);
 
