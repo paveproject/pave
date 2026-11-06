@@ -64,7 +64,7 @@ async fn full_recovery_flow_from_creation_to_shares() {
     let (status, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -132,7 +132,7 @@ async fn full_recovery_flow_from_creation_to_shares() {
     let (status, approved) = app
         .request(
             "POST",
-            &format!("/me/recovery-requests/{contact_recovery_request_id}/approve"),
+            &format!("/recovery-request/{contact_recovery_request_id}/approve"),
             Some(token_b),
             Some(json!({ "encryptedShare": "test-sealed-share-blob" })),
         )
@@ -142,7 +142,7 @@ async fn full_recovery_flow_from_creation_to_shares() {
     let (status, _) = app
         .request(
             "GET",
-            &format!("/me/recovery-requests/{request_id}/shares"),
+            &format!("/recovery-request/{request_id}/shares"),
             Some(&setup.owner_token),
             None,
         )
@@ -154,7 +154,7 @@ async fn full_recovery_flow_from_creation_to_shares() {
     let (status, shares) = app
         .request(
             "GET",
-            &format!("/me/recovery-requests/{request_id}/shares"),
+            &format!("/recovery-request/{request_id}/shares"),
             Some(&setup.owner_token),
             None,
         )
@@ -183,7 +183,12 @@ async fn create_recovery_request_requires_an_accepted_contact() {
     register_device(&app, &token2, "pk-d2", "android").await;
 
     let (status, body) = app
-        .request("POST", "/me/recovery-requests", Some(&token2), None)
+        .request(
+            "POST",
+            &format!("/user/{}/recovery-requests", app.user_id(&token2).await),
+            Some(&token2),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
 }
@@ -201,7 +206,10 @@ async fn create_recovery_request_ignores_non_accepted_contacts() {
     // An invite that nobody has redeemed yet - still `pending`.
     app.request(
         "GET",
-        "/me/trusted-contacts/invite",
+        &format!(
+            "/user/{}/trusted-contact/invite",
+            app.user_id(&owner_token).await
+        ),
         Some(&owner_token),
         None,
     )
@@ -211,7 +219,15 @@ async fn create_recovery_request_ignores_non_accepted_contacts() {
     register_device(&app, &pending_token, "pk-d2", "android").await;
 
     let (status, body) = app
-        .request("POST", "/me/recovery-requests", Some(&pending_token), None)
+        .request(
+            "POST",
+            &format!(
+                "/user/{}/recovery-requests",
+                app.user_id(&pending_token).await
+            ),
+            Some(&pending_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
 }
@@ -230,7 +246,12 @@ async fn create_recovery_request_rejects_an_already_active_device() {
     assert_eq!(device["status"], "active");
 
     let (status, body) = app
-        .request("POST", "/me/recovery-requests", Some(&token), None)
+        .request(
+            "POST",
+            &format!("/user/{}/recovery-requests", app.user_id(&token).await),
+            Some(&token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
 }
@@ -244,7 +265,12 @@ async fn create_recovery_request_requires_the_device_to_be_registered_first() {
     // Signed in, but never called PUT /me/devices from this session.
     let token = app.sign_in("owner@example.com").await;
     let (status, body) = app
-        .request("POST", "/me/recovery-requests", Some(&token), None)
+        .request(
+            "POST",
+            &format!("/user/{}/recovery-requests", app.user_id(&token).await),
+            Some(&token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
 }
@@ -270,7 +296,7 @@ async fn create_recovery_request_asks_every_accepted_contact() {
     let (status, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -300,7 +326,7 @@ async fn release_at_reflects_the_owners_configured_delay() {
     let (status, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -341,7 +367,7 @@ async fn release_at_uses_the_protest_delay_when_protest_mode_is_on() {
     let (status, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -372,14 +398,19 @@ async fn create_recovery_request_wipes_every_other_device() {
 
     app.request(
         "POST",
-        "/me/recovery-requests",
+        &format!("/user/{}/recovery-requests", setup.owner_user_id),
         Some(&setup.owner_token),
         None,
     )
     .await;
 
     let (status, devices) = app
-        .request("GET", "/me/devices", Some(&setup.owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/devices", setup.owner_user_id),
+            Some(&setup.owner_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{devices}");
     let devices = devices.as_array().expect("should be an array");
@@ -408,7 +439,12 @@ async fn create_recovery_request_revokes_every_other_devices_session() {
     let setup = setup_recovery_scenario(&app, "owner@example.com", &["contact@example.com"]).await;
 
     let (status, _) = app
-        .request("GET", "/me/devices", Some(&setup.owner_active_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/devices", setup.owner_user_id),
+            Some(&setup.owner_active_token),
+            None,
+        )
         .await;
     assert_eq!(
         status,
@@ -418,14 +454,19 @@ async fn create_recovery_request_revokes_every_other_devices_session() {
 
     app.request(
         "POST",
-        "/me/recovery-requests",
+        &format!("/user/{}/recovery-requests", setup.owner_user_id),
         Some(&setup.owner_token),
         None,
     )
     .await;
 
     let (status, _) = app
-        .request("GET", "/me/devices", Some(&setup.owner_active_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/devices", setup.owner_user_id),
+            Some(&setup.owner_active_token),
+            None,
+        )
         .await;
     assert_eq!(
         status,
@@ -436,7 +477,12 @@ async fn create_recovery_request_revokes_every_other_devices_session() {
     // The requesting device's own session must survive - it's the one
     // that just made the call.
     let (status, _) = app
-        .request("GET", "/me/devices", Some(&setup.owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/devices", setup.owner_user_id),
+            Some(&setup.owner_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK);
 }
@@ -456,7 +502,7 @@ async fn starting_a_new_recovery_request_cancels_the_previous_one() {
     let (_, first) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -466,7 +512,7 @@ async fn starting_a_new_recovery_request_cancels_the_previous_one() {
     let (status, second) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -478,7 +524,7 @@ async fn starting_a_new_recovery_request_cancels_the_previous_one() {
     let (status, current) = app
         .request(
             "GET",
-            "/me/recovery-requests/current",
+            &format!("/user/{}/recovery-request/current", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -488,7 +534,7 @@ async fn starting_a_new_recovery_request_cancels_the_previous_one() {
 }
 
 // ---------------------------------------------------------------------------
-// get_current_recovery_request (GET /me/recovery-requests/current)
+// get_current_recovery_request (GET /recovery-request/current)
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -499,7 +545,15 @@ async fn get_current_is_not_found_when_there_is_none() {
 
     let token = app.sign_in("owner@example.com").await;
     let (status, _) = app
-        .request("GET", "/me/recovery-requests/current", Some(&token), None)
+        .request(
+            "GET",
+            &format!(
+                "/user/{}/recovery-request/current",
+                app.user_id(&token).await
+            ),
+            Some(&token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
@@ -511,13 +565,13 @@ async fn get_current_requires_authentication() {
     let app = fresh_app(env).await;
 
     let (status, _) = app
-        .request("GET", "/me/recovery-requests/current", None, None)
+        .request("GET", "/user/someone/recovery-request/current", None, None)
         .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
 // ---------------------------------------------------------------------------
-// cancel_recovery_request (DELETE /me/recovery-requests/{id})
+// cancel_recovery_request (DELETE /recovery-request/{id})
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -530,7 +584,7 @@ async fn owner_can_cancel_their_own_pending_request() {
     let (_, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -540,7 +594,7 @@ async fn owner_can_cancel_their_own_pending_request() {
     let (status, _) = app
         .request(
             "DELETE",
-            &format!("/me/recovery-requests/{request_id}"),
+            &format!("/recovery-request/{request_id}"),
             Some(&setup.owner_token),
             None,
         )
@@ -550,7 +604,7 @@ async fn owner_can_cancel_their_own_pending_request() {
     let (status, _) = app
         .request(
             "GET",
-            "/me/recovery-requests/current",
+            &format!("/user/{}/recovery-request/current", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -577,7 +631,7 @@ async fn cancelling_restores_suspended_devices() {
     let (_, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -587,7 +641,7 @@ async fn cancelling_restores_suspended_devices() {
     let (status, _) = app
         .request(
             "DELETE",
-            &format!("/me/recovery-requests/{request_id}"),
+            &format!("/recovery-request/{request_id}"),
             Some(&setup.owner_token),
             None,
         )
@@ -595,7 +649,12 @@ async fn cancelling_restores_suspended_devices() {
     assert_eq!(status, StatusCode::OK);
 
     let (status, devices) = app
-        .request("GET", "/me/devices", Some(&setup.owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/devices", setup.owner_user_id),
+            Some(&setup.owner_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{devices}");
     let other_device = devices
@@ -620,7 +679,7 @@ async fn cancelling_a_nonexistent_request_is_not_found() {
     let (status, _) = app
         .request(
             "DELETE",
-            "/me/recovery-requests/00000000-0000-0000-0000-000000000000",
+            "/recovery-request/00000000-0000-0000-0000-000000000000",
             Some(&token),
             None,
         )
@@ -638,7 +697,7 @@ async fn cancelling_someone_elses_request_is_not_found() {
     let (_, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -649,7 +708,7 @@ async fn cancelling_someone_elses_request_is_not_found() {
     let (status, body) = app
         .request(
             "DELETE",
-            &format!("/me/recovery-requests/{request_id}"),
+            &format!("/recovery-request/{request_id}"),
             Some(&other_token),
             None,
         )
@@ -667,7 +726,7 @@ async fn cancelling_an_already_cancelled_request_is_not_found() {
     let (_, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -676,7 +735,7 @@ async fn cancelling_an_already_cancelled_request_is_not_found() {
 
     app.request(
         "DELETE",
-        &format!("/me/recovery-requests/{request_id}"),
+        &format!("/recovery-request/{request_id}"),
         Some(&setup.owner_token),
         None,
     )
@@ -685,7 +744,7 @@ async fn cancelling_an_already_cancelled_request_is_not_found() {
     let (status, body) = app
         .request(
             "DELETE",
-            &format!("/me/recovery-requests/{request_id}"),
+            &format!("/recovery-request/{request_id}"),
             Some(&setup.owner_token),
             None,
         )
@@ -694,7 +753,7 @@ async fn cancelling_an_already_cancelled_request_is_not_found() {
 }
 
 // ---------------------------------------------------------------------------
-// complete_recovery_request (POST /me/recovery-requests/{id}/complete)
+// complete_recovery_request (POST /recovery-request/{id}/complete)
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -707,7 +766,7 @@ async fn completing_activates_the_requesting_device() {
     let (_, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -717,7 +776,7 @@ async fn completing_activates_the_requesting_device() {
     let (status, completed) = app
         .request(
             "POST",
-            &format!("/me/recovery-requests/{request_id}/complete"),
+            &format!("/recovery-request/{request_id}/complete"),
             Some(&setup.owner_token),
             None,
         )
@@ -726,7 +785,12 @@ async fn completing_activates_the_requesting_device() {
     assert_eq!(completed["status"], "completed");
 
     let (status, devices) = app
-        .request("GET", "/me/devices", Some(&setup.owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/devices", setup.owner_user_id),
+            Some(&setup.owner_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{devices}");
     assert_eq!(devices[0]["status"], "active");
@@ -747,7 +811,7 @@ async fn completing_with_zero_approvals_still_succeeds() {
     let (_, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -757,7 +821,7 @@ async fn completing_with_zero_approvals_still_succeeds() {
     let (status, completed) = app
         .request(
             "POST",
-            &format!("/me/recovery-requests/{request_id}/complete"),
+            &format!("/recovery-request/{request_id}/complete"),
             Some(&setup.owner_token),
             None,
         )
@@ -776,7 +840,7 @@ async fn completing_a_nonexistent_request_is_not_found() {
     let (status, _) = app
         .request(
             "POST",
-            "/me/recovery-requests/00000000-0000-0000-0000-000000000000/complete",
+            "/recovery-request/00000000-0000-0000-0000-000000000000/complete",
             Some(&token),
             None,
         )
@@ -794,7 +858,7 @@ async fn completing_someone_elses_request_is_not_found() {
     let (_, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -805,7 +869,7 @@ async fn completing_someone_elses_request_is_not_found() {
     let (status, body) = app
         .request(
             "POST",
-            &format!("/me/recovery-requests/{request_id}/complete"),
+            &format!("/recovery-request/{request_id}/complete"),
             Some(&other_token),
             None,
         )
@@ -823,7 +887,7 @@ async fn completing_an_already_completed_request_is_not_found() {
     let (_, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -832,7 +896,7 @@ async fn completing_an_already_completed_request_is_not_found() {
 
     app.request(
         "POST",
-        &format!("/me/recovery-requests/{request_id}/complete"),
+        &format!("/recovery-request/{request_id}/complete"),
         Some(&setup.owner_token),
         None,
     )
@@ -841,7 +905,7 @@ async fn completing_an_already_completed_request_is_not_found() {
     let (status, body) = app
         .request(
             "POST",
-            &format!("/me/recovery-requests/{request_id}/complete"),
+            &format!("/recovery-request/{request_id}/complete"),
             Some(&setup.owner_token),
             None,
         )
@@ -863,7 +927,7 @@ async fn contact_can_decline() {
     let token_b = &setup.contact_tokens[0];
     app.request(
         "POST",
-        "/me/recovery-requests",
+        &format!("/user/{}/recovery-requests", setup.owner_user_id),
         Some(&setup.owner_token),
         None,
     )
@@ -877,7 +941,7 @@ async fn contact_can_decline() {
     let (status, declined) = app
         .request(
             "POST",
-            &format!("/me/recovery-requests/{request_id}/decline"),
+            &format!("/recovery-request/{request_id}/decline"),
             Some(token_b),
             None,
         )
@@ -895,7 +959,7 @@ async fn contact_can_decline() {
     let (status, _) = app
         .request(
             "GET",
-            "/me/recovery-requests/current",
+            &format!("/user/{}/recovery-request/current", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -919,7 +983,7 @@ async fn a_stranger_cannot_approve_or_decline() {
     let (_, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -930,7 +994,7 @@ async fn a_stranger_cannot_approve_or_decline() {
     let (status, body) = app
         .request(
             "POST",
-            &format!("/me/recovery-requests/{request_id}/approve"),
+            &format!("/recovery-request/{request_id}/approve"),
             Some(&stranger_token),
             Some(json!({ "encryptedShare": "blob" })),
         )
@@ -940,7 +1004,7 @@ async fn a_stranger_cannot_approve_or_decline() {
     let (status, body) = app
         .request(
             "POST",
-            &format!("/me/recovery-requests/{request_id}/decline"),
+            &format!("/recovery-request/{request_id}/decline"),
             Some(&stranger_token),
             None,
         )
@@ -961,7 +1025,7 @@ async fn responding_twice_to_the_same_request_is_not_found() {
     let token_b = &setup.contact_tokens[0];
     app.request(
         "POST",
-        "/me/recovery-requests",
+        &format!("/user/{}/recovery-requests", setup.owner_user_id),
         Some(&setup.owner_token),
         None,
     )
@@ -977,7 +1041,7 @@ async fn responding_twice_to_the_same_request_is_not_found() {
 
     app.request(
         "POST",
-        &format!("/me/recovery-requests/{request_id}/decline"),
+        &format!("/recovery-request/{request_id}/decline"),
         Some(token_b),
         None,
     )
@@ -986,7 +1050,7 @@ async fn responding_twice_to_the_same_request_is_not_found() {
     let (status, body) = app
         .request(
             "POST",
-            &format!("/me/recovery-requests/{request_id}/approve"),
+            &format!("/recovery-request/{request_id}/approve"),
             Some(token_b),
             Some(json!({ "encryptedShare": "blob" })),
         )
@@ -1008,7 +1072,7 @@ async fn cannot_respond_to_a_cancelled_request() {
     let (_, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -1017,7 +1081,7 @@ async fn cannot_respond_to_a_cancelled_request() {
 
     app.request(
         "DELETE",
-        &format!("/me/recovery-requests/{request_id}"),
+        &format!("/recovery-request/{request_id}"),
         Some(&setup.owner_token),
         None,
     )
@@ -1026,7 +1090,7 @@ async fn cannot_respond_to_a_cancelled_request() {
     let (status, body) = app
         .request(
             "POST",
-            &format!("/me/recovery-requests/{request_id}/decline"),
+            &format!("/recovery-request/{request_id}/decline"),
             Some(token_b),
             None,
         )
@@ -1044,7 +1108,7 @@ async fn approve_rejects_a_malformed_id() {
     let (status, _) = app
         .request(
             "POST",
-            "/me/recovery-requests/not-a-uuid/approve",
+            "/recovery-request/not-a-uuid/approve",
             Some(&token),
             Some(json!({ "encryptedShare": "blob" })),
         )
@@ -1080,7 +1144,7 @@ async fn when_every_contact_declines_the_request_fails() {
     let (_, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -1095,7 +1159,7 @@ async fn when_every_contact_declines_the_request_fails() {
         let (status, declined) = app
             .request(
                 "POST",
-                &format!("/me/recovery-requests/{id}/decline"),
+                &format!("/recovery-request/{id}/decline"),
                 Some(token),
                 None,
             )
@@ -1106,7 +1170,7 @@ async fn when_every_contact_declines_the_request_fails() {
     let (status, _) = app
         .request(
             "GET",
-            "/me/recovery-requests/current",
+            &format!("/user/{}/recovery-request/current", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -1127,7 +1191,7 @@ async fn when_every_contact_declines_the_request_fails() {
     let (status, shares) = app
         .request(
             "GET",
-            &format!("/me/recovery-requests/{request_id}/shares"),
+            &format!("/recovery-request/{request_id}/shares"),
             Some(&setup.owner_token),
             None,
         )
@@ -1169,7 +1233,7 @@ async fn when_the_majority_declines_only_the_approved_share_is_returned() {
     let (_, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -1184,7 +1248,7 @@ async fn when_the_majority_declines_only_the_approved_share_is_returned() {
         let id = pending[0]["recoveryRequestId"].as_str().unwrap();
         app.request(
             "POST",
-            &format!("/me/recovery-requests/{id}/decline"),
+            &format!("/recovery-request/{id}/decline"),
             Some(token),
             None,
         )
@@ -1197,7 +1261,7 @@ async fn when_the_majority_declines_only_the_approved_share_is_returned() {
     let id = pending[0]["recoveryRequestId"].as_str().unwrap();
     app.request(
         "POST",
-        &format!("/me/recovery-requests/{id}/approve"),
+        &format!("/recovery-request/{id}/approve"),
         Some(approving_token),
         Some(json!({ "encryptedShare": "only-approved-blob" })),
     )
@@ -1206,7 +1270,7 @@ async fn when_the_majority_declines_only_the_approved_share_is_returned() {
     let (_, current) = app
         .request(
             "GET",
-            "/me/recovery-requests/current",
+            &format!("/user/{}/recovery-request/current", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -1221,7 +1285,7 @@ async fn when_the_majority_declines_only_the_approved_share_is_returned() {
     let (status, shares) = app
         .request(
             "GET",
-            &format!("/me/recovery-requests/{request_id}/shares"),
+            &format!("/recovery-request/{request_id}/shares"),
             Some(&setup.owner_token),
             None,
         )
@@ -1259,7 +1323,7 @@ async fn revoking_a_contact_mid_recovery_withdraws_their_pending_response() {
 
     app.request(
         "POST",
-        "/me/recovery-requests",
+        &format!("/user/{}/recovery-requests", setup.owner_user_id),
         Some(&setup.owner_token),
         None,
     )
@@ -1279,7 +1343,7 @@ async fn revoking_a_contact_mid_recovery_withdraws_their_pending_response() {
     let (_, mine) = app
         .request(
             "GET",
-            "/me/trusted-contacts",
+            &format!("/user/{}/trusted-contacts", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -1288,7 +1352,7 @@ async fn revoking_a_contact_mid_recovery_withdraws_their_pending_response() {
     let (status, _) = app
         .request(
             "DELETE",
-            &format!("/me/trusted-contacts/{relationship_id}"),
+            &format!("/trusted-contact/{relationship_id}"),
             Some(&setup.owner_token),
             None,
         )
@@ -1300,7 +1364,7 @@ async fn revoking_a_contact_mid_recovery_withdraws_their_pending_response() {
     let (status, approved) = app
         .request(
             "POST",
-            &format!("/me/recovery-requests/{request_id}/approve"),
+            &format!("/recovery-request/{request_id}/approve"),
             Some(token_b),
             Some(json!({ "encryptedShare": "blob-from-a-revoked-contact" })),
         )
@@ -1319,7 +1383,7 @@ async fn revoking_a_contact_mid_recovery_withdraws_their_pending_response() {
     let (status, shares) = app
         .request(
             "GET",
-            &format!("/me/recovery-requests/{request_id}/shares"),
+            &format!("/recovery-request/{request_id}/shares"),
             Some(&setup.owner_token),
             None,
         )
@@ -1356,7 +1420,7 @@ async fn revoking_a_contact_mid_recovery_does_not_change_the_requests_own_counts
     let (_, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -1366,7 +1430,7 @@ async fn revoking_a_contact_mid_recovery_does_not_change_the_requests_own_counts
     let (_, mine) = app
         .request(
             "GET",
-            "/me/trusted-contacts",
+            &format!("/user/{}/trusted-contacts", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -1374,7 +1438,7 @@ async fn revoking_a_contact_mid_recovery_does_not_change_the_requests_own_counts
     let relationship_id = mine[0]["id"].as_str().unwrap();
     app.request(
         "DELETE",
-        &format!("/me/trusted-contacts/{relationship_id}"),
+        &format!("/trusted-contact/{relationship_id}"),
         Some(&setup.owner_token),
         None,
     )
@@ -1383,7 +1447,7 @@ async fn revoking_a_contact_mid_recovery_does_not_change_the_requests_own_counts
     let (status, current) = app
         .request(
             "GET",
-            "/me/recovery-requests/current",
+            &format!("/user/{}/recovery-request/current", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -1410,7 +1474,7 @@ async fn create_recovery_request_requires_authentication() {
     let app = fresh_app(env).await;
 
     let (status, _) = app
-        .request("POST", "/me/recovery-requests", None, None)
+        .request("POST", "/user/someone/recovery-requests", None, None)
         .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }

@@ -7,7 +7,7 @@ use sea_orm::{ConnectionTrait, Database};
 use serde_json::json;
 
 // ---------------------------------------------------------------------------
-// generate_invite (GET /me/trusted-contacts/invite)
+// generate_invite (GET /trusted-contact/invite)
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -18,7 +18,12 @@ async fn generating_an_invite_returns_a_fresh_code() {
 
     let token = app.sign_in("owner@example.com").await;
     let (status, invite) = app
-        .request("GET", "/me/trusted-contacts/invite", Some(&token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contact/invite", app.user_id(&token).await),
+            Some(&token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{invite}");
     assert!(invite["id"].is_string());
@@ -38,7 +43,10 @@ async fn generating_a_second_invite_invalidates_the_first() {
     let (_, first_invite) = app
         .request(
             "GET",
-            "/me/trusted-contacts/invite",
+            &format!(
+                "/user/{}/trusted-contact/invite",
+                app.user_id(&owner_token).await
+            ),
             Some(&owner_token),
             None,
         )
@@ -47,7 +55,10 @@ async fn generating_a_second_invite_invalidates_the_first() {
 
     app.request(
         "GET",
-        "/me/trusted-contacts/invite",
+        &format!(
+            "/user/{}/trusted-contact/invite",
+            app.user_id(&owner_token).await
+        ),
         Some(&owner_token),
         None,
     )
@@ -57,7 +68,7 @@ async fn generating_a_second_invite_invalidates_the_first() {
     let (status, body) = app
         .request(
             "POST",
-            "/me/trusted-contacts/redeem",
+            "/trusted-contact/invite/redeem",
             Some(&contact_token),
             Some(json!({ "code": first_code })),
         )
@@ -72,13 +83,13 @@ async fn generate_invite_requires_authentication() {
     let app = fresh_app(env).await;
 
     let (status, _) = app
-        .request("GET", "/me/trusted-contacts/invite", None, None)
+        .request("GET", "/user/someone/trusted-contact/invite", None, None)
         .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
 // ---------------------------------------------------------------------------
-// redeem_invite (POST /me/trusted-contacts/redeem)
+// redeem_invite (POST /trusted-contact/redeem)
 // ---------------------------------------------------------------------------
 
 /// Redeeming is itself the acceptance - no separate pending-then-accept
@@ -97,7 +108,12 @@ async fn redeem_invite_creates_accepted_relationship_both_ways() {
     add_accepted_trusted_contact(&app, &owner_token, &contact_token).await;
 
     let (status, mine) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_token).await),
+            Some(&owner_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{mine}");
     let mine = mine.as_array().expect("mine response should be an array");
@@ -111,7 +127,10 @@ async fn redeem_invite_creates_accepted_relationship_both_ways() {
     let (status, as_contact) = app
         .request(
             "GET",
-            "/me/trusted-contacts/as-contact",
+            &format!(
+                "/user/{}/trusted-contact/of",
+                app.user_id(&contact_token).await
+            ),
             Some(&contact_token),
             None,
         )
@@ -134,7 +153,7 @@ async fn redeeming_an_invalid_code_is_rejected() {
     let (status, _) = app
         .request(
             "POST",
-            "/me/trusted-contacts/redeem",
+            "/trusted-contact/invite/redeem",
             Some(&contact_token),
             Some(json!({ "code": "NOTACODE" })),
         )
@@ -152,7 +171,10 @@ async fn redeeming_your_own_code_is_rejected() {
     let (status, invite) = app
         .request(
             "GET",
-            "/me/trusted-contacts/invite",
+            &format!(
+                "/user/{}/trusted-contact/invite",
+                app.user_id(&owner_token).await
+            ),
             Some(&owner_token),
             None,
         )
@@ -165,7 +187,7 @@ async fn redeeming_your_own_code_is_rejected() {
     let (status, _) = app
         .request(
             "POST",
-            "/me/trusted-contacts/redeem",
+            "/trusted-contact/invite/redeem",
             Some(&owner_token),
             Some(json!({ "code": code })),
         )
@@ -186,7 +208,10 @@ async fn redeeming_an_expired_code_is_rejected() {
     let (_, invite) = app
         .request(
             "GET",
-            "/me/trusted-contacts/invite",
+            &format!(
+                "/user/{}/trusted-contact/invite",
+                app.user_id(&owner_token).await
+            ),
             Some(&owner_token),
             None,
         )
@@ -207,7 +232,7 @@ async fn redeeming_an_expired_code_is_rejected() {
     let (status, body) = app
         .request(
             "POST",
-            "/me/trusted-contacts/redeem",
+            "/trusted-contact/invite/redeem",
             Some(&contact_token),
             Some(json!({ "code": code })),
         )
@@ -227,7 +252,10 @@ async fn redeeming_an_already_redeemed_code_is_rejected() {
     let (_, invite) = app
         .request(
             "GET",
-            "/me/trusted-contacts/invite",
+            &format!(
+                "/user/{}/trusted-contact/invite",
+                app.user_id(&owner_token).await
+            ),
             Some(&owner_token),
             None,
         )
@@ -237,7 +265,7 @@ async fn redeeming_an_already_redeemed_code_is_rejected() {
     let contact_token = app.sign_in("contact@example.com").await;
     app.request(
         "POST",
-        "/me/trusted-contacts/redeem",
+        "/trusted-contact/invite/redeem",
         Some(&contact_token),
         Some(json!({ "code": code.clone() })),
     )
@@ -247,7 +275,7 @@ async fn redeeming_an_already_redeemed_code_is_rejected() {
     let (status, body) = app
         .request(
             "POST",
-            "/me/trusted-contacts/redeem",
+            "/trusted-contact/invite/redeem",
             Some(&other_token),
             Some(json!({ "code": code })),
         )
@@ -270,12 +298,17 @@ async fn re_redeeming_after_a_revoke_revives_the_relationship() {
     add_accepted_trusted_contact(&app, &owner_token, &contact_token).await;
 
     let (_, mine) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_token).await),
+            Some(&owner_token),
+            None,
+        )
         .await;
     let first_relationship_id = mine[0]["id"].as_str().unwrap().to_string();
     app.request(
         "DELETE",
-        &format!("/me/trusted-contacts/{first_relationship_id}"),
+        &format!("/trusted-contact/{first_relationship_id}"),
         Some(&owner_token),
         None,
     )
@@ -284,7 +317,12 @@ async fn re_redeeming_after_a_revoke_revives_the_relationship() {
     add_accepted_trusted_contact(&app, &owner_token, &contact_token).await;
 
     let (status, mine) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_token).await),
+            Some(&owner_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{mine}");
     let mine = mine.as_array().expect("should be an array");
@@ -303,7 +341,7 @@ async fn redeem_invite_requires_authentication() {
     let (status, _) = app
         .request(
             "POST",
-            "/me/trusted-contacts/redeem",
+            "/trusted-contact/invite/redeem",
             None,
             Some(json!({ "code": "AAAAAAAA" })),
         )
@@ -324,14 +362,22 @@ async fn mine_shows_a_still_pending_unredeemed_invite() {
     let owner_token = app.sign_in("owner@example.com").await;
     app.request(
         "GET",
-        "/me/trusted-contacts/invite",
+        &format!(
+            "/user/{}/trusted-contact/invite",
+            app.user_id(&owner_token).await
+        ),
         Some(&owner_token),
         None,
     )
     .await;
 
     let (status, mine) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_token).await),
+            Some(&owner_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{mine}");
     let mine = mine.as_array().expect("should be an array");
@@ -351,19 +397,29 @@ async fn mine_still_shows_a_revoked_contact() {
     add_accepted_trusted_contact(&app, &owner_token, &contact_token).await;
 
     let (_, mine) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_token).await),
+            Some(&owner_token),
+            None,
+        )
         .await;
     let relationship_id = mine[0]["id"].as_str().unwrap().to_string();
     app.request(
         "DELETE",
-        &format!("/me/trusted-contacts/{relationship_id}"),
+        &format!("/trusted-contact/{relationship_id}"),
         Some(&owner_token),
         None,
     )
     .await;
 
     let (status, mine) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_token).await),
+            Some(&owner_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{mine}");
     let mine = mine.as_array().expect("should be an array");
@@ -383,7 +439,12 @@ async fn mine_never_shows_another_owners_contacts() {
     add_accepted_trusted_contact(&app, &owner_a, &contact_token).await;
 
     let (status, mine_b) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_b), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_b).await),
+            Some(&owner_b),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{mine_b}");
     assert_eq!(mine_b.as_array().expect("should be an array").len(), 0);
@@ -395,12 +456,14 @@ async fn list_trusted_contacts_requires_authentication() {
     let env = shared_test_env().await;
     let app = fresh_app(env).await;
 
-    let (status, _) = app.request("GET", "/me/trusted-contacts", None, None).await;
+    let (status, _) = app
+        .request("GET", "/user/someone/trusted-contacts", None, None)
+        .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
 // ---------------------------------------------------------------------------
-// list_as_contact (GET /me/trusted-contacts/as-contact)
+// list_as_contact (GET /user/{user_id}/trusted-contact/of)
 // ---------------------------------------------------------------------------
 
 /// Unlike "mine", `as-contact` only ever shows `accepted` relationships -
@@ -417,12 +480,17 @@ async fn as_contact_drops_a_revoked_relationship_entirely() {
     add_accepted_trusted_contact(&app, &owner_token, &contact_token).await;
 
     let (_, mine) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_token).await),
+            Some(&owner_token),
+            None,
+        )
         .await;
     let relationship_id = mine[0]["id"].as_str().unwrap().to_string();
     app.request(
         "DELETE",
-        &format!("/me/trusted-contacts/{relationship_id}"),
+        &format!("/trusted-contact/{relationship_id}"),
         Some(&owner_token),
         None,
     )
@@ -431,7 +499,10 @@ async fn as_contact_drops_a_revoked_relationship_entirely() {
     let (status, as_contact) = app
         .request(
             "GET",
-            "/me/trusted-contacts/as-contact",
+            &format!(
+                "/user/{}/trusted-contact/of",
+                app.user_id(&contact_token).await
+            ),
             Some(&contact_token),
             None,
         )
@@ -456,14 +527,22 @@ async fn as_contact_resolves_the_encrypted_share_only_for_the_queried_device() {
     let contact_device_id = contact_device["id"].as_str().unwrap();
 
     let (_, mine) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_token).await),
+            Some(&owner_token),
+            None,
+        )
         .await;
     let trusted_contact_id = mine[0]["id"].as_str().unwrap();
 
     let (status, body) = app
         .request(
             "PUT",
-            "/me/trusted-contacts/shares",
+            &format!(
+                "/user/{}/trusted-contact/shares",
+                app.user_id(&owner_token).await
+            ),
             Some(&owner_token),
             Some(json!({ "shares": [{
                 "trustedContactId": trusted_contact_id,
@@ -477,7 +556,10 @@ async fn as_contact_resolves_the_encrypted_share_only_for_the_queried_device() {
     let (status, no_device) = app
         .request(
             "GET",
-            "/me/trusted-contacts/as-contact",
+            &format!(
+                "/user/{}/trusted-contact/of",
+                app.user_id(&contact_token).await
+            ),
             Some(&contact_token),
             None,
         )
@@ -488,7 +570,10 @@ async fn as_contact_resolves_the_encrypted_share_only_for_the_queried_device() {
     let (status, with_device) = app
         .request(
             "GET",
-            &format!("/me/trusted-contacts/as-contact?deviceId={contact_device_id}"),
+            &format!(
+                "/user/{}/trusted-contact/of?deviceId={contact_device_id}",
+                app.user_id(&contact_token).await
+            ),
             Some(&contact_token),
             None,
         )
@@ -511,7 +596,7 @@ async fn as_contact_never_shows_another_persons_relationships() {
     let (status, as_contact_b) = app
         .request(
             "GET",
-            "/me/trusted-contacts/as-contact",
+            &format!("/user/{}/trusted-contact/of", app.user_id(&contact_b).await),
             Some(&contact_b),
             None,
         )
@@ -524,7 +609,7 @@ async fn as_contact_never_shows_another_persons_relationships() {
 }
 
 // ---------------------------------------------------------------------------
-// revoke_trusted_contact (DELETE /me/trusted-contacts/{id})
+// revoke_trusted_contact (DELETE /trusted-contact/{id})
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -538,14 +623,19 @@ async fn owner_can_revoke_an_accepted_contact() {
     add_accepted_trusted_contact(&app, &owner_token, &contact_token).await;
 
     let (_, mine) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_token).await),
+            Some(&owner_token),
+            None,
+        )
         .await;
     let relationship_id = mine[0]["id"].as_str().unwrap();
 
     let (status, _) = app
         .request(
             "DELETE",
-            &format!("/me/trusted-contacts/{relationship_id}"),
+            &format!("/trusted-contact/{relationship_id}"),
             Some(&owner_token),
             None,
         )
@@ -565,7 +655,10 @@ async fn owner_can_revoke_a_still_pending_invite() {
     let (_, invite) = app
         .request(
             "GET",
-            "/me/trusted-contacts/invite",
+            &format!(
+                "/user/{}/trusted-contact/invite",
+                app.user_id(&owner_token).await
+            ),
             Some(&owner_token),
             None,
         )
@@ -575,7 +668,7 @@ async fn owner_can_revoke_a_still_pending_invite() {
     let (status, _) = app
         .request(
             "DELETE",
-            &format!("/me/trusted-contacts/{invite_id}"),
+            &format!("/trusted-contact/{invite_id}"),
             Some(&owner_token),
             None,
         )
@@ -593,7 +686,7 @@ async fn revoking_a_nonexistent_relationship_is_not_found() {
     let (status, _) = app
         .request(
             "DELETE",
-            "/me/trusted-contacts/00000000-0000-0000-0000-000000000000",
+            "/trusted-contact/00000000-0000-0000-0000-000000000000",
             Some(&owner_token),
             None,
         )
@@ -614,14 +707,19 @@ async fn the_contact_cannot_revoke_the_relationship_themselves() {
     add_accepted_trusted_contact(&app, &owner_token, &contact_token).await;
 
     let (_, mine) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_token).await),
+            Some(&owner_token),
+            None,
+        )
         .await;
     let relationship_id = mine[0]["id"].as_str().unwrap();
 
     let (status, body) = app
         .request(
             "DELETE",
-            &format!("/me/trusted-contacts/{relationship_id}"),
+            &format!("/trusted-contact/{relationship_id}"),
             Some(&contact_token),
             None,
         )
@@ -639,7 +737,7 @@ async fn revoking_a_malformed_id_is_a_bad_request() {
     let (status, _) = app
         .request(
             "DELETE",
-            "/me/trusted-contacts/not-a-uuid",
+            "/trusted-contact/not-a-uuid",
             Some(&owner_token),
             None,
         )
@@ -656,7 +754,7 @@ async fn revoke_trusted_contact_requires_authentication() {
     let (status, _) = app
         .request(
             "DELETE",
-            "/me/trusted-contacts/00000000-0000-0000-0000-000000000000",
+            "/trusted-contact/00000000-0000-0000-0000-000000000000",
             None,
             None,
         )
@@ -665,7 +763,7 @@ async fn revoke_trusted_contact_requires_authentication() {
 }
 
 // ---------------------------------------------------------------------------
-// set_shares (PUT /me/trusted-contacts/shares)
+// set_shares (PUT /trusted-contact/shares)
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -680,14 +778,22 @@ async fn set_shares_deposits_a_sealed_copy_for_the_contacts_device() {
     let contact_device = register_device(&app, &contact_token, "pk-contact-d1", "ios").await;
 
     let (_, mine) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_token).await),
+            Some(&owner_token),
+            None,
+        )
         .await;
     let trusted_contact_id = mine[0]["id"].as_str().unwrap();
 
     let (status, body) = app
         .request(
             "PUT",
-            "/me/trusted-contacts/shares",
+            &format!(
+                "/user/{}/trusted-contact/shares",
+                app.user_id(&owner_token).await
+            ),
             Some(&owner_token),
             Some(json!({ "shares": [{
                 "trustedContactId": trusted_contact_id,
@@ -713,7 +819,12 @@ async fn set_shares_updates_an_existing_share_in_place() {
     let contact_device = register_device(&app, &contact_token, "pk-contact-d1", "ios").await;
 
     let (_, mine) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_token).await),
+            Some(&owner_token),
+            None,
+        )
         .await;
     let trusted_contact_id = mine[0]["id"].as_str().unwrap().to_string();
     let device_id = contact_device["id"].as_str().unwrap().to_string();
@@ -722,7 +833,10 @@ async fn set_shares_updates_an_existing_share_in_place() {
         let (status, body) = app
             .request(
                 "PUT",
-                "/me/trusted-contacts/shares",
+                &format!(
+                    "/user/{}/trusted-contact/shares",
+                    app.user_id(&owner_token).await
+                ),
                 Some(&owner_token),
                 Some(json!({ "shares": [{
                     "trustedContactId": trusted_contact_id,
@@ -737,7 +851,10 @@ async fn set_shares_updates_an_existing_share_in_place() {
     let (status, as_contact) = app
         .request(
             "GET",
-            &format!("/me/trusted-contacts/as-contact?deviceId={device_id}"),
+            &format!(
+                "/user/{}/trusted-contact/of?deviceId={device_id}",
+                app.user_id(&contact_token).await
+            ),
             Some(&contact_token),
             None,
         )
@@ -758,7 +875,12 @@ async fn set_shares_rejects_a_trusted_contact_id_you_dont_own() {
     let device_a = register_device(&app, &contact_a, "pk-a1", "ios").await;
 
     let (_, mine_a) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_a), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_a).await),
+            Some(&owner_a),
+            None,
+        )
         .await;
     let relationship_a = mine_a[0]["id"].as_str().unwrap();
 
@@ -768,7 +890,10 @@ async fn set_shares_rejects_a_trusted_contact_id_you_dont_own() {
     let (status, body) = app
         .request(
             "PUT",
-            "/me/trusted-contacts/shares",
+            &format!(
+                "/user/{}/trusted-contact/shares",
+                app.user_id(&owner_b).await
+            ),
             Some(&owner_b),
             Some(json!({ "shares": [{
                 "trustedContactId": relationship_a,
@@ -791,14 +916,22 @@ async fn set_shares_rejects_a_nonexistent_device_id() {
         sign_in_as_accepted_contact(&app, &owner_token, "contact@example.com").await;
 
     let (_, mine) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_token).await),
+            Some(&owner_token),
+            None,
+        )
         .await;
     let trusted_contact_id = mine[0]["id"].as_str().unwrap();
 
     let (status, body) = app
         .request(
             "PUT",
-            "/me/trusted-contacts/shares",
+            &format!(
+                "/user/{}/trusted-contact/shares",
+                app.user_id(&owner_token).await
+            ),
             Some(&owner_token),
             Some(json!({ "shares": [{
                 "trustedContactId": trusted_contact_id,
@@ -824,14 +957,22 @@ async fn set_shares_rejects_a_device_belonging_to_someone_else() {
         sign_in_as_accepted_contact(&app, &owner_token, "contact@example.com").await;
 
     let (_, mine) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_token).await),
+            Some(&owner_token),
+            None,
+        )
         .await;
     let trusted_contact_id = mine[0]["id"].as_str().unwrap();
 
     let (status, body) = app
         .request(
             "PUT",
-            "/me/trusted-contacts/shares",
+            &format!(
+                "/user/{}/trusted-contact/shares",
+                app.user_id(&owner_token).await
+            ),
             Some(&owner_token),
             Some(json!({ "shares": [{
                 "trustedContactId": trusted_contact_id,
@@ -857,14 +998,22 @@ async fn set_shares_rejects_the_whole_batch_if_one_entry_is_invalid() {
     let contact_device = register_device(&app, &contact_token, "pk-contact-d1", "ios").await;
 
     let (_, mine) = app
-        .request("GET", "/me/trusted-contacts", Some(&owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/trusted-contacts", app.user_id(&owner_token).await),
+            Some(&owner_token),
+            None,
+        )
         .await;
     let trusted_contact_id = mine[0]["id"].as_str().unwrap().to_string();
 
     let (status, body) = app
         .request(
             "PUT",
-            "/me/trusted-contacts/shares",
+            &format!(
+                "/user/{}/trusted-contact/shares",
+                app.user_id(&owner_token).await
+            ),
             Some(&owner_token),
             Some(json!({ "shares": [
                 {
@@ -886,7 +1035,10 @@ async fn set_shares_rejects_the_whole_batch_if_one_entry_is_invalid() {
     let (status, as_contact) = app
         .request(
             "GET",
-            &format!("/me/trusted-contacts/as-contact?deviceId={device_id}"),
+            &format!(
+                "/user/{}/trusted-contact/of?deviceId={device_id}",
+                app.user_id(&contact_token).await
+            ),
             Some(&contact_token),
             None,
         )
@@ -908,7 +1060,10 @@ async fn set_shares_rejects_malformed_ids() {
     let (status, body) = app
         .request(
             "PUT",
-            "/me/trusted-contacts/shares",
+            &format!(
+                "/user/{}/trusted-contact/shares",
+                app.user_id(&owner_token).await
+            ),
             Some(&owner_token),
             Some(json!({ "shares": [{
                 "trustedContactId": "not-a-uuid",
@@ -929,7 +1084,7 @@ async fn set_shares_requires_authentication() {
     let (status, _) = app
         .request(
             "PUT",
-            "/me/trusted-contacts/shares",
+            "/user/someone/trusted-contact/shares",
             None,
             Some(json!({ "shares": [] })),
         )

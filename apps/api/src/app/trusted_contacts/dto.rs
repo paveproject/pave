@@ -1,4 +1,4 @@
-use super::super::dto::MeProfile;
+use crate::app::me::dto::MeProfile;
 use db_rs::sea_orm_active_enums::TrustedContactStatusEnum;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;

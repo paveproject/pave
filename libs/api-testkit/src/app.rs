@@ -213,6 +213,18 @@ impl TestApp {
         (status, body)
     }
 
+    /// The signed-in account's own id, for the `/user/{user_id}/...` routes.
+    /// Read back from `GET /me` rather than threaded out of `sign_in`, so the
+    /// existing `let token = app.sign_in(..)` call sites stay untouched.
+    pub async fn user_id(&self, token: &str) -> String {
+        let (status, body) = self.request("GET", "/me", Some(token), None).await;
+        assert_eq!(status, StatusCode::OK, "GET /me failed: {body}");
+        body["id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("GET /me response missing id: {body}"))
+            .to_string()
+    }
+
     /// Signs a fresh (or returning) user in through the real OTP flow, and
     /// immediately does what the real mobile app always does right after
     /// (`GET /me`) - a sanity check that signup actually went through

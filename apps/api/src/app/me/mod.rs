@@ -1,24 +1,22 @@
 pub mod avatar;
-pub mod devices;
 pub mod dto;
 pub mod events;
 pub mod handlers;
 pub mod pending_actions;
-pub mod protest_sessions;
 pub mod push_token;
 pub mod recovery_dek_generation;
 pub mod recovery_key_mnemonic;
-pub mod recovery_requests;
-pub mod trusted_contacts;
 
 use crate::state::AppState;
 use axum::routing::get;
 use axum::Router;
 use utoipa::OpenApi as _;
 
-/// Everything about the current logged-in user: GET/PATCH /me, plus the
-/// avatar, devices, push-token, trusted-contacts and personal-events
-/// sub-resources nested under it.
+/// What is intrinsically the caller's own: the profile, its avatar, the push
+/// token, the recovery-phrase blob and DEK generation counter, the aggregate
+/// pending-actions feed, and the per-user websocket. Anything addressable by
+/// an id lives under its own domain route instead (see `app::devices`,
+/// `app::protest_sessions`, ...).
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(handlers::get_me).patch(handlers::update_me))
@@ -27,12 +25,8 @@ pub fn router() -> Router<AppState> {
             get(handlers::check_username_available),
         )
         .nest("/avatar", avatar::router())
-        .nest("/devices", devices::router())
         .nest("/pending-actions", pending_actions::router())
-        .nest("/protest-sessions", protest_sessions::router())
         .nest("/push-token", push_token::router())
-        .nest("/trusted-contacts", trusted_contacts::router())
-        .nest("/recovery-requests", recovery_requests::router())
         .nest("/recovery-key-mnemonic", recovery_key_mnemonic::router())
         .nest(
             "/recovery-dek-generation",
@@ -71,12 +65,8 @@ struct ApiDoc;
 pub fn openapi() -> utoipa::openapi::OpenApi {
     ApiDoc::openapi()
         .merge_from(avatar::ApiDoc::openapi())
-        .merge_from(devices::ApiDoc::openapi())
         .merge_from(pending_actions::ApiDoc::openapi())
-        .merge_from(protest_sessions::ApiDoc::openapi())
         .merge_from(push_token::ApiDoc::openapi())
-        .merge_from(trusted_contacts::ApiDoc::openapi())
-        .merge_from(recovery_requests::ApiDoc::openapi())
         .merge_from(recovery_key_mnemonic::ApiDoc::openapi())
         .merge_from(recovery_dek_generation::ApiDoc::openapi())
         .merge_from(events::ApiDoc::openapi())

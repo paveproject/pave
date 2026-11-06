@@ -21,7 +21,7 @@ pub struct AppState {
     pub user_events_hub: UserEventsHub,
     /// Producer handle for `notify_contracts::NOTIFY_QUEUE` - anything that
     /// needs to send an email/push enqueues a `NotifyJob` through this
-    /// (see `app::me::trusted_contacts::handlers::redeem_invite` for the
+    /// (see `app::trusted_contacts::handlers::redeem_invite` for the
     /// first non-auth user of it; `libs::otp_sender` has its own dedicated
     /// one, built the same way, for the auth plugin specifically).
     pub notify_queue: Arc<Queue<serde_json::Value>>,

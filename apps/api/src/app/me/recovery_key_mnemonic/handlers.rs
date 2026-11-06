@@ -1,8 +1,8 @@
 use super::dto::{MeRecoveryKeyMnemonicResponse, MeRecoveryKeyMnemonicSetRequest};
-use crate::app::me::devices::handlers::to_device_response;
+use crate::app::devices::handlers::to_device_response;
 use crate::app::me::handlers::find_pave_user_row;
-use crate::app::me::recovery_requests::handlers::cancel_recovery_request_model;
-use crate::app::me::trusted_contacts::handlers::device_summaries_for;
+use crate::app::recovery_requests::handlers::cancel_recovery_request_model;
+use crate::app::trusted_contacts::handlers::device_summaries_for;
 use crate::state::AppState;
 use auth::AppAuthSchema;
 use axum::extract::State;
@@ -174,7 +174,7 @@ pub async fn get_recovery_key_mnemonic(
     path = "/me/recovery-key-mnemonic/activate",
     tag = "Me",
     responses(
-        (status = 200, description = "Activated", body = crate::app::me::devices::dto::MeDevicesResponse),
+        (status = 200, description = "Activated", body = crate::app::devices::dto::MeDevicesResponse),
         (status = 400, description = "This device must register itself (PUT /me/devices) first"),
         (status = 403, description = "Already active")
     )

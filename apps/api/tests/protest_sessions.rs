@@ -27,7 +27,7 @@ fn upsert_payload() -> serde_json::Value {
 }
 
 // ---------------------------------------------------------------------------
-// upsert_session (PUT /me/protest-sessions/{id})
+// upsert_session (PUT /protest-session/{id})
 // ---------------------------------------------------------------------------
 
 /// The id is minted on the device, so a replayed push has to land on the same
@@ -39,7 +39,7 @@ async fn creating_a_session_twice_with_one_id_is_idempotent() {
     let app = fresh_app(env).await;
     let token = app.sign_in("owner@example.com").await;
     let id = Uuid::new_v4().to_string();
-    let path = format!("/me/protest-sessions/{id}");
+    let path = format!("/protest-session/{id}");
 
     let (status, first) = app
         .request("PUT", &path, Some(&token), Some(upsert_payload()))
@@ -55,7 +55,12 @@ async fn creating_a_session_twice_with_one_id_is_idempotent() {
     assert_eq!(second["id"], id);
 
     let (_, list) = app
-        .request("GET", "/me/protest-sessions", Some(&token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/protest-sessions", app.user_id(&token).await),
+            Some(&token),
+            None,
+        )
         .await;
     assert_eq!(
         list.as_array().map(|rows| rows.len()),
@@ -75,7 +80,7 @@ async fn upserting_an_existing_session_replaces_its_sealed_key() {
     let token = app.sign_in("owner@example.com").await;
 
     let id = Uuid::new_v4().to_string();
-    let path = format!("/me/protest-sessions/{id}");
+    let path = format!("/protest-session/{id}");
     let (status, created) = app
         .request("PUT", &path, Some(&token), Some(upsert_payload()))
         .await;
@@ -99,7 +104,12 @@ async fn upserting_an_existing_session_replaces_its_sealed_key() {
 
     // And it is what a later read returns, not just what the write echoed.
     let (_, list) = app
-        .request("GET", "/me/protest-sessions", Some(&token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/protest-sessions", app.user_id(&token).await),
+            Some(&token),
+            None,
+        )
         .await;
     assert_eq!(list[0]["sealedKey"], "resealed-under-the-new-dek");
     assert_eq!(
@@ -122,7 +132,7 @@ async fn a_second_active_session_is_refused() {
     let (status, body) = app
         .request(
             "PUT",
-            &format!("/me/protest-sessions/{first}"),
+            &format!("/protest-session/{first}"),
             Some(&token),
             Some(upsert_payload()),
         )
@@ -133,7 +143,7 @@ async fn a_second_active_session_is_refused() {
     let (status, _) = app
         .request(
             "PUT",
-            &format!("/me/protest-sessions/{second}"),
+            &format!("/protest-session/{second}"),
             Some(&token),
             Some(upsert_payload()),
         )
@@ -156,7 +166,7 @@ async fn closing_a_session_allows_starting_another() {
     let first = Uuid::new_v4().to_string();
     app.request(
         "PUT",
-        &format!("/me/protest-sessions/{first}"),
+        &format!("/protest-session/{first}"),
         Some(&token),
         Some(upsert_payload()),
     )
@@ -165,7 +175,7 @@ async fn closing_a_session_allows_starting_another() {
     let (status, closed) = app
         .request(
             "PATCH",
-            &format!("/me/protest-sessions/{first}"),
+            &format!("/protest-session/{first}"),
             Some(&token),
             Some(json!({ "metadata": "envelope-with-end-time" })),
         )
@@ -178,7 +188,7 @@ async fn closing_a_session_allows_starting_another() {
     let (status, body) = app
         .request(
             "PUT",
-            &format!("/me/protest-sessions/{second}"),
+            &format!("/protest-session/{second}"),
             Some(&token),
             Some(upsert_payload()),
         )
@@ -199,7 +209,7 @@ async fn a_conflicting_session_can_be_closed_and_the_push_retried() {
     let stale = Uuid::new_v4().to_string();
     app.request(
         "PUT",
-        &format!("/me/protest-sessions/{stale}"),
+        &format!("/protest-session/{stale}"),
         Some(&token),
         Some(upsert_payload()),
     )
@@ -207,7 +217,7 @@ async fn a_conflicting_session_can_be_closed_and_the_push_retried() {
 
     // The new session is refused while the stale one is still open.
     let fresh = Uuid::new_v4().to_string();
-    let path = format!("/me/protest-sessions/{fresh}");
+    let path = format!("/protest-session/{fresh}");
     let (status, _) = app
         .request("PUT", &path, Some(&token), Some(upsert_payload()))
         .await;
@@ -215,7 +225,12 @@ async fn a_conflicting_session_can_be_closed_and_the_push_retried() {
 
     // The client finds it in the list, closes it...
     let (_, list) = app
-        .request("GET", "/me/protest-sessions", Some(&token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/protest-sessions", app.user_id(&token).await),
+            Some(&token),
+            None,
+        )
         .await;
     let open: Vec<&serde_json::Value> = list
         .as_array()
@@ -229,7 +244,7 @@ async fn a_conflicting_session_can_be_closed_and_the_push_retried() {
     let (status, _) = app
         .request(
             "PATCH",
-            &format!("/me/protest-sessions/{stale}"),
+            &format!("/protest-session/{stale}"),
             Some(&token),
             Some(json!({ "metadata": open[0]["metadata"].as_str().unwrap_or("x") })),
         )
@@ -257,7 +272,7 @@ async fn another_accounts_session_is_not_found() {
     let id = Uuid::new_v4().to_string();
     app.request(
         "PUT",
-        &format!("/me/protest-sessions/{id}"),
+        &format!("/protest-session/{id}"),
         Some(&owner),
         Some(upsert_payload()),
     )
@@ -266,7 +281,7 @@ async fn another_accounts_session_is_not_found() {
     let (status, _) = app
         .request(
             "PATCH",
-            &format!("/me/protest-sessions/{id}"),
+            &format!("/protest-session/{id}"),
             Some(&stranger),
             Some(json!({ "metadata": "x" })),
         )
@@ -274,7 +289,12 @@ async fn another_accounts_session_is_not_found() {
     assert_eq!(status, StatusCode::NOT_FOUND);
 
     let (status, list) = app
-        .request("GET", "/me/protest-sessions", Some(&stranger), None)
+        .request(
+            "GET",
+            &format!("/user/{}/protest-sessions", app.user_id(&stranger).await),
+            Some(&stranger),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(list.as_array().map(|rows| rows.len()), Some(0), "{list}");
@@ -286,7 +306,9 @@ async fn protest_sessions_require_authentication() {
     let env = shared_test_env().await;
     let app = fresh_app(env).await;
 
-    let (status, _) = app.request("GET", "/me/protest-sessions", None, None).await;
+    let (status, _) = app
+        .request("GET", "/user/someone/protest-sessions", None, None)
+        .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
@@ -306,14 +328,14 @@ async fn a_blob_round_trips_unchanged() {
     let session = Uuid::new_v4().to_string();
     app.request(
         "PUT",
-        &format!("/me/protest-sessions/{session}"),
+        &format!("/protest-session/{session}"),
         Some(&token),
         Some(upsert_payload()),
     )
     .await;
 
     let blob = Uuid::new_v4().to_string();
-    let path = format!("/me/protest-sessions/{session}/blobs/{blob}");
+    let path = format!("/protest-session/{session}/blob/{blob}");
     let ciphertext: &[u8] = &[0x00, 0xff, 0x10, 0x42, 0x00, 0x7f];
     let boundary = "x-test-boundary";
 
@@ -354,14 +376,14 @@ async fn uploading_a_blob_twice_with_one_id_is_idempotent() {
     let session = Uuid::new_v4().to_string();
     app.request(
         "PUT",
-        &format!("/me/protest-sessions/{session}"),
+        &format!("/protest-session/{session}"),
         Some(&token),
         Some(upsert_payload()),
     )
     .await;
 
     let blob = Uuid::new_v4().to_string();
-    let path = format!("/me/protest-sessions/{session}/blobs/{blob}");
+    let path = format!("/protest-session/{session}/blob/{blob}");
     let boundary = "x-test-boundary";
 
     for _ in 0..2 {
@@ -379,7 +401,12 @@ async fn uploading_a_blob_twice_with_one_id_is_idempotent() {
     }
 
     let (_, session_rows) = app
-        .request("GET", "/me/protest-sessions", Some(&token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/protest-sessions", app.user_id(&token).await),
+            Some(&token),
+            None,
+        )
         .await;
     let blobs = session_rows[0]["blobs"].as_array().expect("blobs array");
     assert_eq!(
@@ -401,7 +428,7 @@ async fn two_blobs_cannot_share_a_sequence_number() {
     let session = Uuid::new_v4().to_string();
     app.request(
         "PUT",
-        &format!("/me/protest-sessions/{session}"),
+        &format!("/protest-session/{session}"),
         Some(&token),
         Some(upsert_payload()),
     )
@@ -415,7 +442,7 @@ async fn two_blobs_cannot_share_a_sequence_number() {
         let (status, _) = app
             .request_multipart(
                 "PUT",
-                &format!("/me/protest-sessions/{session}/blobs/{blob}"),
+                &format!("/protest-session/{session}/blob/{blob}"),
                 &token,
                 boundary,
                 blob_body(boundary, "position_batch", 7, b"payload"),
@@ -438,7 +465,7 @@ async fn another_account_cannot_upload_into_a_session() {
     let session = Uuid::new_v4().to_string();
     app.request(
         "PUT",
-        &format!("/me/protest-sessions/{session}"),
+        &format!("/protest-session/{session}"),
         Some(&owner),
         Some(upsert_payload()),
     )
@@ -449,7 +476,7 @@ async fn another_account_cannot_upload_into_a_session() {
     let (status, _) = app
         .request_multipart(
             "PUT",
-            &format!("/me/protest-sessions/{session}/blobs/{blob}"),
+            &format!("/protest-session/{session}/blob/{blob}"),
             &stranger,
             boundary,
             blob_body(boundary, "position_batch", 0, b"payload"),
@@ -459,7 +486,7 @@ async fn another_account_cannot_upload_into_a_session() {
 }
 
 // ---------------------------------------------------------------------------
-// delete_session (DELETE /me/protest-sessions/{id})
+// delete_session (DELETE /protest-session/{id})
 // ---------------------------------------------------------------------------
 
 /// There is no automatic expiry by design, so this is the only way data ever
@@ -474,14 +501,14 @@ async fn deleting_a_session_removes_its_blobs() {
     let session = Uuid::new_v4().to_string();
     app.request(
         "PUT",
-        &format!("/me/protest-sessions/{session}"),
+        &format!("/protest-session/{session}"),
         Some(&token),
         Some(upsert_payload()),
     )
     .await;
 
     let blob = Uuid::new_v4().to_string();
-    let blob_path = format!("/me/protest-sessions/{session}/blobs/{blob}");
+    let blob_path = format!("/protest-session/{session}/blob/{blob}");
     let boundary = "x-test-boundary";
     app.request_multipart(
         "PUT",
@@ -495,7 +522,7 @@ async fn deleting_a_session_removes_its_blobs() {
     let (status, _) = app
         .request(
             "DELETE",
-            &format!("/me/protest-sessions/{session}"),
+            &format!("/protest-session/{session}"),
             Some(&token),
             None,
         )
@@ -510,7 +537,12 @@ async fn deleting_a_session_removes_its_blobs() {
     );
 
     let (_, list) = app
-        .request("GET", "/me/protest-sessions", Some(&token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/protest-sessions", app.user_id(&token).await),
+            Some(&token),
+            None,
+        )
         .await;
     assert_eq!(list.as_array().map(|rows| rows.len()), Some(0), "{list}");
 }

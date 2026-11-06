@@ -21,10 +21,11 @@ pub async fn register_device(
     public_key: &str,
     device_type: &str,
 ) -> Value {
+    let user_id = app.user_id(token).await;
     let (status, device) = app
         .request(
             "PUT",
-            "/me/devices",
+            &format!("/user/{user_id}/devices"),
             Some(token),
             Some(json!({ "publicKey": public_key, "deviceType": device_type })),
         )
@@ -42,6 +43,9 @@ pub async fn register_device(
 /// to protect when it registered), the second `pending` (the first
 /// already existed by then).
 pub struct TwoDevices {
+    /// The account both sessions belong to, for the `/user/{user_id}/...`
+    /// routes.
+    pub user_id: String,
     pub active_token: String,
     pub active_device_id: String,
     pub pending_token: String,
@@ -58,6 +62,7 @@ pub async fn sign_in_with_two_devices(app: &TestApp, email: &str) -> TwoDevices 
     assert_eq!(pending_device["status"], "pending");
 
     TwoDevices {
+        user_id: app.user_id(&active_token).await,
         active_token,
         active_device_id: active_device["id"]
             .as_str()
@@ -77,10 +82,11 @@ pub async fn sign_in_with_two_devices(app: &TestApp, email: &str) -> TwoDevices 
 /// itself the acceptance, no separate approval step - see
 /// `redeem_invite`'s own doc comment).
 pub async fn add_accepted_trusted_contact(app: &TestApp, owner_token: &str, contact_token: &str) {
+    let owner_id = app.user_id(owner_token).await;
     let (status, invite) = app
         .request(
             "GET",
-            "/me/trusted-contacts/invite",
+            &format!("/user/{owner_id}/trusted-contact/invite"),
             Some(owner_token),
             None,
         )
@@ -97,7 +103,7 @@ pub async fn add_accepted_trusted_contact(app: &TestApp, owner_token: &str, cont
     let (status, redeemed) = app
         .request(
             "POST",
-            "/me/trusted-contacts/redeem",
+            "/trusted-contact/invite/redeem",
             Some(contact_token),
             Some(json!({ "code": code })),
         )
@@ -121,7 +127,7 @@ pub async fn sign_in_as_accepted_contact(app: &TestApp, owner_token: &str, email
 
 /// The shape almost every `recovery_requests` test needs: an owner whose
 /// *current* session's device is `pending` (so it can call
-/// `POST /me/recovery-requests`), with `contact_emails.len()` already-
+/// `POST /user/{user_id}/recovery-requests`), with `contact_emails.len()` already-
 /// accepted trusted contacts in place first. Mirrors the real sequence a
 /// device actually goes through - register a first (active) device,
 /// accept some contacts, *then* register the second (pending) one, since
@@ -136,6 +142,8 @@ pub struct RecoverySetup {
     pub owner_active_token: String,
     /// One token per `contact_emails` entry, same order.
     pub contact_tokens: Vec<String>,
+    /// The account being recovered, for the `/user/{user_id}/...` routes.
+    pub owner_user_id: String,
 }
 
 pub async fn setup_recovery_scenario(
@@ -156,6 +164,7 @@ pub async fn setup_recovery_scenario(
     assert_eq!(pending_device["status"], "pending");
 
     RecoverySetup {
+        owner_user_id: app.user_id(&owner_token).await,
         owner_token,
         owner_active_token,
         contact_tokens,

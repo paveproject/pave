@@ -58,7 +58,14 @@ async fn re_registering_the_same_public_key_updates_in_place() {
 
     assert_eq!(device1["id"], device2["id"]);
 
-    let (status, list) = app.request("GET", "/me/devices", Some(&token2), None).await;
+    let (status, list) = app
+        .request(
+            "GET",
+            &format!("/user/{}/devices", app.user_id(&token2).await),
+            Some(&token2),
+            None,
+        )
+        .await;
     assert_eq!(status, StatusCode::OK, "{list}");
     assert_eq!(
         list.as_array().expect("list should be an array").len(),
@@ -81,9 +88,19 @@ async fn re_registering_under_a_new_session_revokes_the_old_one() {
     let app = fresh_app(env).await;
 
     let token1 = app.sign_in("owner@example.com").await;
+    // Resolved before the re-registration below revokes this session - after
+    // that, `GET /me` with this token is 401 and the id is unreachable.
+    let user_id = app.user_id(&token1).await;
     register_device(&app, &token1, "pk-d1", "ios").await;
 
-    let (status, _) = app.request("GET", "/me/devices", Some(&token1), None).await;
+    let (status, _) = app
+        .request(
+            "GET",
+            &format!("/user/{user_id}/devices"),
+            Some(&token1),
+            None,
+        )
+        .await;
     assert_eq!(
         status,
         StatusCode::OK,
@@ -94,14 +111,28 @@ async fn re_registering_under_a_new_session_revokes_the_old_one() {
     let token2 = app.sign_in("owner@example.com").await;
     register_device(&app, &token2, "pk-d1", "ios").await;
 
-    let (status, _) = app.request("GET", "/me/devices", Some(&token1), None).await;
+    let (status, _) = app
+        .request(
+            "GET",
+            &format!("/user/{user_id}/devices"),
+            Some(&token1),
+            None,
+        )
+        .await;
     assert_eq!(
         status,
         StatusCode::UNAUTHORIZED,
         "the superseded session should be revoked, not left to linger"
     );
 
-    let (status, _) = app.request("GET", "/me/devices", Some(&token2), None).await;
+    let (status, _) = app
+        .request(
+            "GET",
+            &format!("/user/{user_id}/devices"),
+            Some(&token2),
+            None,
+        )
+        .await;
     assert_eq!(status, StatusCode::OK, "the new session must still work");
 }
 
@@ -132,7 +163,12 @@ async fn re_registering_a_suspended_device_returns_it_to_pending_for_approval_ag
     assert_eq!(status, StatusCode::OK);
 
     let (status, list) = app
-        .request("GET", "/me/devices", Some(&devices.pending_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/devices", devices.user_id),
+            Some(&devices.pending_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{list}");
     let suspended = list
@@ -168,7 +204,14 @@ async fn list_devices_is_empty_for_a_fresh_account() {
     let app = fresh_app(env).await;
 
     let token = app.sign_in("owner@example.com").await;
-    let (status, list) = app.request("GET", "/me/devices", Some(&token), None).await;
+    let (status, list) = app
+        .request(
+            "GET",
+            &format!("/user/{}/devices", app.user_id(&token).await),
+            Some(&token),
+            None,
+        )
+        .await;
     assert_eq!(status, StatusCode::OK, "{list}");
     assert_eq!(list.as_array().expect("should be an array").len(), 0);
 }
@@ -182,7 +225,12 @@ async fn list_devices_orders_newest_first() {
     let devices = sign_in_with_two_devices(&app, "owner@example.com").await;
 
     let (status, list) = app
-        .request("GET", "/me/devices", Some(&devices.active_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/devices", devices.user_id),
+            Some(&devices.active_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{list}");
     let list = list.as_array().expect("should be an array");
@@ -208,7 +256,12 @@ async fn list_devices_never_shows_another_accounts_devices() {
     register_device(&app, &token_b, "pk-b1", "android").await;
 
     let (status, list_a) = app
-        .request("GET", "/me/devices", Some(&token_a), None)
+        .request(
+            "GET",
+            &format!("/user/{}/devices", app.user_id(&token_a).await),
+            Some(&token_a),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{list_a}");
     let list_a = list_a.as_array().expect("should be an array");
@@ -217,7 +270,7 @@ async fn list_devices_never_shows_another_accounts_devices() {
 }
 
 // ---------------------------------------------------------------------------
-// approve_device (POST /me/devices/{id}/approve)
+// approve_device (POST /device/{id}/approve)
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -231,7 +284,7 @@ async fn active_sibling_can_approve_a_pending_device() {
     let (status, approved) = app
         .request(
             "POST",
-            &format!("/me/devices/{}/approve", devices.pending_device_id),
+            &format!("/device/{}/approve", devices.pending_device_id),
             Some(&devices.active_token),
             None,
         )
@@ -258,7 +311,7 @@ async fn a_pending_device_cannot_approve_anyone() {
     let (status, body) = app
         .request(
             "POST",
-            &format!("/me/devices/{}/approve", devices.pending_device_id),
+            &format!("/device/{}/approve", devices.pending_device_id),
             Some(&devices.pending_token),
             None,
         )
@@ -278,7 +331,7 @@ async fn approving_an_already_active_device_is_not_found() {
     let (status, body) = app
         .request(
             "POST",
-            &format!("/me/devices/{}/approve", devices.active_device_id),
+            &format!("/device/{}/approve", devices.active_device_id),
             Some(&devices.active_token),
             None,
         )
@@ -297,7 +350,7 @@ async fn approving_a_nonexistent_device_is_not_found() {
     let (status, body) = app
         .request(
             "POST",
-            "/me/devices/00000000-0000-0000-0000-000000000000/approve",
+            "/device/00000000-0000-0000-0000-000000000000/approve",
             Some(&devices.active_token),
             None,
         )
@@ -318,7 +371,7 @@ async fn approving_a_malformed_device_id_is_a_bad_request() {
     let (status, body) = app
         .request(
             "POST",
-            "/me/devices/not-a-uuid/approve",
+            "/device/not-a-uuid/approve",
             Some(&devices.active_token),
             None,
         )
@@ -342,7 +395,7 @@ async fn approving_another_accounts_device_is_not_found() {
     let (status, body) = app
         .request(
             "POST",
-            &format!("/me/devices/{}/approve", devices.pending_device_id),
+            &format!("/device/{}/approve", devices.pending_device_id),
             Some(&other_token),
             None,
         )
@@ -351,7 +404,7 @@ async fn approving_another_accounts_device_is_not_found() {
 }
 
 // ---------------------------------------------------------------------------
-// decline_device (POST /me/devices/{id}/decline)
+// decline_device (POST /device/{id}/decline)
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -365,7 +418,7 @@ async fn active_sibling_can_decline_a_pending_device() {
     let (status, declined) = app
         .request(
             "POST",
-            &format!("/me/devices/{}/decline", devices.pending_device_id),
+            &format!("/device/{}/decline", devices.pending_device_id),
             Some(&devices.active_token),
             None,
         )
@@ -375,7 +428,12 @@ async fn active_sibling_can_decline_a_pending_device() {
 
     // The row is gone, not just flagged.
     let (status, list) = app
-        .request("GET", "/me/devices", Some(&devices.active_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/devices", devices.user_id),
+            Some(&devices.active_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{list}");
     assert_eq!(list.as_array().expect("should be an array").len(), 1);
@@ -392,7 +450,7 @@ async fn a_pending_device_cannot_decline_anyone() {
     let (status, body) = app
         .request(
             "POST",
-            &format!("/me/devices/{}/decline", devices.pending_device_id),
+            &format!("/device/{}/decline", devices.pending_device_id),
             Some(&devices.pending_token),
             None,
         )
@@ -411,7 +469,7 @@ async fn declining_an_already_resolved_device_is_not_found() {
     let (status, approved) = app
         .request(
             "POST",
-            &format!("/me/devices/{}/approve", devices.pending_device_id),
+            &format!("/device/{}/approve", devices.pending_device_id),
             Some(&devices.active_token),
             None,
         )
@@ -422,7 +480,7 @@ async fn declining_an_already_resolved_device_is_not_found() {
     let (status, body) = app
         .request(
             "POST",
-            &format!("/me/devices/{}/decline", devices.pending_device_id),
+            &format!("/device/{}/decline", devices.pending_device_id),
             Some(&devices.active_token),
             None,
         )
@@ -444,7 +502,7 @@ async fn declining_another_accounts_device_is_not_found() {
     let (status, body) = app
         .request(
             "POST",
-            &format!("/me/devices/{}/decline", devices.pending_device_id),
+            &format!("/device/{}/decline", devices.pending_device_id),
             Some(&other_token),
             None,
         )
@@ -453,7 +511,7 @@ async fn declining_another_accounts_device_is_not_found() {
 }
 
 // ---------------------------------------------------------------------------
-// revoke_device (DELETE /me/devices/{id})
+// revoke_device (DELETE /device/{id})
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -465,7 +523,7 @@ async fn active_sibling_can_revoke_another_device() {
     let devices = sign_in_with_two_devices(&app, "owner@example.com").await;
     app.request(
         "POST",
-        &format!("/me/devices/{}/approve", devices.pending_device_id),
+        &format!("/device/{}/approve", devices.pending_device_id),
         Some(&devices.active_token),
         None,
     )
@@ -474,7 +532,7 @@ async fn active_sibling_can_revoke_another_device() {
     let (status, _) = app
         .request(
             "DELETE",
-            &format!("/me/devices/{}", devices.pending_device_id),
+            &format!("/device/{}", devices.pending_device_id),
             Some(&devices.active_token),
             None,
         )
@@ -482,7 +540,12 @@ async fn active_sibling_can_revoke_another_device() {
     assert_eq!(status, StatusCode::OK);
 
     let (status, list) = app
-        .request("GET", "/me/devices", Some(&devices.active_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/devices", devices.user_id),
+            Some(&devices.active_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "{list}");
     assert_eq!(list.as_array().expect("should be an array").len(), 1);
@@ -504,7 +567,7 @@ async fn a_device_cannot_revoke_itself() {
     let (status, body) = app
         .request(
             "DELETE",
-            &format!("/me/devices/{device_id}"),
+            &format!("/device/{device_id}"),
             Some(&token),
             None,
         )
@@ -527,7 +590,7 @@ async fn a_pending_device_cannot_revoke_anyone() {
     let (status, body) = app
         .request(
             "DELETE",
-            &format!("/me/devices/{active_device_id}"),
+            &format!("/device/{active_device_id}"),
             Some(&pending_token),
             None,
         )
@@ -547,7 +610,7 @@ async fn revoking_a_nonexistent_device_is_not_found() {
     let (status, body) = app
         .request(
             "DELETE",
-            "/me/devices/00000000-0000-0000-0000-000000000000",
+            "/device/00000000-0000-0000-0000-000000000000",
             Some(&token),
             None,
         )
@@ -569,7 +632,7 @@ async fn revoking_another_accounts_device_is_not_found() {
     let (status, body) = app
         .request(
             "DELETE",
-            &format!("/me/devices/{}", devices.pending_device_id),
+            &format!("/device/{}", devices.pending_device_id),
             Some(&other_token),
             None,
         )
@@ -578,7 +641,7 @@ async fn revoking_another_accounts_device_is_not_found() {
 }
 
 // ---------------------------------------------------------------------------
-// set_device_dek (PUT /me/devices/{id}/dek)
+// set_device_dek (PUT /device/{id}/dek)
 // ---------------------------------------------------------------------------
 
 /// The target must already be `active` - depositing a DEK copy for a
@@ -593,7 +656,7 @@ async fn set_device_dek_deposits_a_sealed_copy() {
     let devices = sign_in_with_two_devices(&app, "owner@example.com").await;
     app.request(
         "POST",
-        &format!("/me/devices/{}/approve", devices.pending_device_id),
+        &format!("/device/{}/approve", devices.pending_device_id),
         Some(&devices.active_token),
         None,
     )
@@ -602,7 +665,7 @@ async fn set_device_dek_deposits_a_sealed_copy() {
     let (status, updated) = app
         .request(
             "PUT",
-            &format!("/me/devices/{}/dek", devices.pending_device_id),
+            &format!("/device/{}/dek", devices.pending_device_id),
             Some(&devices.active_token),
             Some(json!({ "encryptedDek": "test-sealed-dek-blob" })),
         )
@@ -629,7 +692,7 @@ async fn set_device_dek_on_a_pending_device_is_not_found() {
     let (status, body) = app
         .request(
             "PUT",
-            &format!("/me/devices/{}/dek", devices.pending_device_id),
+            &format!("/device/{}/dek", devices.pending_device_id),
             Some(&devices.active_token),
             Some(json!({ "encryptedDek": "test-sealed-dek-blob" })),
         )
@@ -649,7 +712,7 @@ async fn set_device_dek_on_a_nonexistent_device_is_not_found() {
     let (status, body) = app
         .request(
             "PUT",
-            "/me/devices/00000000-0000-0000-0000-000000000000/dek",
+            "/device/00000000-0000-0000-0000-000000000000/dek",
             Some(&token),
             Some(json!({ "encryptedDek": "test-sealed-dek-blob" })),
         )
@@ -674,7 +737,7 @@ async fn set_device_dek_on_another_accounts_device_is_not_found() {
     let (status, body) = app
         .request(
             "PUT",
-            &format!("/me/devices/{}/dek", devices.active_device_id),
+            &format!("/device/{}/dek", devices.active_device_id),
             Some(&other_token),
             Some(json!({ "encryptedDek": "test-sealed-dek-blob" })),
         )
@@ -694,13 +757,15 @@ async fn device_endpoints_require_authentication() {
     let env = shared_test_env().await;
     let app = fresh_app(env).await;
 
-    let (status, _) = app.request("GET", "/me/devices", None, None).await;
+    let (status, _) = app
+        .request("GET", "/user/someone/devices", None, None)
+        .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 
     let (status, _) = app
         .request(
             "PUT",
-            "/me/devices",
+            "/user/someone/devices",
             None,
             Some(json!({ "publicKey": "pk", "deviceType": "ios" })),
         )
@@ -710,7 +775,7 @@ async fn device_endpoints_require_authentication() {
     let (status, _) = app
         .request(
             "DELETE",
-            "/me/devices/00000000-0000-0000-0000-000000000000",
+            "/device/00000000-0000-0000-0000-000000000000",
             None,
             None,
         )
@@ -727,7 +792,12 @@ async fn device_endpoints_reject_an_invalid_token() {
     let app = fresh_app(env).await;
 
     let (status, _) = app
-        .request("GET", "/me/devices", Some("not-a-real-session-token"), None)
+        .request(
+            "GET",
+            "/user/someone/devices",
+            Some("not-a-real-session-token"),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }

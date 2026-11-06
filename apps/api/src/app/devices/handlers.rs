@@ -1,6 +1,4 @@
-use super::dto::{
-    MeDevicesDeclinedResponse, MeDevicesResponse, MeDevicesSetDekRequest, MeDevicesSetRequest,
-};
+use super::dto::{MeDevicesDeclinedResponse, MeDevicesResponse, MeDevicesSetDekRequest};
 use crate::app::me::events::ws_dto::MeEventsUserEvent;
 use crate::libs::geoip;
 use crate::state::AppState;
@@ -18,7 +16,7 @@ use db_rs::trusted_contact;
 use notify_contracts::{NotifyJob, PushContent, PushNotifyPayload, PushTarget};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
-    QueryFilter, QueryOrder,
+    QueryFilter,
 };
 use uuid::Uuid;
 
@@ -40,7 +38,10 @@ pub(crate) fn to_device_response(model: device::Model) -> MeDevicesResponse {
 /// (see `set_device`) - true if either an other device or an accepted
 /// trusted contact already exists. The two checks are independent, so run
 /// concurrently rather than serially.
-async fn account_has_protected_state(db: &sea_orm::DatabaseConnection, user_id: &str) -> bool {
+pub(crate) async fn account_has_protected_state(
+    db: &sea_orm::DatabaseConnection,
+    user_id: &str,
+) -> bool {
     let has_other_device = device::Entity::find()
         .filter(device::Column::UserId.eq(user_id.to_string()))
         .one(db);
@@ -81,7 +82,11 @@ pub(crate) async fn resolve_active_caller_device(
 /// `sessionId`) - a silent no-op if it already rotated since (the common
 /// "actually fine" case: the user just re-logged-in on that device, which
 /// is a different bearer token than the one being revoked here anyway).
-async fn revoke_devices_session(state: &AppState, user_id: &str, stored_session_id: &str) {
+pub(crate) async fn revoke_devices_session(
+    state: &AppState,
+    user_id: &str,
+    stored_session_id: &str,
+) {
     let sessions = state
         .auth
         .store()
@@ -104,7 +109,7 @@ async fn revoke_devices_session(state: &AppState, user_id: &str, stored_session_
 
 /// Enqueues a `PushNotification` job - `notify` resolves tokens/providers/
 /// language itself from `target`.
-async fn enqueue_push(state: &AppState, target: PushTarget, content: PushContent) {
+pub(crate) async fn enqueue_push(state: &AppState, target: PushTarget, content: PushContent) {
     let job = NotifyJob::PushNotification(PushNotifyPayload { target, content });
     state
         .notify_queue
@@ -116,7 +121,7 @@ async fn enqueue_push(state: &AppState, target: PushTarget, content: PushContent
 /// Best-effort geoip lookup, shown to the siblings asked to approve a
 /// `Pending` device - shared by both the brand-new-device case and the
 /// re-pending-after-suspension case in `set_device`.
-fn lookup_pending_location(
+pub(crate) fn lookup_pending_location(
     state: &AppState,
     headers: &axum::http::HeaderMap,
 ) -> (Option<String>, Option<String>) {
@@ -129,172 +134,6 @@ fn lookup_pending_location(
         .map_or((None, None), |(city, country)| (Some(city), Some(country)))
 }
 
-/// Registers (or refreshes) the caller's current device. Upserts by
-/// `(user_id, public_key)`, not by session - the identity keypair is
-/// persisted on-device and outlives session rotations, unlike the session
-/// id itself. Called on every authenticated app launch, not just once.
-#[utoipa::path(
-    put,
-    path = "/me/devices",
-    tag = "Me",
-    request_body = MeDevicesSetRequest,
-    responses((status = 200, description = "Device registered", body = MeDevicesResponse))
-)]
-pub async fn set_device(
-    State(state): State<AppState>,
-    session: CurrentSession<AppAuthSchema>,
-    headers: axum::http::HeaderMap,
-    Json(body): Json<MeDevicesSetRequest>,
-) -> impl IntoResponse {
-    let user_id = session.user.id.clone();
-    let device_type = body.device_type.into();
-
-    let existing = device::Entity::find()
-        .filter(device::Column::UserId.eq(user_id.clone()))
-        .filter(device::Column::PublicKey.eq(body.public_key.clone()))
-        .one(&state.db)
-        .await
-        .expect("failed to query device");
-
-    let model = match existing {
-        Some(model) => {
-            // A device suspended by `create_recovery_request` or
-            // `activate_via_recovery_key_mnemonic` re-announcing itself is
-            // in exactly the same position as a brand-new device: it needs
-            // to be trusted again before it can do anything. Routing it
-            // back through the ordinary `Pending` machinery - sibling
-            // approval, a fresh trusted-contacts recovery request, or the
-            // recovery phrase, same as any new device - means there's no
-            // separate "un-suspend" path to reason about, and no dead end
-            // requiring another device to explicitly remove it first.
-            let was_suspended = model.status == DeviceStatusEnum::Suspended;
-            let device_id = model.id;
-            let old_session_id = model.session_id.clone();
-            // Only ever a different value here if this device genuinely
-            // re-authenticated (OTP creates a new session id; the sliding-
-            // expiry refresh this library also has never changes it) - see
-            // `revoke_devices_session`'s own doc comment on why a *stale*
-            // snapshot elsewhere can't be trusted to clean this up on its
-            // own: the device's own re-registration is the one guaranteed
-            // moment the old session is both known and safe to retire,
-            // rather than leaving it to linger until some other device
-            // happens to revoke this one later (by which point the snapshot
-            // revoked there may itself already be stale).
-            let session_rotated = old_session_id != session.session.id;
-
-            let mut active = model.into_active_model();
-            active.session_id = Set(session.session.id.clone());
-            active.device_type = Set(device_type);
-            active.updated_at = Set(Utc::now().into());
-            if was_suspended {
-                active.status = Set(DeviceStatusEnum::Pending);
-                let (location_city, location_country) = lookup_pending_location(&state, &headers);
-                active.location_city = Set(location_city);
-                active.location_country = Set(location_country);
-            }
-
-            let (updated, ()) = tokio::join!(active.update(&state.db), async {
-                if session_rotated {
-                    revoke_devices_session(&state, &user_id, &old_session_id).await;
-                }
-            });
-            let updated = updated.expect("failed to update device");
-
-            if was_suspended {
-                enqueue_push(
-                    &state,
-                    PushTarget::OtherActiveDevices {
-                        user_id: user_id.clone(),
-                        excluding_device_id: device_id.to_string(),
-                    },
-                    PushContent::DeviceApprovalRequested,
-                )
-                .await;
-            }
-
-            updated
-        }
-        None => {
-            // Only the account's genuine first device skips straight to
-            // `active` - every other new device waits for sibling/recovery
-            // approval.
-            let status = if account_has_protected_state(&state.db, &user_id).await {
-                DeviceStatusEnum::Pending
-            } else {
-                DeviceStatusEnum::Active
-            };
-
-            // Only read for the pending case - nothing uses it once
-            // approved (see `approve_device`, which nulls it out).
-            let (location_city, location_country) = if status == DeviceStatusEnum::Pending {
-                lookup_pending_location(&state, &headers)
-            } else {
-                (None, None)
-            };
-
-            let inserted = device::ActiveModel {
-                id: Set(Uuid::new_v4()),
-                user_id: Set(user_id.clone()),
-                session_id: Set(session.session.id.clone()),
-                public_key: Set(body.public_key),
-                device_type: Set(device_type),
-                status: Set(status),
-                encrypted_dek: Set(None),
-                location_city: Set(location_city),
-                location_country: Set(location_country),
-                created_at: Set(Utc::now().into()),
-                updated_at: Set(Utc::now().into()),
-            }
-            .insert(&state.db)
-            .await
-            .expect("failed to create device");
-
-            if status == DeviceStatusEnum::Pending {
-                enqueue_push(
-                    &state,
-                    PushTarget::OtherActiveDevices {
-                        user_id: user_id.clone(),
-                        excluding_device_id: inserted.id.to_string(),
-                    },
-                    PushContent::DeviceApprovalRequested,
-                )
-                .await;
-            }
-
-            inserted
-        }
-    };
-
-    let response = to_device_response(model);
-    state.user_events_hub.publish(
-        user_id,
-        MeEventsUserEvent::DeviceRegistered(response.clone()),
-    );
-
-    Json(response)
-}
-
-#[utoipa::path(
-    get,
-    path = "/me/devices",
-    tag = "Me",
-    responses((status = 200, description = "The caller's own registered devices", body = Vec<MeDevicesResponse>))
-)]
-pub async fn list_devices(
-    State(state): State<AppState>,
-    session: CurrentSession<AppAuthSchema>,
-) -> impl IntoResponse {
-    // Newest-first, matching the mobile client's optimistic prepend.
-    let rows = device::Entity::find()
-        .filter(device::Column::UserId.eq(session.user.id))
-        .order_by_desc(device::Column::CreatedAt)
-        .all(&state.db)
-        .await
-        .expect("failed to query devices");
-
-    Json(rows.into_iter().map(to_device_response).collect::<Vec<_>>())
-}
-
 /// A device can't revoke itself - only an already-`active` sibling can.
 /// This makes "zero `active` devices left" structurally impossible here
 /// with no extra count check: the caller's own `active` row always
@@ -302,9 +141,9 @@ pub async fn list_devices(
 /// separate path, not this endpoint.
 #[utoipa::path(
     delete,
-    path = "/me/devices/{id}",
-    tag = "Me",
-    params(("id" = Uuid, Path, description = "Device id")),
+    path = "/device/{device_id}",
+    tag = "Devices",
+    params(("device_id" = Uuid, Path, description = "Device id")),
     responses(
         (status = 200, description = "Revoked"),
         (status = 403, description = "Can't revoke yourself, or the caller isn't an active device"),
@@ -360,9 +199,9 @@ pub async fn revoke_device(
 /// instead of an actual boundary.
 #[utoipa::path(
     put,
-    path = "/me/devices/{id}/dek",
-    tag = "Me",
-    params(("id" = Uuid, Path, description = "Target device id")),
+    path = "/device/{device_id}/dek",
+    tag = "Devices",
+    params(("device_id" = Uuid, Path, description = "Target device id")),
     request_body = MeDevicesSetDekRequest,
     responses(
         (status = 200, description = "Recovery key copy deposited", body = MeDevicesResponse),
@@ -408,9 +247,9 @@ pub async fn set_device_dek(
 /// through the ordinary `set_device_dek` reconciliation path.
 #[utoipa::path(
     post,
-    path = "/me/devices/{id}/approve",
-    tag = "Me",
-    params(("id" = Uuid, Path, description = "Pending device id")),
+    path = "/device/{device_id}/approve",
+    tag = "Devices",
+    params(("device_id" = Uuid, Path, description = "Pending device id")),
     responses(
         (status = 200, description = "Approved - now eligible to receive the recovery key", body = MeDevicesResponse),
         (status = 403, description = "The caller's own device isn't active yet, so it can't approve anyone"),
@@ -472,9 +311,9 @@ pub async fn approve_device(
 /// `revoke_device`.
 #[utoipa::path(
     post,
-    path = "/me/devices/{id}/decline",
-    tag = "Me",
-    params(("id" = Uuid, Path, description = "Pending device id")),
+    path = "/device/{device_id}/decline",
+    tag = "Devices",
+    params(("device_id" = Uuid, Path, description = "Pending device id")),
     responses(
         (status = 200, description = "Declined - the pending device is removed", body = MeDevicesDeclinedResponse),
         (status = 403, description = "The caller's own device isn't active yet, so it can't decline anyone"),

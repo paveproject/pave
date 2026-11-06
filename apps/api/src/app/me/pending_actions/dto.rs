@@ -1,5 +1,5 @@
-use crate::app::me::devices::dto::{MeDevicesResponse, MeOwnDeviceRegistrationResponse};
-use crate::app::me::recovery_requests::dto::MeRecoveryRequestsContactResponse;
+use crate::app::devices::dto::{MeDevicesResponse, MeOwnDeviceRegistrationResponse};
+use crate::app::recovery_requests::dto::MeRecoveryRequestsContactResponse;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 

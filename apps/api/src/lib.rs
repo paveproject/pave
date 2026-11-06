@@ -3,7 +3,10 @@ pub mod config;
 pub mod libs;
 pub mod state;
 
-use app::{auth_otp, health, internal, me, reports, system, webhooks};
+use app::{
+    auth_otp, devices, health, internal, me, protest_sessions, recovery_requests, reports, system,
+    trusted_contacts, users, webhooks,
+};
 use axum::Router;
 use better_auth::integrations::axum::AxumIntegration;
 use state::AppState;
@@ -21,6 +24,11 @@ pub fn build_openapi() -> utoipa::openapi::OpenApi {
         .merge_from(system::ApiDoc::openapi())
         .merge_from(auth_otp::ApiDoc::openapi())
         .merge_from(me::openapi())
+        .merge_from(devices::ApiDoc::openapi())
+        .merge_from(protest_sessions::ApiDoc::openapi())
+        .merge_from(trusted_contacts::openapi())
+        .merge_from(recovery_requests::ApiDoc::openapi())
+        .merge_from(users::openapi())
         .merge_from(reports::ApiDoc::openapi())
 }
 
@@ -39,6 +47,14 @@ pub fn build_app(state: AppState) -> Router {
             state.auth.clone().axum_router_with_state::<AppState>(),
         )
         .nest("/me", me::router())
+        // Merged, not nested: these declare absolute paths, so the router and
+        // the `#[utoipa::path]` attribute spell the same string and a grep
+        // finds both. `users` holds the `/user/{user_id}/...` tree.
+        .merge(devices::router())
+        .merge(protest_sessions::router())
+        .merge(trusted_contacts::router())
+        .merge(recovery_requests::router())
+        .merge(users::router())
         .nest("/reports", reports::router())
         .nest(
             "/internal/version-policy",

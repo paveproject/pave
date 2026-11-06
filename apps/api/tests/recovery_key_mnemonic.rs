@@ -246,7 +246,12 @@ async fn activating_a_pending_device_makes_it_active_immediately() {
     assert_eq!(activated["status"], "active");
 
     let (status, devices) = app
-        .request("GET", "/me/devices", Some(&pending_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/devices", app.user_id(&pending_token).await),
+            Some(&pending_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK);
     let devices = devices.as_array().expect("should be an array");
@@ -305,7 +310,7 @@ async fn activating_cancels_any_in_flight_recovery_request_without_reviving_sibl
     let (status, request) = app
         .request(
             "POST",
-            "/me/recovery-requests",
+            &format!("/user/{}/recovery-requests", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -325,7 +330,7 @@ async fn activating_cancels_any_in_flight_recovery_request_without_reviving_sibl
     let (status, current) = app
         .request(
             "GET",
-            "/me/recovery-requests/current",
+            &format!("/user/{}/recovery-request/current", setup.owner_user_id),
             Some(&setup.owner_token),
             None,
         )
@@ -342,7 +347,12 @@ async fn activating_cancels_any_in_flight_recovery_request_without_reviving_sibl
     // every sibling, even one the cancelled request's own restore step
     // had just put back to `active`.
     let (status, devices) = app
-        .request("GET", "/me/devices", Some(&setup.owner_token), None)
+        .request(
+            "GET",
+            &format!("/user/{}/devices", setup.owner_user_id),
+            Some(&setup.owner_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK);
     let other_device = devices
@@ -374,11 +384,19 @@ async fn activating_suspends_and_revokes_every_other_device() {
     let owner_active_token = app.sign_in("owner@example.com").await;
     register_device(&app, &owner_active_token, "pk-owner-d1", "ios").await;
 
+    // Resolved up front: activating below revokes `owner_active_token`'s
+    // session, after which `GET /me` with it is 401.
+    let user_id = app.user_id(&owner_active_token).await;
     let pending_token = app.sign_in("owner@example.com").await;
     register_device(&app, &pending_token, "pk-owner-d2", "android").await;
 
     let (status, _) = app
-        .request("GET", "/me/devices", Some(&owner_active_token), None)
+        .request(
+            "GET",
+            &format!("/user/{user_id}/devices"),
+            Some(&owner_active_token),
+            None,
+        )
         .await;
     assert_eq!(
         status,
@@ -397,7 +415,12 @@ async fn activating_suspends_and_revokes_every_other_device() {
     assert_eq!(status, StatusCode::OK, "{activated}");
 
     let (status, _) = app
-        .request("GET", "/me/devices", Some(&owner_active_token), None)
+        .request(
+            "GET",
+            &format!("/user/{user_id}/devices"),
+            Some(&owner_active_token),
+            None,
+        )
         .await;
     assert_eq!(
         status,
@@ -408,7 +431,12 @@ async fn activating_suspends_and_revokes_every_other_device() {
     // The activating device's own session must survive - it's the one
     // that just made the call.
     let (status, devices) = app
-        .request("GET", "/me/devices", Some(&pending_token), None)
+        .request(
+            "GET",
+            &format!("/user/{user_id}/devices"),
+            Some(&pending_token),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK);
     let other_device = devices

@@ -9,9 +9,9 @@
 //! `focusManager`.
 
 use super::dto::MePendingAction;
-use crate::app::me::devices::dto::{MeDevicesResponse, MeOwnDeviceRegistrationResponse};
-use crate::app::me::devices::handlers::{resolve_active_caller_device, to_device_response};
-use crate::app::me::recovery_requests::handlers::to_pending_contact_response;
+use crate::app::devices::dto::{MeDevicesResponse, MeOwnDeviceRegistrationResponse};
+use crate::app::devices::handlers::{resolve_active_caller_device, to_device_response};
+use crate::app::recovery_requests::handlers::to_pending_contact_response;
 use crate::state::AppState;
 use auth::AppAuthSchema;
 use axum::extract::State;

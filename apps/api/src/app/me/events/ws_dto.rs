@@ -1,8 +1,8 @@
-use crate::app::me::devices::dto::{MeDevicesDeclinedResponse, MeDevicesResponse};
-use crate::app::me::recovery_requests::dto::{
+use crate::app::devices::dto::{MeDevicesDeclinedResponse, MeDevicesResponse};
+use crate::app::recovery_requests::dto::{
     MeRecoveryRequestsContactResponse, MeRecoveryRequestsResponse,
 };
-use crate::app::me::trusted_contacts::dto::{
+use crate::app::trusted_contacts::dto::{
     MeTrustedContactsAsContactResponse, MeTrustedContactsResponse,
 };
 use serde::{Deserialize, Serialize};

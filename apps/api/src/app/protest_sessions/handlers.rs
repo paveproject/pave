@@ -46,7 +46,7 @@ fn parse_kind(raw: &str) -> Option<ProtestBlobKindEnum> {
     }
 }
 
-fn to_response(
+pub(crate) fn to_response(
     session: protest_session::Model,
     blobs: Vec<protest_blob::Model>,
 ) -> ProtestSessionResponse {
@@ -75,9 +75,9 @@ fn to_response(
 /// unique violation is mapped to 409.
 #[utoipa::path(
     put,
-    path = "/me/protest-sessions/{id}",
-    tag = "Me",
-    params(("id" = String, Path, description = "Client-minted session id")),
+    path = "/protest-session/{protest_session_id}",
+    tag = "ProtestSessions",
+    params(("protest_session_id" = String, Path, description = "Client-minted session id")),
     request_body = ProtestSessionUpsertRequest,
     responses(
         (status = 200, description = "Session created, or already existed", body = ProtestSessionResponse),
@@ -182,7 +182,7 @@ pub async fn upsert_session(
     }
 }
 
-async fn load_blobs(
+pub(crate) async fn load_blobs(
     db: &sea_orm::DatabaseConnection,
     session_id: Uuid,
 ) -> Vec<protest_blob::Model> {
@@ -196,9 +196,9 @@ async fn load_blobs(
 
 #[utoipa::path(
     patch,
-    path = "/me/protest-sessions/{id}",
-    tag = "Me",
-    params(("id" = String, Path, description = "Session id")),
+    path = "/protest-session/{protest_session_id}",
+    tag = "ProtestSessions",
+    params(("protest_session_id" = String, Path, description = "Session id")),
     request_body = ProtestSessionEndRequest,
     responses(
         (status = 200, description = "Session closed", body = ProtestSessionResponse),
@@ -256,41 +256,6 @@ pub async fn end_session(
     }
 }
 
-#[utoipa::path(
-    get,
-    path = "/me/protest-sessions",
-    tag = "Me",
-    responses((status = 200, description = "This account's sessions", body = Vec<ProtestSessionResponse>))
-)]
-pub async fn list_sessions(
-    State(state): State<AppState>,
-    session: CurrentSession<AppAuthSchema>,
-) -> impl IntoResponse {
-    let sessions = protest_session::Entity::find()
-        .filter(protest_session::Column::OwnerUserId.eq(session.user.id.clone()))
-        .all(&state.db)
-        .await;
-
-    let sessions = match sessions {
-        Ok(rows) => rows,
-        Err(error) => {
-            tracing::error!(?error, "failed to list protest sessions");
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "could not list the sessions",
-            )
-                .into_response();
-        }
-    };
-
-    let mut out = Vec::with_capacity(sessions.len());
-    for row in sessions {
-        let blobs = load_blobs(&state.db, row.id).await;
-        out.push(to_response(row, blobs));
-    }
-    Json(out).into_response()
-}
-
 /// Idempotent blob upload, keyed on the client-minted `blob_id`.
 ///
 /// Multipart rather than JSON because the payload is raw ciphertext, and
@@ -298,10 +263,10 @@ pub async fn list_sessions(
 /// URL (see `s3_bucket_private` in `config.rs`).
 #[utoipa::path(
     put,
-    path = "/me/protest-sessions/{id}/blobs/{blob_id}",
-    tag = "Me",
+    path = "/protest-session/{protest_session_id}/blob/{blob_id}",
+    tag = "ProtestSessions",
     params(
-        ("id" = String, Path, description = "Session id"),
+        ("protest_session_id" = String, Path, description = "Session id"),
         ("blob_id" = String, Path, description = "Client-minted blob id"),
     ),
     responses(
@@ -476,10 +441,10 @@ pub async fn upload_blob(
 /// The private bucket has no public URL, so reading a blob goes through here.
 #[utoipa::path(
     get,
-    path = "/me/protest-sessions/{id}/blobs/{blob_id}",
-    tag = "Me",
+    path = "/protest-session/{protest_session_id}/blob/{blob_id}",
+    tag = "ProtestSessions",
     params(
-        ("id" = String, Path, description = "Session id"),
+        ("protest_session_id" = String, Path, description = "Session id"),
         ("blob_id" = String, Path, description = "Blob id"),
     ),
     responses(
@@ -560,9 +525,9 @@ pub async fn download_blob(
 /// objects with nothing left to find them by.
 #[utoipa::path(
     delete,
-    path = "/me/protest-sessions/{id}",
-    tag = "Me",
-    params(("id" = String, Path, description = "Session id")),
+    path = "/protest-session/{protest_session_id}",
+    tag = "ProtestSessions",
+    params(("protest_session_id" = String, Path, description = "Session id")),
     responses(
         (status = 204, description = "Session and all its blobs deleted"),
         (status = 404, description = "No such session for this account"),

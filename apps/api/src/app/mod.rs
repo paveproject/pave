@@ -1,7 +1,13 @@
+pub mod access;
 pub mod auth_otp;
+pub mod devices;
 pub mod health;
 pub mod internal;
 pub mod me;
+pub mod protest_sessions;
+pub mod recovery_requests;
 pub mod reports;
 pub mod system;
+pub mod trusted_contacts;
+pub mod users;
 pub mod webhooks;
