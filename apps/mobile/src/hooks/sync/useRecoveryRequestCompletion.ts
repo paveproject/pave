@@ -6,8 +6,8 @@ import {
   userRecoveryRequestCurrentOptions,
   recoveryRequestSharesOptions,
   userTrustedContactsOptions,
-  useCancelRecoveryRequestMutation,
-  useCompleteRecoveryRequestMutation,
+  useRecoveryRequestCancelMutation,
+  useRecoveryRequestCompleteMutation,
 } from '@libs/query-client';
 import { completeRecovery, getDeviceId, peekRecoveryThreshold } from '../../lib/recoveryKey';
 import { useAuth } from '../../providers/AuthProvider';
@@ -69,8 +69,8 @@ export const useRecoveryRequestCompletion = () => {
     enabled: !!requestId,
   });
   const { data: devices } = useQuery({ ...userDevicesOptions({ userId }), enabled: !!requestId });
-  const complete = useCompleteRecoveryRequestMutation({ userId });
-  const cancel = useCancelRecoveryRequestMutation({ userId });
+  const complete = useRecoveryRequestCompleteMutation({ userId });
+  const cancel = useRecoveryRequestCancelMutation({ userId });
   const reporter = useSyncTaskReporter({
     id: SYNC_TASK_IDS.recoveryRequestCompletion,
     enabled: !!requestId,

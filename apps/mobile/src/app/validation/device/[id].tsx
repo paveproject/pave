@@ -7,7 +7,7 @@ import { Host, Text as NativeText } from '@expo/ui';
 import { buttonStyle, controlSize, frame, tint } from '@expo/ui/swift-ui/modifiers';
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { useTranslations } from 'use-intl';
-import { useApproveDeviceMutation, useDeclineDeviceMutation } from '@libs/query-client';
+import { useDeviceApproveMutation, useDeviceDeclineMutation } from '@libs/query-client';
 import { usePendingAction } from '../../../hooks/usePendingAction';
 import { useModalHeaderOptions } from '../../../hooks/useModalHeaderOptions';
 import { useTheme } from '../../../providers/ThemeProvider';
@@ -50,8 +50,8 @@ const ValidationDeviceScreen = () => {
   const action = usePendingAction('device_registration', id);
   const { user } = useAuth();
   const userId = user?.id;
-  const approve = useApproveDeviceMutation({ userId });
-  const decline = useDeclineDeviceMutation({ userId });
+  const approve = useDeviceApproveMutation({ userId });
+  const decline = useDeviceDeclineMutation({ userId });
   const isBusy = approve.isPending || decline.isPending;
 
   useEffect(() => {

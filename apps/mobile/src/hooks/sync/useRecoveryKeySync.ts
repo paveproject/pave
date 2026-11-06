@@ -4,9 +4,9 @@ import {
   userDevicesOptions,
   isConflictError,
   userTrustedContactsOptions,
-  useReserveRecoveryDekGenerationMutation,
-  useSetDeviceDekMutation,
-  useSetSharesMutation,
+  useMeRecoveryDekGenerationReserveMutation,
+  useDeviceDekSetMutation,
+  useUserTrustedContactSharesSetMutation,
 } from '@libs/query-client';
 import { getDek } from '../../lib/recoveryKey/storage';
 import { resealProtestSessions } from '../../lib/watermelon/protestSessions';
@@ -50,9 +50,9 @@ export const useRecoveryKeySync = () => {
     enabled: !!user,
   });
   const { data: devices } = useQuery({ ...userDevicesOptions({ userId }), enabled: !!user });
-  const setShares = useSetSharesMutation({ userId });
-  const setDeviceDek = useSetDeviceDekMutation({ userId });
-  const reserveGeneration = useReserveRecoveryDekGenerationMutation();
+  const setShares = useUserTrustedContactSharesSetMutation({ userId });
+  const setDeviceDek = useDeviceDekSetMutation({ userId });
+  const reserveGeneration = useMeRecoveryDekGenerationReserveMutation();
   const reconcileMnemonicUpload = useReconcileMnemonicUpload();
   // Guards against overlapping runs if `contacts`/`devices` change again
   // mid-flight (e.g. a second realtime event) before the previous pass

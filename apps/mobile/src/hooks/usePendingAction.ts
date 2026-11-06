@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { pendingActionsOptions } from '@libs/query-client';
+import { mePendingActionsOptions } from '@libs/query-client';
 import type { MePendingAction } from '@libs/api-js';
 
 /**
@@ -15,7 +15,7 @@ export const usePendingAction = <K extends MePendingAction['kind']>(
   kind: K,
   id: string | undefined,
 ): Extract<MePendingAction, { kind: K }> | undefined => {
-  const { data } = useQuery(pendingActionsOptions());
+  const { data } = useQuery(mePendingActionsOptions());
   return data?.find((action) => action.kind === kind && action.id === id) as
     | Extract<MePendingAction, { kind: K }>
     | undefined;

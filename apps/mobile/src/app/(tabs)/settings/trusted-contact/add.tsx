@@ -8,7 +8,10 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'ex
 import QRCode from 'react-native-qrcode-svg';
 import { Stack, useRouter } from 'expo-router';
 import { useTranslations } from 'use-intl';
-import { userTrustedContactInviteOptions, useRedeemInviteMutation } from '@libs/query-client';
+import {
+  userTrustedContactInviteOptions,
+  useTrustedContactInviteRedeemMutation,
+} from '@libs/query-client';
 import { useTheme } from '../../../../providers/ThemeProvider';
 import { useModalHeaderOptions } from '../../../../hooks/useModalHeaderOptions';
 import { useToast } from '../../../../components/Toast';
@@ -54,7 +57,7 @@ const AddTrustedContactScreen = () => {
     isError: inviteFailed,
     refetch: refetchInvite,
   } = useQuery(userTrustedContactInviteOptions({ userId }));
-  const redeemInvite = useRedeemInviteMutation({ userId });
+  const redeemInvite = useTrustedContactInviteRedeemMutation({ userId });
 
   const [permission, requestPermission] = useCameraPermissions();
   const autoRequestedRef = useRef(false);

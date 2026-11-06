@@ -10,7 +10,10 @@ import { InputOTP } from '../../../../components/ui/input-otp';
 import { logger } from '../../../../logger';
 import { useModalHeaderOptions } from '../../../../hooks/useModalHeaderOptions';
 import { useLocaleContext } from '../../../../providers/LocaleProvider';
-import { useSendChangeEmailOtpMutation, useVerifyChangeEmailOtpMutation } from '@libs/query-client';
+import {
+  useAuthOtpChangeEmailSendMutation,
+  useAuthOtpChangeEmailVerifyMutation,
+} from '@libs/query-client';
 import tw from '../../../../lib/tw';
 import { useHeaderHeight } from 'expo-router/react-navigation';
 
@@ -29,9 +32,9 @@ const ChangeEmailScreen = () => {
   const [otp, setOtp] = useState('');
 
   const { mutateAsync: sendChangeEmailOtp, isPending: isResending } =
-    useSendChangeEmailOtpMutation();
+    useAuthOtpChangeEmailSendMutation();
   const { mutateAsync: verifyChangeEmailOtp, isPending: isVerifying } =
-    useVerifyChangeEmailOtpMutation();
+    useAuthOtpChangeEmailVerifyMutation();
 
   const handleResend = useCallback(async () => {
     try {

@@ -9,10 +9,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '../components/Toast';
 import {
   userDevicesOptions,
-  pendingActionsOptions,
+  mePendingActionsOptions,
   userRecoveryRequestCurrentOptions,
   userTrustedContactsOptions,
-  usePushTokenUpdateMutation,
+  useMePushTokenSetMutation,
 } from '@libs/query-client';
 import { useTranslations } from 'use-intl';
 import type { PushContent } from '@libs/api-js';
@@ -47,7 +47,7 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
   const notificationsListener = useRef<Notifications.EventSubscription | null>(null);
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
-  const { mutate: updatePushToken } = usePushTokenUpdateMutation();
+  const { mutate: updatePushToken } = useMePushTokenSetMutation();
 
   const handleRegisterForPushNotificationsAsync = useCallback(async () => {
     if (Platform.OS === 'android') {
@@ -105,7 +105,7 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
           });
           break;
         case 'recovery-request-created':
-          queryClient.invalidateQueries({ queryKey: pendingActionsOptions().queryKey });
+          queryClient.invalidateQueries({ queryKey: mePendingActionsOptions().queryKey });
           break;
         case 'recovery-request-contact-responded':
         case 'recovery-request-ready':
@@ -115,12 +115,12 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
           });
           break;
         case 'device-approval-requested':
-          queryClient.invalidateQueries({ queryKey: pendingActionsOptions().queryKey });
+          queryClient.invalidateQueries({ queryKey: mePendingActionsOptions().queryKey });
           queryClient.invalidateQueries({ queryKey: userDevicesOptions({ userId }).queryKey });
           break;
         case 'device-approved':
         case 'device-declined':
-          queryClient.invalidateQueries({ queryKey: pendingActionsOptions().queryKey });
+          queryClient.invalidateQueries({ queryKey: mePendingActionsOptions().queryKey });
           queryClient.invalidateQueries({ queryKey: userDevicesOptions({ userId }).queryKey });
           queryClient.invalidateQueries({
             queryKey: userRecoveryRequestCurrentOptions({ userId }).queryKey,

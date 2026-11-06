@@ -5,7 +5,7 @@ import { userTrustedContactsOptions } from '../user/userOptions';
 
 /** Joining someone else's net: keyed by the code in the body, not by a
  * user, so there is no owner in the path. */
-export const useRedeemInviteMutation = ({ userId }: { userId?: string }) => {
+export const useTrustedContactInviteRedeemMutation = ({ userId }: { userId?: string }) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (code: string) => {
@@ -23,7 +23,7 @@ export const useRedeemInviteMutation = ({ userId }: { userId?: string }) => {
   });
 };
 
-export const useRevokeTrustedContactMutation = ({ userId }: { userId?: string }) => {
+export const useTrustedContactRevokeMutation = ({ userId }: { userId?: string }) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {

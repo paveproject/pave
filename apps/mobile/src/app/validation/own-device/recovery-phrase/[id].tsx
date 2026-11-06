@@ -17,9 +17,9 @@ import { getRecoveryKeyMnemonic, listDevices, listTrustedContacts } from '@libs/
 import {
   userDevicesOptions,
   isForbiddenError,
-  pendingActionsOptions,
+  mePendingActionsOptions,
   userTrustedContactsOptions,
-  useActivateRecoveryKeyMnemonicMutation,
+  useMeRecoveryKeyMnemonicActivateMutation,
 } from '@libs/query-client';
 import {
   adoptMnemonicDek,
@@ -66,7 +66,7 @@ const RecoveryPhraseEntryScreen = () => {
   const { user } = useAuth();
   const userId = user?.id;
   const queryClient = useQueryClient();
-  const activate = useActivateRecoveryKeyMnemonicMutation({ userId });
+  const activate = useMeRecoveryKeyMnemonicActivateMutation({ userId });
   const insets = useSafeAreaInsets();
   const navigationHeaderHeight = useHeaderHeight();
   const modalHeaderOptions = useModalHeaderOptions({ forceCross: true });
@@ -126,7 +126,7 @@ const RecoveryPhraseEntryScreen = () => {
       if (devices) queryClient.setQueryData(userDevicesOptions({ userId }).queryKey, devices);
       if (contacts)
         queryClient.setQueryData(userTrustedContactsOptions({ userId }).queryKey, contacts);
-      await queryClient.invalidateQueries({ queryKey: pendingActionsOptions().queryKey });
+      await queryClient.invalidateQueries({ queryKey: mePendingActionsOptions().queryKey });
 
       const eligibleContactIds = (contacts ?? [])
         .filter(

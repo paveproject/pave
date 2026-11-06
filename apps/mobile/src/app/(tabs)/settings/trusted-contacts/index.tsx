@@ -9,7 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { userTrustedContactsOptions, useRevokeTrustedContactMutation } from '@libs/query-client';
+import { userTrustedContactsOptions, useTrustedContactRevokeMutation } from '@libs/query-client';
 import type { MeTrustedContactsResponse } from '@libs/api-js';
 import { useFormatter, useTranslations } from 'use-intl';
 import { Text } from '../../../../components/ui/text';
@@ -117,7 +117,7 @@ const MyTrustedContactsScreen = () => {
   const { data, isPending, isRefetching, refetch } = useQuery(
     userTrustedContactsOptions({ userId }),
   );
-  const revoke = useRevokeTrustedContactMutation({ userId });
+  const revoke = useTrustedContactRevokeMutation({ userId });
 
   const contacts = useMemo(() => data?.filter((c) => c.status === 'accepted') ?? [], [data]);
 

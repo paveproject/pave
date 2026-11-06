@@ -13,8 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Host, Button as UIButton } from '@expo/ui';
 import {
   userDevicesOptions,
-  pendingActionsOptions,
-  useRevokeDeviceMutation,
+  mePendingActionsOptions,
+  useDeviceRevokeMutation,
 } from '@libs/query-client';
 import type { MeDevicesResponse } from '@libs/api-js';
 import { useFormatter, useTranslations } from 'use-intl';
@@ -154,8 +154,8 @@ const MyDevicesScreen = () => {
   // `pending_actions::get_pending_actions`), so this is the one place
   // that's safe to read instead of re-deriving "is this caller active"
   // client-side.
-  const { data: pendingActions } = useQuery(pendingActionsOptions());
-  const revoke = useRevokeDeviceMutation({ userId });
+  const { data: pendingActions } = useQuery(mePendingActionsOptions());
+  const revoke = useDeviceRevokeMutation({ userId });
 
   const devices = useMemo(() => data ?? [], [data]);
   const approvableIds = useMemo(

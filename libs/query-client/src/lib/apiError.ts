@@ -2,7 +2,7 @@
  * A thin, deliberately generic wrapper so a mutation's `onError` can tell
  * "the server rejected this because the thing it targeted is already
  * gone" (404) apart from any other failure - see
- * `me/meMutations.ts`'s `useApproveDeviceMutation`/`useDeclineDeviceMutation`
+ * `me/meMutations.ts`'s `useDeviceApproveMutation`/`useDeviceDeclineMutation`
  * and `recoveryRequests/recoveryRequestsMutations.ts`'s equivalents, all
  * of which target a `/validation/*` screen that - per the user's own
  * explicit request - can no longer be dismissed by swipe/tap-outside,

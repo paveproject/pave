@@ -11,7 +11,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { meKeys } from '../me/meKeys';
 
-export const useSendOtpMutation = () => {
+export const useAuthOtpSendMutation = () => {
   return useMutation({
     mutationFn: async (body: AuthOtpSendRequest) => {
       const { data, error } = await sendOtp({ body });
@@ -22,7 +22,7 @@ export const useSendOtpMutation = () => {
   });
 };
 
-export const useVerifyOtpMutation = () => {
+export const useAuthOtpVerifyMutation = () => {
   return useMutation({
     mutationFn: async (body: AuthOtpVerifyRequest) => {
       const { data, error } = await verifyOtp({ body });
@@ -33,7 +33,7 @@ export const useVerifyOtpMutation = () => {
   });
 };
 
-export const useSendChangeEmailOtpMutation = () => {
+export const useAuthOtpChangeEmailSendMutation = () => {
   return useMutation({
     mutationFn: async (body: AuthOtpSendChangeEmailRequest) => {
       const { data, error } = await sendChangeEmailOtp({ body });
@@ -44,7 +44,7 @@ export const useSendChangeEmailOtpMutation = () => {
   });
 };
 
-export const useVerifyChangeEmailOtpMutation = () => {
+export const useAuthOtpChangeEmailVerifyMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (body: AuthOtpVerifyChangeEmailRequest) => {

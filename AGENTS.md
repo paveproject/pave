@@ -67,10 +67,19 @@ dependent image got rebuilt.
   because a Rust module name cannot contain a hyphen. DTOs and query helpers
   live in the domain module that also serves the item routes
   (`app::trusted_contacts`), imported from `app::users::*`.
-- `libs/query-client` mirrors this: a `/user/{user_id}/...` resource gets a
-  `userKeys`/`user*Options` entry, an item route its own domain folder. Every
-  user-scoped factory takes an optional `userId` with `enabled: !!userId`,
-  because several screens mount before `/me` has answered.
+- **`libs/query-client` names everything after its route**, one folder per
+  domain: `<domain><SubResource>Options` for a read,
+  `use<Domain><SubResource><Action>Mutation` for a write. `GET
+/user/{user_id}/trusted-contact/invite` is `userTrustedContactInviteOptions`;
+  `PUT /device/{device_id}/dek` is `useDeviceDekSetMutation`. A name should be
+  enough to find the route, and the other way round.
+- Reads are **factory functions returning `queryOptions`, never hooks** (the
+  convention of the reference project): a call site can then feed them to
+  `useQuery`, `prefetchQuery`, `setQueryData` or `invalidateQueries`, which a
+  hook cannot. Writes are hooks, since they need `useQueryClient`.
+- Every user-scoped factory takes an optional `userId` with
+  `enabled: !!userId`, because several screens mount before `/me` has
+  answered.
 
 ## Conventions
 

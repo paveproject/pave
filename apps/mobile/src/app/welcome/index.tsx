@@ -21,7 +21,7 @@ import { useTranslations } from 'use-intl';
 import {
   meOptions,
   useMeUpdateMutation,
-  useSetRecoveryKeyMnemonicMutation,
+  useMeRecoveryKeyMnemonicSetMutation,
 } from '@libs/query-client';
 import {
   commitMnemonicSetup,
@@ -144,7 +144,7 @@ const WelcomeScreen = () => {
   // actually finishes the flow.
   // ---------------------------------------------------------------------
   const deviceId = useDeviceId();
-  const setMnemonic = useSetRecoveryKeyMnemonicMutation();
+  const setMnemonic = useMeRecoveryKeyMnemonicSetMutation();
 
   const [confirmed, setConfirmed] = useState(false);
   const [isSavingPhrase, setIsSavingPhrase] = useState(false);

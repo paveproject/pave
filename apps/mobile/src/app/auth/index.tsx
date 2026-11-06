@@ -26,7 +26,7 @@ import { View } from '../../components/ui/view';
 import { useToast } from '../../components/Toast';
 import { logger } from '../../logger';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSendOtpMutation, useVerifyOtpMutation } from '@libs/query-client';
+import { useAuthOtpSendMutation, useAuthOtpVerifyMutation } from '@libs/query-client';
 import { useModalHeaderOptions } from '../../hooks/useModalHeaderOptions';
 import { useAuth } from '../../providers/AuthProvider';
 import { useLocaleContext } from '../../providers/LocaleProvider';
@@ -56,8 +56,8 @@ const AuthScreen = () => {
   const [otp, setOtp] = useState('');
   const bottomInset = isIpad || isAndroid ? insets.bottom : 0;
 
-  const { mutateAsync: sendOtp, isPending: isSending } = useSendOtpMutation();
-  const { mutateAsync: verifyOtp, isPending: isVerifying } = useVerifyOtpMutation();
+  const { mutateAsync: sendOtp, isPending: isSending } = useAuthOtpSendMutation();
+  const { mutateAsync: verifyOtp, isPending: isVerifying } = useAuthOtpVerifyMutation();
   const isLoading = isSending || isVerifying;
 
   const { getValues: formGetValues, ...form } = useForm<EmailFormValues>({

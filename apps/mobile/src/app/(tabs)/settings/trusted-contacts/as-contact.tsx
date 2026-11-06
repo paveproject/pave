@@ -6,7 +6,7 @@ import { AnimatedLegendList } from '@legendapp/list/reanimated';
 import { LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Host, Button as UIButton } from '@expo/ui';
-import { pendingActionsOptions, userTrustedContactOfOptions } from '@libs/query-client';
+import { mePendingActionsOptions, userTrustedContactOfOptions } from '@libs/query-client';
 import type { MeTrustedContactsAsContactResponse } from '@libs/api-js';
 import { useFormatter, useTranslations } from 'use-intl';
 import { Text } from '../../../../components/ui/text';
@@ -83,7 +83,7 @@ const TrustedByScreen = () => {
   // up here as a `recovery_request_contact` item once the server has
   // confirmed there's still something to approve/decline (see
   // `pending_actions::get_pending_actions`).
-  const { data: pendingActions } = useQuery(pendingActionsOptions());
+  const { data: pendingActions } = useQuery(mePendingActionsOptions());
 
   const reviewActionIdByOwnerId = useMemo(
     () =>

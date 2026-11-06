@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useTranslations } from 'use-intl';
-import { useMeUpdateMutation, useSendChangeEmailOtpMutation } from '@libs/query-client';
+import { useMeUpdateMutation, useAuthOtpChangeEmailSendMutation } from '@libs/query-client';
 import { useAuth } from '../providers/AuthProvider';
 import { useLocaleContext } from '../providers/LocaleProvider';
 import { useToast } from '../components/Toast';
@@ -72,7 +72,7 @@ export const useSettingsAccountForm = () => {
 
   const { mutateAsync: updateMe, isPending: isSavingUsername } = useMeUpdateMutation();
   const { mutateAsync: sendChangeEmailOtp, isPending: isSendingCode } =
-    useSendChangeEmailOtpMutation();
+    useAuthOtpChangeEmailSendMutation();
   const isSaving = isSavingUsername || isSendingCode;
 
   const usernameChanged = username !== (user?.username ?? '');

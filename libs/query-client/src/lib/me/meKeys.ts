@@ -6,4 +6,6 @@ export const meKeys = {
    * or a recovery request where they're the trusted contact. One inbox, not
    * one query per kind, so a third kind needs no new key. */
   pendingActions: () => [meKeys.base, 'pending-actions'] as const,
+  /** One blob per account, no params needed. */
+  recoveryKeyMnemonic: () => [meKeys.base, 'recovery-key-mnemonic'] as const,
 };

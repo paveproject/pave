@@ -1,15 +1,15 @@
 import { createRecoveryRequest, setDevice, setShares } from '@libs/api-js';
 import type { DeviceType, MeTrustedContactsShareUpdate } from '@libs/api-js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { pendingActionsOptions } from '../me/meOptions';
+import { mePendingActionsOptions } from '../me/meOptions';
 import { userDevicesOptions, userRecoveryRequestCurrentOptions } from './userOptions';
 
 /** `useEnsureRecoveryIdentity` calls this on every launch, well before
  * anything else notices this device might now be a pending
  * `own_device_registration` - relying on the realtime event races the
  * websocket's own connection on a cold start, and nothing else refetches
- * `pendingActionsOptions` afterward. */
-export const useSetDeviceMutation = ({ userId }: { userId?: string }) => {
+ * `mePendingActionsOptions` afterward. */
+export const useUserDevicesSetMutation = ({ userId }: { userId?: string }) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (body: { publicKey: string; deviceType: DeviceType }) => {
@@ -30,14 +30,14 @@ export const useSetDeviceMutation = ({ userId }: { userId?: string }) => {
         next[index] = device;
         return next;
       });
-      queryClient.invalidateQueries({ queryKey: pendingActionsOptions().queryKey });
+      queryClient.invalidateQueries({ queryKey: mePendingActionsOptions().queryKey });
     },
   });
 };
 
 /** Batch-uploads every accepted contact's new sealed share in one call - a
  * rotation always touches everyone's share together. */
-export const useSetSharesMutation = ({ userId }: { userId?: string }) => {
+export const useUserTrustedContactSharesSetMutation = ({ userId }: { userId?: string }) => {
   return useMutation({
     mutationFn: async (shares: MeTrustedContactsShareUpdate[]) => {
       if (!userId) throw new Error('No user id');
@@ -50,7 +50,7 @@ export const useSetSharesMutation = ({ userId }: { userId?: string }) => {
 /** The owner's last resort, once none of their own devices can help. Also
  * hard-revokes every other device on the account server-side, so this is
  * deliberately irreversible. */
-export const useCreateRecoveryRequestMutation = ({ userId }: { userId?: string }) => {
+export const useUserRecoveryRequestsCreateMutation = ({ userId }: { userId?: string }) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {

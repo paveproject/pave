@@ -17,7 +17,7 @@ import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-rean
 import { Stack } from 'expo-router';
 import { enableFreeze, enableScreens } from 'react-native-screens';
 import { useQuery } from '@tanstack/react-query';
-import { pendingActionsOptions } from '@libs/query-client';
+import { mePendingActionsOptions } from '@libs/query-client';
 import { useTheme } from '../providers/ThemeProvider';
 import { useAuth } from '../providers/AuthProvider';
 import { useUIStore } from '../stores/useUIStore';
@@ -38,7 +38,7 @@ const RootLayoutNav = () => {
   const hasOnboarded = useUIStore((state) => state.hasOnboarded);
   const t = useTranslations();
   const { defaultScreenOptions, isLiquidGlassAvailable } = useTheme();
-  const { data: pendingActions } = useQuery({ ...pendingActionsOptions(), enabled: !!user });
+  const { data: pendingActions } = useQuery({ ...mePendingActionsOptions(), enabled: !!user });
 
   // Coarse on purpose - "some item of this kind exists," not "this exact
   // id" - `Stack.Protected`'s guard can't see which dynamic `[id]` a

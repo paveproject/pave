@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useRootNavigationState, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { pendingActionsOptions } from '@libs/query-client';
+import { mePendingActionsOptions } from '@libs/query-client';
 import { useAuth } from '../../providers/AuthProvider';
 import { isRouteInStack } from './isRouteInStack';
 import { AppGate } from './types';
@@ -43,7 +43,7 @@ export const usePendingActionsGate = (): AppGate => {
   const { user } = useAuth();
   const router = useRouter();
   const rootState = useRootNavigationState();
-  const { data } = useQuery({ ...pendingActionsOptions(), enabled: !!user });
+  const { data } = useQuery({ ...mePendingActionsOptions(), enabled: !!user });
   const current =
     data && data.length > 0
       ? [...data].sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]

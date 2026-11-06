@@ -6,10 +6,10 @@ import {
 } from '@libs/api-js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { isNotFoundError, toApiCallError } from '../apiError';
-import { pendingActionsOptions } from '../me/meOptions';
+import { mePendingActionsOptions } from '../me/meOptions';
 import { userRecoveryRequestCurrentOptions } from '../user/userOptions';
 
-export const useCancelRecoveryRequestMutation = ({ userId }: { userId?: string }) => {
+export const useRecoveryRequestCancelMutation = ({ userId }: { userId?: string }) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
@@ -24,7 +24,7 @@ export const useCancelRecoveryRequestMutation = ({ userId }: { userId?: string }
 
 /** Called once the requesting device has locally combined enough shares into
  * the recovered DEK - stops the request accepting further shares. */
-export const useCompleteRecoveryRequestMutation = ({ userId }: { userId?: string }) => {
+export const useRecoveryRequestCompleteMutation = ({ userId }: { userId?: string }) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
@@ -43,7 +43,7 @@ export const useCompleteRecoveryRequestMutation = ({ userId }: { userId?: string
 
 /** The contact's own already-held plaintext share, re-sealed to the
  * requesting device's public key before this is called. */
-export const useApproveRecoveryRequestMutation = () => {
+export const useRecoveryRequestApproveMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -62,7 +62,7 @@ export const useApproveRecoveryRequestMutation = () => {
       return data;
     },
     onSuccess: (contact) => {
-      queryClient.setQueryData(pendingActionsOptions().queryKey, (previous) =>
+      queryClient.setQueryData(mePendingActionsOptions().queryKey, (previous) =>
         previous?.filter(
           (action) => !(action.kind === 'recovery_request_contact' && action.id === contact.id),
         ),
@@ -73,7 +73,7 @@ export const useApproveRecoveryRequestMutation = () => {
     // `recoveryRequestId` is available here, not the contact row's own id.
     onError: (error, { recoveryRequestId }) => {
       if (isNotFoundError(error)) {
-        queryClient.setQueryData(pendingActionsOptions().queryKey, (previous) =>
+        queryClient.setQueryData(mePendingActionsOptions().queryKey, (previous) =>
           previous?.filter(
             (action) =>
               !(
@@ -87,7 +87,7 @@ export const useApproveRecoveryRequestMutation = () => {
   });
 };
 
-export const useDeclineRecoveryRequestMutation = () => {
+export const useRecoveryRequestDeclineMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (recoveryRequestId: string) => {
@@ -99,7 +99,7 @@ export const useDeclineRecoveryRequestMutation = () => {
       return data;
     },
     onSuccess: (contact) => {
-      queryClient.setQueryData(pendingActionsOptions().queryKey, (previous) =>
+      queryClient.setQueryData(mePendingActionsOptions().queryKey, (previous) =>
         previous?.filter(
           (action) => !(action.kind === 'recovery_request_contact' && action.id === contact.id),
         ),
@@ -107,7 +107,7 @@ export const useDeclineRecoveryRequestMutation = () => {
     },
     onError: (error, recoveryRequestId) => {
       if (isNotFoundError(error)) {
-        queryClient.setQueryData(pendingActionsOptions().queryKey, (previous) =>
+        queryClient.setQueryData(mePendingActionsOptions().queryKey, (previous) =>
           previous?.filter(
             (action) =>
               !(

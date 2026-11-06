@@ -8,8 +8,8 @@ import { buttonStyle, controlSize, frame, tint } from '@expo/ui/swift-ui/modifie
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { useTranslations } from 'use-intl';
 import {
-  useApproveRecoveryRequestMutation,
-  useDeclineRecoveryRequestMutation,
+  useRecoveryRequestApproveMutation,
+  useRecoveryRequestDeclineMutation,
 } from '@libs/query-client';
 import { sealShareForRecoveryRequest } from '../../../lib/recoveryKey';
 import { usePendingAction } from '../../../hooks/usePendingAction';
@@ -45,8 +45,8 @@ const ValidationRecoveryRequestScreen = () => {
   const modalHeaderOptions = useModalHeaderOptions({ forceCross: true });
   const bottomInset = isIpad ? insets.bottom : 0;
   const action = usePendingAction('recovery_request_contact', id);
-  const approve = useApproveRecoveryRequestMutation();
-  const decline = useDeclineRecoveryRequestMutation();
+  const approve = useRecoveryRequestApproveMutation();
+  const decline = useRecoveryRequestDeclineMutation();
   const isBusy = approve.isPending || decline.isPending;
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
-import { useSetDeviceMutation } from '@libs/query-client';
+import { useUserDevicesSetMutation } from '@libs/query-client';
 import { ensureIdentityKeypair, getIdentityPublicKeyHex, setDeviceId } from '../../lib/recoveryKey';
 import { useDeviceIdStore } from '../../stores/useDeviceIdStore';
 import { useAuth } from '../../providers/AuthProvider';
@@ -29,7 +29,7 @@ import { logger } from '../../logger';
 export const useEnsureRecoveryIdentity = () => {
   const { user } = useAuth();
   const userId = user?.id;
-  const setDevice = useSetDeviceMutation({ userId });
+  const setDevice = useUserDevicesSetMutation({ userId });
 
   // Kept fresh every render so the effect below can call the current
   // mutation without needing it in its dependency array.

@@ -4,7 +4,7 @@ import { Icon, Row, FieldGroup, Text as NativeText } from '@expo/ui';
 import { listRowBackground } from '@expo/ui/swift-ui/modifiers';
 import { useFormatter, useNow, useTranslations } from 'use-intl';
 import type { MeRecoveryRequestsResponse } from '@libs/api-js';
-import { useCancelRecoveryRequestMutation } from '@libs/query-client';
+import { useRecoveryRequestCancelMutation } from '@libs/query-client';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { useToast } from '../../../components/Toast';
 import { logger } from '../../../logger';
@@ -34,7 +34,7 @@ export const RecoveryProgressSection = ({ request }: RecoveryProgressSectionProp
   const now = useNow();
   const { user } = useAuth();
   const userId = user?.id;
-  const cancel = useCancelRecoveryRequestMutation({ userId });
+  const cancel = useRecoveryRequestCancelMutation({ userId });
   const { isImpossible } = useRecoveryOutcome(request);
 
   const releaseAt = new Date(request.releaseAt);

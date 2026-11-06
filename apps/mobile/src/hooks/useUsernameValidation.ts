@@ -2,7 +2,7 @@ import * as z from 'zod';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
 import type { FieldValues, Path, UseFormReturn } from 'react-hook-form';
-import { usernameAvailableOptions } from '@libs/query-client';
+import { meUsernameAvailableOptions } from '@libs/query-client';
 import useDebounce from './useDebounce';
 
 export const USERNAME_MIN = 3;
@@ -55,7 +55,7 @@ export const useUsernameAvailabilityCheck = <T extends FieldValues & { username:
   const canCheck = isEligible(usernameToCheck);
 
   const { data: isUsernameAvailable, isFetching } = useQuery(
-    usernameAvailableOptions(canCheck ? usernameToCheck : undefined),
+    meUsernameAvailableOptions(canCheck ? usernameToCheck : undefined),
   );
 
   const isDebouncePending = isCurrentlyEligible && username !== usernameToCheck;

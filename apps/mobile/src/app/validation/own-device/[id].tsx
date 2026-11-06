@@ -11,8 +11,8 @@ import { useFormatter, useNow, useTranslations } from 'use-intl';
 import {
   userRecoveryRequestCurrentOptions,
   userTrustedContactsOptions,
-  useCancelRecoveryRequestMutation,
-  useCreateRecoveryRequestMutation,
+  useRecoveryRequestCancelMutation,
+  useUserRecoveryRequestsCreateMutation,
 } from '@libs/query-client';
 import { usePendingAction } from '../../../hooks/usePendingAction';
 import { useModalHeaderOptions } from '../../../hooks/useModalHeaderOptions';
@@ -82,8 +82,8 @@ const ValidationOwnDeviceScreen = () => {
   const userId = user?.id;
   const { data: request } = useQuery(userRecoveryRequestCurrentOptions({ userId }));
   const { data: contacts } = useQuery(userTrustedContactsOptions({ userId }));
-  const createRecovery = useCreateRecoveryRequestMutation({ userId });
-  const cancelRecovery = useCancelRecoveryRequestMutation({ userId });
+  const createRecovery = useUserRecoveryRequestsCreateMutation({ userId });
+  const cancelRecovery = useRecoveryRequestCancelMutation({ userId });
   const { isImpossible } = useRecoveryOutcome(request);
   const isRecovering = request?.status === 'pending';
   const title = isRecovering

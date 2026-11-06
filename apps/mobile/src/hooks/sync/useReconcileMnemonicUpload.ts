@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useSetRecoveryKeyMnemonicMutation } from '@libs/query-client';
+import { useMeRecoveryKeyMnemonicSetMutation } from '@libs/query-client';
 import { commitMnemonicUpload, planMnemonicUpload } from '../../lib/recoveryKey';
 import { useSyncTaskReporter } from '../../providers/sync/useSyncTaskReporter';
 import { SYNC_TASK_IDS } from '../../providers/sync/types';
@@ -18,7 +18,7 @@ import { SYNC_TASK_IDS } from '../../providers/sync/types';
  * the three call sites).
  */
 export const useReconcileMnemonicUpload = () => {
-  const setMnemonic = useSetRecoveryKeyMnemonicMutation();
+  const setMnemonic = useMeRecoveryKeyMnemonicSetMutation();
   const reporter = useSyncTaskReporter({ id: SYNC_TASK_IDS.mnemonicUpload });
 
   return useCallback(

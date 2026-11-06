@@ -3,7 +3,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   userDevicesOptions,
-  pendingActionsOptions,
+  mePendingActionsOptions,
   userRecoveryRequestCurrentOptions,
   userTrustedContactOfOptions,
   userTrustedContactInviteOptions,
@@ -129,7 +129,7 @@ const removePendingAction = (
   kind: MePendingAction['kind'],
   id: string,
 ) => {
-  queryClient.setQueryData(pendingActionsOptions().queryKey, (old) =>
+  queryClient.setQueryData(mePendingActionsOptions().queryKey, (old) =>
     old?.filter((action) => !(action.kind === kind && action.id === id)),
   );
 };
@@ -138,7 +138,7 @@ const upsertPendingAction = (
   queryClient: ReturnType<typeof useQueryClient>,
   action: MePendingAction,
 ) => {
-  queryClient.setQueryData(pendingActionsOptions().queryKey, (old) => {
+  queryClient.setQueryData(mePendingActionsOptions().queryKey, (old) => {
     if (!old) return old;
     const index = old.findIndex((a) => a.kind === action.kind && a.id === action.id);
     if (index === -1) return [...old, action];
@@ -218,7 +218,7 @@ export const useUserEventsSocket = (enabled: boolean) => {
             // `MeDevicesStatus`) - this is what makes it show up in THIS
             // device's own pending-actions inbox live, instead of only on
             // its next focus/relaunch.
-            queryClient.invalidateQueries({ queryKey: pendingActionsOptions().queryKey });
+            queryClient.invalidateQueries({ queryKey: mePendingActionsOptions().queryKey });
           } else if (message.event === 'device_dek_updated') {
             if (message.id === deviceId && message.encryptedDek) {
               receiveDek(userId, message.encryptedDek);

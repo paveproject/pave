@@ -1,7 +1,7 @@
 import { approveDevice, declineDevice, revokeDevice, setDeviceDek } from '@libs/api-js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { isNotFoundError, toApiCallError } from '../apiError';
-import { pendingActionsOptions } from '../me/meOptions';
+import { mePendingActionsOptions } from '../me/meOptions';
 import { userDevicesOptions } from '../user/userOptions';
 
 /**
@@ -11,7 +11,7 @@ import { userDevicesOptions } from '../user/userOptions';
 
 /** A device can always target *itself* regardless of status; any other
  * device requires the caller to already be `active`. */
-export const useRevokeDeviceMutation = ({ userId }: { userId?: string }) => {
+export const useDeviceRevokeMutation = ({ userId }: { userId?: string }) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
@@ -25,7 +25,7 @@ export const useRevokeDeviceMutation = ({ userId }: { userId?: string }) => {
       queryClient.setQueryData(userDevicesOptions({ userId }).queryKey, (previous) =>
         previous?.filter((device) => device.id !== id),
       );
-      queryClient.setQueryData(pendingActionsOptions().queryKey, (previous) =>
+      queryClient.setQueryData(mePendingActionsOptions().queryKey, (previous) =>
         previous?.filter(
           (action) =>
             !(
@@ -41,7 +41,7 @@ export const useRevokeDeviceMutation = ({ userId }: { userId?: string }) => {
 
 /** Deposits a sealed copy of this user's own recovery key for one of their
  * other devices - a direct seal, not a Shamir share. */
-export const useSetDeviceDekMutation = ({ userId }: { userId?: string }) => {
+export const useDeviceDekSetMutation = ({ userId }: { userId?: string }) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ deviceId, encryptedDek }: { deviceId: string; encryptedDek: string }) => {
@@ -63,7 +63,7 @@ export const useSetDeviceDekMutation = ({ userId }: { userId?: string }) => {
 
 /** A bank-style approval of one of this same user's own pending sibling
  * devices - `useRecoveryKeySync` delivers the key on its next pass. */
-export const useApproveDeviceMutation = ({ userId }: { userId?: string }) => {
+export const useDeviceApproveMutation = ({ userId }: { userId?: string }) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
@@ -76,7 +76,7 @@ export const useApproveDeviceMutation = ({ userId }: { userId?: string }) => {
       queryClient.setQueryData(userDevicesOptions({ userId }).queryKey, (previous) =>
         previous?.map((d) => (d.id === device.id ? device : d)),
       );
-      queryClient.setQueryData(pendingActionsOptions().queryKey, (previous) =>
+      queryClient.setQueryData(mePendingActionsOptions().queryKey, (previous) =>
         previous?.filter(
           (action) => !(action.kind === 'device_registration' && action.id === device.id),
         ),
@@ -86,7 +86,7 @@ export const useApproveDeviceMutation = ({ userId }: { userId?: string }) => {
     // the no-longer-dismissible validation screen can still close itself.
     onError: (error, id) => {
       if (isNotFoundError(error)) {
-        queryClient.setQueryData(pendingActionsOptions().queryKey, (previous) =>
+        queryClient.setQueryData(mePendingActionsOptions().queryKey, (previous) =>
           previous?.filter(
             (action) => !(action.kind === 'device_registration' && action.id === id),
           ),
@@ -97,7 +97,7 @@ export const useApproveDeviceMutation = ({ userId }: { userId?: string }) => {
 };
 
 /** Nothing was ever granted to a pending device, so declining drops it. */
-export const useDeclineDeviceMutation = ({ userId }: { userId?: string }) => {
+export const useDeviceDeclineMutation = ({ userId }: { userId?: string }) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
@@ -110,13 +110,13 @@ export const useDeclineDeviceMutation = ({ userId }: { userId?: string }) => {
       queryClient.setQueryData(userDevicesOptions({ userId }).queryKey, (previous) =>
         previous?.filter((d) => d.id !== id),
       );
-      queryClient.setQueryData(pendingActionsOptions().queryKey, (previous) =>
+      queryClient.setQueryData(mePendingActionsOptions().queryKey, (previous) =>
         previous?.filter((action) => !(action.kind === 'device_registration' && action.id === id)),
       );
     },
     onError: (error, id) => {
       if (isNotFoundError(error)) {
-        queryClient.setQueryData(pendingActionsOptions().queryKey, (previous) =>
+        queryClient.setQueryData(mePendingActionsOptions().queryKey, (previous) =>
           previous?.filter(
             (action) => !(action.kind === 'device_registration' && action.id === id),
           ),
