@@ -3,8 +3,12 @@ use aws_sdk_s3::Client;
 use testcontainers::core::wait::HttpWaitStrategy;
 use testcontainers::core::WaitFor;
 use testcontainers::runners::AsyncRunner;
-use testcontainers::{ContainerAsync, ImageExt};
+use testcontainers::{ContainerAsync, ImageExt, ReuseDirective};
 use testcontainers_modules::rustfs::RustFS;
+
+/// Same reuse key as the Postgres container - see `postgres.rs`'s
+/// `REUSE_LABEL`.
+const REUSE_LABEL: &str = "app.pave.test-support";
 
 const ACCESS_KEY: &str = "test";
 const SECRET_KEY: &str = "test-secret-key";
@@ -49,6 +53,8 @@ pub async fn start_test_s3() -> TestS3 {
         .with_ready_conditions(vec![WaitFor::http(
             HttpWaitStrategy::new("/health").with_expected_status_code(200u16),
         )])
+        .with_labels([(REUSE_LABEL, "rustfs")])
+        .with_reuse(ReuseDirective::Always)
         .start()
         .await
         .expect("failed to start rustfs testcontainer");
@@ -78,18 +84,17 @@ pub async fn start_test_s3() -> TestS3 {
         .force_path_style(true)
         .build();
     let client = Client::from_conf(config);
-    client
-        .create_bucket()
-        .bucket(PUBLIC_BUCKET)
-        .send()
-        .await
-        .expect("failed to create the test public bucket");
-    client
-        .create_bucket()
-        .bucket(PRIVATE_BUCKET)
-        .send()
-        .await
-        .expect("failed to create the test private bucket");
+    // Tolerates "already exists": the container is reused across runs, so the
+    // buckets are usually already there.
+    for bucket in [PUBLIC_BUCKET, PRIVATE_BUCKET] {
+        if let Err(error) = client.create_bucket().bucket(bucket).send().await {
+            let already_there = client.head_bucket().bucket(bucket).send().await.is_ok();
+            assert!(
+                already_there,
+                "failed to create the test {bucket} bucket: {error}"
+            );
+        }
+    }
 
     s3
 }

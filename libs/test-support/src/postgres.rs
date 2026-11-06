@@ -1,11 +1,18 @@
-use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
-use std::path::PathBuf;
+use sea_orm::{ConnectionTrait, Database, DatabaseConnection, Statement};
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use testcontainers::core::{IntoContainerPort, WaitFor};
 use testcontainers::runners::{AsyncBuilder, AsyncRunner};
-use testcontainers::{ContainerAsync, GenericBuildableImage, GenericImage, ImageExt};
+use testcontainers::{
+    ContainerAsync, GenericBuildableImage, GenericImage, ImageExt, ReuseDirective,
+};
 
-const SNAPSHOT_NAME: &str = "migrated_template";
+/// Reuse key. One Postgres container serves every test binary and every run:
+/// `ContainerAsync`'s `Drop` is the only thing that removes a container in
+/// testcontainers 0.27 (there is no reaper), and it never runs here - the
+/// handle lives in a `static OnceCell`, and Rust doesn't drop statics at exit.
+/// Without reuse, each `cargo test` left its containers behind for good.
+const REUSE_LABEL: &str = "app.pave.test-support";
 const WORK_DB_NAME: &str = "test";
 const PG_USER: &str = "test";
 const PG_PASSWORD: &str = "test";
@@ -40,6 +47,94 @@ pub struct TestDatabase {
     _container: ContainerAsync<GenericImage>,
     host: String,
     port: u16,
+    /// Template to restore from, named after `schema_fingerprint`.
+    snapshot: String,
+}
+
+/// Fingerprint of everything that shapes the template: the migrations and the
+/// seed. It goes in the template database's *name*, so a changed migration or
+/// seed finds no template and builds a fresh one - inside the same reused
+/// container. Without this, reuse would happily serve a stale schema, which is
+/// a worse failure than the leak it fixes.
+///
+/// FNV-1a rather than `DefaultHasher`: this value has to mean the same thing
+/// across toolchain versions, or every upgrade would silently rebuild.
+///
+/// Old templates are left in place (17 MB each) rather than swept, so moving
+/// between branches with different schemas costs nothing. To reclaim them:
+/// `docker exec <container> psql -U test -d postgres -c "DROP DATABASE
+/// migrated_template_<hash>"`.
+fn schema_fingerprint(root: &Path) -> String {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut feed = |bytes: &[u8]| {
+        for byte in bytes {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(0x100_0000_01b3);
+        }
+    };
+
+    fn collect(dir: &Path, out: &mut Vec<PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                collect(&path, out);
+            } else {
+                out.push(path);
+            }
+        }
+    }
+
+    let mut files = Vec::new();
+    collect(&root.join("libs/db/drizzle"), &mut files);
+    collect(&root.join("libs/db/src/lib/seed"), &mut files);
+    files.push(root.join("libs/db/scripts/seed.ts"));
+    files.sort();
+
+    for file in files {
+        feed(
+            file.strip_prefix(root)
+                .unwrap_or(&file)
+                .to_string_lossy()
+                .as_bytes(),
+        );
+        if let Ok(bytes) = std::fs::read(&file) {
+            feed(&bytes);
+        }
+    }
+    format!("migrated_template_{hash:016x}")
+}
+
+/// The postgres entrypoint prints "ready to accept connections" once during
+/// its own init phase and then restarts, so the wait strategy can return
+/// before the server really accepts anything. This used to be hidden: the
+/// first thing that connected was `drizzle-kit`, a separate process with its
+/// own connect timing. Connecting from here needs the wait made explicit.
+async fn connect_admin(url: &str) -> DatabaseConnection {
+    let mut last = None;
+    for _ in 0..40 {
+        match Database::connect(url).await {
+            Ok(connection) => return connection,
+            Err(error) => {
+                last = Some(error);
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            }
+        }
+    }
+    panic!("postgres never accepted an admin connection: {last:?}");
+}
+
+async fn database_exists(admin: &DatabaseConnection, name: &str) -> bool {
+    admin
+        .query_one_raw(Statement::from_string(
+            sea_orm::DatabaseBackend::Postgres,
+            format!("SELECT 1 FROM pg_database WHERE datname = '{name}'"),
+        ))
+        .await
+        .expect("failed to look up the template database")
+        .is_some()
 }
 
 impl TestDatabase {
@@ -84,7 +179,8 @@ impl TestDatabase {
 
         admin
             .execute_unprepared(&format!(
-                r#"CREATE DATABASE "{WORK_DB_NAME}" WITH TEMPLATE "{SNAPSHOT_NAME}""#
+                r#"CREATE DATABASE "{WORK_DB_NAME}" WITH TEMPLATE "{}""#,
+                self.snapshot
             ))
             .await
             .expect("failed to recreate the test database from its template");
@@ -107,6 +203,8 @@ pub async fn start_test_database() -> TestDatabase {
         .await
         .expect("failed to build the postgis-enabled postgres test image");
 
+    let snapshot = schema_fingerprint(&root);
+
     let image = built
         .with_exposed_port(5432.tcp())
         .with_wait_for(WaitFor::message_on_stdout(
@@ -114,7 +212,9 @@ pub async fn start_test_database() -> TestDatabase {
         ))
         .with_env_var("POSTGRES_USER", PG_USER)
         .with_env_var("POSTGRES_PASSWORD", PG_PASSWORD)
-        .with_env_var("POSTGRES_DB", WORK_DB_NAME);
+        .with_env_var("POSTGRES_DB", WORK_DB_NAME)
+        .with_labels([(REUSE_LABEL, "postgres")])
+        .with_reuse(ReuseDirective::Always);
 
     let container = image
         .start()
@@ -134,7 +234,14 @@ pub async fn start_test_database() -> TestDatabase {
         _container: container,
         host,
         port,
+        snapshot: snapshot.clone(),
     };
+
+    let admin = connect_admin(&db.url_for("postgres")).await;
+    if database_exists(&admin, &snapshot).await {
+        // Reused container, template already built for this exact schema.
+        return db;
+    }
 
     let database_url = db.database_url();
     run_db_command(
@@ -155,9 +262,6 @@ pub async fn start_test_database() -> TestDatabase {
     // Snapshot the freshly migrated+seeded database as a template -
     // `CREATE DATABASE ... WITH TEMPLATE` requires no other connections to
     // the *source* database while it copies.
-    let admin = Database::connect(db.url_for("postgres"))
-        .await
-        .expect("failed to connect to admin db to snapshot the template");
     admin
         .execute_unprepared(&format!(
             "SELECT pg_terminate_backend(pid) FROM pg_stat_activity \
@@ -167,7 +271,7 @@ pub async fn start_test_database() -> TestDatabase {
         .expect("failed to terminate connections before snapshotting");
     admin
         .execute_unprepared(&format!(
-            r#"CREATE DATABASE "{SNAPSHOT_NAME}" WITH TEMPLATE "{WORK_DB_NAME}""#
+            r#"CREATE DATABASE "{snapshot}" WITH TEMPLATE "{WORK_DB_NAME}""#
         ))
         .await
         .expect("failed to snapshot the migrated+seeded template database");

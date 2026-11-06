@@ -316,6 +316,9 @@ pub async fn fresh_app(env: &TestEnv) -> TestApp {
     let database_url = with_search_path(&env.db.database_url());
     let redis_url = env.redis.url();
     env.db.reset().await;
+    // The containers are reused across runs now, so Redis has to be wiped
+    // here or a rate-limit counter outlives the test that set it.
+    env.redis.flush().await;
 
     let api_config = ApiConfig {
         auth_secret: Some("test-only-secret-at-least-32-characters-long".to_string()),
