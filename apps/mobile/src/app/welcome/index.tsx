@@ -35,7 +35,7 @@ import { useDeviceId } from '../../hooks/useDeviceId';
 import { Input } from '../../components/ui/Input';
 import { FormFieldError } from '../../components/ui/FormFieldError';
 import { StatusBubble } from '../../components/ui/StatusBubble';
-import { Checkbox } from '../../components/ui/checkbox';
+import { Checkbox } from 'expo-checkbox';
 import { NativeButton } from '../../components/ui/NativeButton';
 import { Button } from '../../components/ui/Button';
 import { View } from '../../components/ui/view';
@@ -377,11 +377,11 @@ const WelcomeScreen = () => {
               <View
                 style={{ flexDirection: 'row', alignItems: 'flex-start', gap: theme.spaces.sm }}
               >
-                <Checkbox checked={confirmed} onCheckedChange={setConfirmed} />
-                {/* Own touch target, separate from the checkbox's - tapping
-                    the checkbox icon itself used to also bubble up to a
-                    wrapping `onTouchEnd` here, double-toggling (on then
-                    immediately back off) so the box never visibly checked. */}
+                <Checkbox
+                  value={confirmed}
+                  onValueChange={setConfirmed}
+                  color={confirmed ? colors.primary : undefined}
+                />
                 <Pressable style={{ flex: 1 }} onPress={() => setConfirmed((prev) => !prev)}>
                   <Text>{t('pages.welcome.recovery_phrase.confirm_label')}</Text>
                 </Pressable>

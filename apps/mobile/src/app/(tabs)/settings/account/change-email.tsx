@@ -80,7 +80,7 @@ const ChangeEmailScreen = () => {
         <InputOTP
           length={OTP_LENGTH}
           value={otp}
-          onChangeText={setOtp}
+          onChange={setOtp}
           onComplete={handleVerify}
           disabled={isVerifying}
         />

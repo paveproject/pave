@@ -114,7 +114,8 @@ const RootLayoutNav = () => {
               title: t('messages.sign_in'),
               headerTransparent: true,
               presentation: 'formSheet',
-              sheetGrabberVisible: true,
+              gestureEnabled: false,
+              sheetGrabberVisible: false,
               sheetAllowedDetents: 'fitToContents',
               sheetInitialDetentIndex: 0,
               ...(isLiquidGlassAvailable

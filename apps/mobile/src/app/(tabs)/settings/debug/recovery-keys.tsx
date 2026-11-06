@@ -22,6 +22,8 @@ import {
 import { View } from '../../../../components/ui/view';
 import { useTheme } from '../../../../providers/ThemeProvider';
 import { useAuth } from '../../../../providers/AuthProvider';
+import Empty from '../../../../components/ui/empty';
+import { Icons as NativeIcons } from '../../../../constants/icons';
 import { useDeviceId } from '../../../../hooks/useDeviceId';
 import { useToast } from '../../../../components/Toast';
 import { Icons } from '../../../../constants/icons';
@@ -144,6 +146,14 @@ const RecoveryKeysDebugScreen = () => {
       ],
     );
   }, [reload, user]);
+
+  if (!user) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <Empty icon={NativeIcons.user} title="Sign in to inspect this device's recovery state." />
+      </View>
+    );
+  }
 
   if (!snapshot) {
     return (

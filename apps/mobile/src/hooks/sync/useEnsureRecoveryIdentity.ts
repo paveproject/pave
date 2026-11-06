@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { useSetDeviceMutation } from '@libs/query-client';
 import { ensureIdentityKeypair, getIdentityPublicKeyHex, setDeviceId } from '../../lib/recoveryKey';
+import { useDeviceIdStore } from '../../stores/useDeviceIdStore';
 import { useAuth } from '../../providers/AuthProvider';
 import { logger } from '../../logger';
 
@@ -48,6 +49,7 @@ export const useEnsureRecoveryIdentity = () => {
         deviceType: Platform.OS === 'ios' ? 'ios' : 'android',
       });
       await setDeviceId(userId, device.id);
+      useDeviceIdStore.getState().setDeviceId(userId, device.id);
     };
     run().catch((error) => logger.error('ensure recovery identity failed', { error }));
   }, [userId]);

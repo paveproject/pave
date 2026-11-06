@@ -1,289 +1,176 @@
-import { Text } from './text';
-import { useTheme } from '../../providers/ThemeProvider';
-import { CORNERS, FONT_SIZE } from '../../theme/globals';
-import React, { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
-import {
-  Pressable,
-  TextInput,
-  TextInputKeyPressEvent,
-  TextInputProps,
-  TextStyle,
-  View,
-  ViewStyle,
-} from 'react-native';
+import type { ComponentRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  Easing,
+  interpolate,
+  interpolateColor,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
-export interface InputOTPProps extends Omit<TextInputProps, 'style' | 'value' | 'onChangeText'> {
-  /** Number of OTP digits */
+/**
+ * Palette is literal rather than theme tokens: light-only as proposed. Theme
+ * it before it meets dark mode.
+ *
+ * Controlled, with no internal copy of the digits: `auth/index.tsx` clears the
+ * code after *every* verify so a wrong one can be retyped, and an internal
+ * copy would leave that clear nothing to act on - stale digits stay on screen
+ * and the `onComplete` guard then refuses to fire, locking sign-in.
+ */
+export interface InputOTPProps {
+  /** Number of OTP digits. */
   length?: number;
-  /** Current OTP value */
-  value?: string;
-  /** Called when OTP value changes */
-  onChangeText?: (value: string) => void;
-  /** Called when OTP is complete */
+  value: string;
+  /** The digits, not a native change event - this component does not extend
+   * `TextInputProps`, so there is no `onChange` to collide with. */
+  onChange: (value: string) => void;
+  /** Fired once, on the transition to a full code. */
   onComplete?: (value: string) => void;
-  /** Error message to display */
-  error?: string;
-  /** Disabled state */
   disabled?: boolean;
-  /** Container style */
-  containerStyle?: ViewStyle;
-  /** Individual slot style */
-  slotStyle?: ViewStyle;
-  /** Error style */
-  errorStyle?: TextStyle;
-  /** Whether to mask the input (show dots instead of numbers) */
-  masked?: boolean;
-  /** Separator component between slots */
-  separator?: React.ReactNode;
-  /** Whether to show cursor in active slot */
-  showCursor?: boolean;
+  accessibilityLabel?: string;
 }
 
-export interface InputOTPRef {
-  focus: () => void;
-  blur: () => void;
-  clear: () => void;
-  getValue: () => string;
-}
+export const InputOTP = ({
+  length = 6,
+  value,
+  onChange,
+  onComplete,
+  disabled = false,
+  accessibilityLabel = 'One-time code',
+}: InputOTPProps) => {
+  const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const [focused, setFocused] = useState(false);
+  const reducedMotion = useReducedMotion();
+  const progress = useSharedValue(0);
 
-export const InputOTP = forwardRef<InputOTPRef, InputOTPProps>(
-  (
-    {
-      length = 6,
-      value = '',
-      onChangeText,
-      onComplete,
-      error,
-      disabled = false,
-      containerStyle,
-      slotStyle,
-      errorStyle,
-      masked = false,
-      separator,
-      showCursor = true,
-      onFocus,
-      onBlur,
-      ...textInputProps
-    },
-    ref,
-  ) => {
-    const [isFocused, setIsFocused] = useState(false);
-    const [, setActiveIndex] = useState(0);
-    const inputRef = useRef<TextInput>(null);
+  useEffect(() => {
+    const filled = value.length / length;
+    if (reducedMotion) {
+      progress.set(filled);
+      return;
+    }
 
-    // Theme colors
-    const { colors } = useTheme();
-    const cardColor = colors.card;
-    const textColor = colors.foreground;
-    const muted = colors.mutedForeground;
-    const borderColor = colors.border;
-    const primary = colors.primary;
-    const danger = colors.destructive;
-
-    // Normalize value to ensure it doesn't exceed length
-    const normalizedValue = value.slice(0, length);
-
-    // Calculate active index based on current value
-    const currentActiveIndex = Math.min(normalizedValue.length, length - 1);
-
-    // Expose methods via ref
-    useImperativeHandle(ref, () => ({
-      focus: () => inputRef.current?.focus(),
-      blur: () => inputRef.current?.blur(),
-      clear: () => {
-        onChangeText?.('');
-        setActiveIndex(0);
-      },
-      getValue: () => normalizedValue,
-    }));
-
-    const handleChangeText = useCallback(
-      (text: string) => {
-        // Only allow numeric input
-        const cleanText = text.replace(/[^0-9]/g, '');
-        const limitedText = cleanText.slice(0, length);
-
-        onChangeText?.(limitedText);
-        setActiveIndex(Math.min(limitedText.length, length - 1));
-
-        // Call onComplete when OTP is fully entered
-        if (limitedText.length === length) {
-          onComplete?.(limitedText);
-        }
-      },
-      [length, onChangeText, onComplete],
+    progress.set(
+      value.length === length
+        ? withSpring(1, { damping: 12, stiffness: 260 })
+        : withTiming(filled, { duration: 180, easing: Easing.out(Easing.cubic) }),
     );
+  }, [value.length, length, progress, reducedMotion]);
 
-    const handleKeyPress = useCallback(
-      (e: TextInputKeyPressEvent) => {
-        const { key } = e.nativeEvent;
+  const rowStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: interpolate(progress.get(), [0, 1], [0, -3]) },
+      { scale: interpolate(progress.get(), [0, 0.9, 1], [1, 1, reducedMotion ? 1 : 1.025]) },
+    ],
+  }));
 
-        if (key === 'Backspace' && normalizedValue.length > 0) {
-          const newValue = normalizedValue.slice(0, -1);
-          onChangeText?.(newValue);
-          setActiveIndex(Math.max(0, newValue.length));
-        }
-      },
-      [normalizedValue, onChangeText],
-    );
+  const underlineStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(progress.get(), [0, 1], ['#D7D5E0', '#6757E8']),
+    transform: [{ scaleX: Math.max(0.08, progress.get()) }],
+  }));
 
-    const handleFocus = useCallback(
-      (e: any) => {
-        setIsFocused(true);
-        setActiveIndex(normalizedValue.length);
-        onFocus?.(e);
-      },
-      [normalizedValue.length, onFocus],
-    );
+  const updateCode = (text: string) => {
+    // Autofill and paste arrive as one whole string, so sanitize every time.
+    const next = text.replace(/[^0-9]/g, '').slice(0, length);
+    onChange(next);
+    if (next.length === length && value.length !== length) {
+      onComplete?.(next);
+    }
+  };
 
-    const handleBlur = useCallback(
-      (e: any) => {
-        setIsFocused(false);
-        onBlur?.(e);
-      },
-      [onBlur],
-    );
+  return (
+    <View style={[styles.root, disabled && styles.rootDisabled]}>
+      <Pressable
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        onPress={() => inputRef.current?.focus()}
+        disabled={disabled}
+      >
+        <Animated.View style={[styles.row, rowStyle]}>
+          {Array.from({ length }, (_, index) => {
+            const digit = value[index] ?? '';
+            const active = !disabled && focused && index === Math.min(value.length, length - 1);
 
-    const handleSlotPress = useCallback(() => {
-      if (!disabled) {
-        inputRef.current?.focus();
-      }
-    }, [disabled]);
+            return (
+              <LinearGradient
+                key={index}
+                colors={['#FFFFFF', '#F7F5FC']}
+                style={[
+                  styles.slot,
+                  active && styles.activeSlot,
+                  digit !== '' && styles.filledSlot,
+                ]}
+              >
+                {/* One or the other, never both: an empty `Text` still
+                    occupies its line box, so rendering it alongside the
+                    cursor made the slot centre the two stacked and pushed
+                    the cursor below centre. */}
+                {digit !== '' ? (
+                  <Text style={styles.digit}>{digit}</Text>
+                ) : active ? (
+                  <View style={styles.cursor} />
+                ) : null}
+              </LinearGradient>
+            );
+          })}
+        </Animated.View>
+      </Pressable>
 
-    // Generate slots
-    const slots = Array.from({ length }, (_, index) => {
-      const hasValue = index < normalizedValue.length;
-      const isActive = isFocused && index === currentActiveIndex;
-      const displayValue = hasValue ? (masked ? '•' : normalizedValue[index]) : '';
+      <Animated.View style={[styles.underline, underlineStyle]} />
 
-      return (
-        <React.Fragment key={index}>
-          <Pressable
-            onPress={handleSlotPress}
-            disabled={disabled}
-            style={[
-              {
-                width: 58,
-                height: 58,
-                borderRadius: CORNERS,
-                borderWidth: 1,
-                borderColor: error
-                  ? danger
-                  : isActive
-                    ? primary
-                    : hasValue
-                      ? borderColor
-                      : borderColor,
-                backgroundColor: disabled ? muted + '20' : cardColor,
-                justifyContent: 'center',
-                alignItems: 'center',
-                opacity: disabled ? 0.6 : 1,
-              },
-              slotStyle,
-            ]}
-          >
-            <Text
-              style={{
-                fontSize: FONT_SIZE + 2,
-                fontWeight: '600',
-                color: error ? danger : hasValue ? textColor : muted,
-              }}
-            >
-              {displayValue}
-            </Text>
-
-            {/* Cursor */}
-            {showCursor && isActive && !hasValue && (
-              <View
-                style={{
-                  position: 'absolute',
-                  width: 2,
-                  height: 20,
-                  backgroundColor: primary,
-                  opacity: isFocused ? 1 : 0,
-                }}
-              />
-            )}
-          </Pressable>
-
-          {/* Separator */}
-          {separator && index < length - 1 && (
-            <View style={{ marginHorizontal: 4 }}>{separator}</View>
-          )}
-        </React.Fragment>
-      );
-    });
-
-    const renderContent = () => (
-      <View style={containerStyle}>
-        {/* Hidden TextInput for handling input */}
-        <TextInput
-          ref={inputRef}
-          value={normalizedValue}
-          onChangeText={handleChangeText}
-          onKeyPress={handleKeyPress}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          keyboardType="numeric"
-          maxLength={length}
-          editable={!disabled}
-          selectionColor="transparent"
-          style={{
-            position: 'absolute',
-            left: -9999,
-            opacity: 0,
-          }}
-          {...textInputProps}
-        />
-
-        {/* OTP Slots */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: separator ? 0 : 8,
-          }}
-        >
-          {slots}
-        </View>
-
-        {/* Error Message */}
-        {error && (
-          <Text
-            style={[
-              {
-                textAlign: 'center',
-                marginTop: 8,
-                fontSize: 14,
-                color: danger,
-              },
-              errorStyle,
-            ]}
-          >
-            {error}
-          </Text>
-        )}
-      </View>
-    );
-
-    return renderContent();
-  },
-);
-
-InputOTP.displayName = 'InputOTP';
-
-// Optional: Export a preset with separator
-export const InputOTPWithSeparator = forwardRef<InputOTPRef, Omit<InputOTPProps, 'separator'>>(
-  (props, ref) => {
-    const { colors } = useTheme();
-    return (
-      <InputOTP
-        ref={ref}
-        separator={<Text style={{ fontSize: 18, color: colors.mutedForeground }}>-</Text>}
-        {...props}
+      <TextInput
+        ref={inputRef}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={`Enter the ${length}-digit verification code`}
+        autoComplete="one-time-code"
+        editable={!disabled}
+        inputMode="numeric"
+        keyboardType="number-pad"
+        maxLength={length}
+        onBlur={() => setFocused(false)}
+        onChangeText={updateCode}
+        onFocus={() => setFocused(true)}
+        style={styles.input}
+        textContentType="oneTimeCode"
+        value={value}
       />
-    );
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  root: { alignSelf: 'center', paddingVertical: 12 },
+  rootDisabled: { opacity: 0.5 },
+  row: { flexDirection: 'row', gap: 8 },
+  slot: {
+    alignItems: 'center',
+    borderColor: '#D8D7DF',
+    borderRadius: 11,
+    borderWidth: 1,
+    height: 55,
+    justifyContent: 'center',
+    width: 48,
   },
-);
-InputOTPWithSeparator.displayName = 'InputOTPWithSeparator';
+  activeSlot: { borderColor: '#6757E8', borderWidth: 2 },
+  filledSlot: { backgroundColor: '#FBFAFF' },
+  digit: { color: '#17151F', fontSize: 22, fontVariant: ['tabular-nums'] },
+  cursor: { backgroundColor: '#6757E8', height: 24, width: 2 },
+  underline: {
+    alignSelf: 'center',
+    borderRadius: 2,
+    height: 3,
+    marginTop: 10,
+    width: '100%',
+  },
+  input: {
+    height: 1,
+    opacity: 0.01,
+    position: 'absolute',
+    width: 1,
+  },
+});

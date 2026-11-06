@@ -307,7 +307,7 @@ const AuthScreen = () => {
             <InputOTP
               length={OTP_LENGTH}
               value={otp}
-              onChangeText={setOtp}
+              onChange={setOtp}
               onComplete={handleVerifyOtp}
             />
             <View style={tw`items-center`}>
