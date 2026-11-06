@@ -254,16 +254,20 @@ async fn list_reports_groups_nearby_same_type_reports() {
     assert_eq!(reports[0]["count"], 3);
 }
 
-/// Two same-type reports far enough apart (like two different streets)
-/// must stay as two separate markers, never merged.
+/// Grouping is a function of the viewport, not of an absolute distance: the
+/// cell is `lng span / CELLS_ACROSS_VIEWPORT`, so the same two points merge
+/// when zoomed out and come apart once the cell is finer than their
+/// separation. That dissolve is what the grid exists for, so it is asserted on
+/// one set of points at two zooms rather than inferred from a fixed radius -
+/// there is no radius any more.
 #[tokio::test]
 #[serial_test::serial]
-async fn list_reports_keeps_distant_same_type_reports_separate() {
+async fn list_reports_separates_same_type_reports_as_the_viewport_tightens() {
     let env = shared_test_env().await;
     let app = fresh_app(env).await;
 
     let token = app.sign_in("owner@example.com").await;
-    // ~50m apart at this latitude - well beyond the grouping radius.
+    // ~50m apart at this latitude.
     for lat_offset in [0.0, 0.00045] {
         app.request(
             "POST",
@@ -278,7 +282,9 @@ async fn list_reports_keeps_distant_same_type_reports_separate() {
         .await;
     }
 
-    let (_, list) = app
+    // City-wide: 0.2 degrees of span puts the cell at 0.05, far coarser than
+    // the 50m between them, so one marker counting both is correct.
+    let (_, wide) = app
         .request(
             "GET",
             &list_url(LAT - 0.1, LNG - 0.1, LAT + 0.1, LNG + 0.1),
@@ -286,9 +292,31 @@ async fn list_reports_keeps_distant_same_type_reports_separate() {
             None,
         )
         .await;
-    let reports = list.as_array().expect("should be an array");
-    assert_eq!(reports.len(), 2, "{reports:?}");
-    assert!(reports.iter().all(|r| r["count"] == 1));
+    let wide = wide.as_array().expect("should be an array");
+    assert_eq!(
+        wide.len(),
+        1,
+        "a city-wide view must collapse them: {wide:?}"
+    );
+    assert_eq!(wide[0]["count"], 2);
+
+    // Street level: 0.0012 of span puts the cell at 0.0003, finer than their
+    // separation, so they have to come apart - each on its own, count 1.
+    let (_, tight) = app
+        .request(
+            "GET",
+            &list_url(LAT - 0.0006, LNG - 0.0006, LAT + 0.0012, LNG + 0.0006),
+            None,
+            None,
+        )
+        .await;
+    let tight = tight.as_array().expect("should be an array");
+    assert_eq!(
+        tight.len(),
+        2,
+        "once the cell is finer than the gap they must separate: {tight:?}"
+    );
+    assert!(tight.iter().all(|r| r["count"] == 1));
 }
 
 /// Reports expire `REPORT_TTL_HOURS` after `occurredAt` - one that
