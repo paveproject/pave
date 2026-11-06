@@ -1,4 +1,5 @@
 import { useReportSync } from '../../hooks/sync/useReportSync';
+import { useProtestSync } from '../../hooks/sync/useProtestSync';
 import { useMeSync } from '../../hooks/sync/useMeSync';
 import { useRecoveryKeySync } from '../../hooks/sync/useRecoveryKeySync';
 import { useReceiveShares } from '../../hooks/sync/useReceiveShares';
@@ -22,6 +23,7 @@ import { useMeshSettingsStore } from '../../stores/useMeshSettingsStore';
  */
 export const SyncProvider = (): null => {
   useReportSync();
+  useProtestSync();
   useMeSync();
   useRecoveryKeySync();
   useReceiveShares();

@@ -3,6 +3,10 @@ import '../logger/sentry/setup';
 import * as Sentry from '@sentry/react-native';
 // API
 import '../lib/api/init';
+// Side-effect import: `TaskManager.defineTask` has to run while the bundle is
+// still evaluating, because the OS can relaunch the app straight into the task
+// callback with no screen ever mounted.
+import '../lib/protestMode/locationTask';
 
 import { useRef, useState } from 'react';
 import { setAndroidNavigationBar } from '../lib/android-navigation-bar';

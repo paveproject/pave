@@ -17,6 +17,7 @@ export interface SyncTaskState {
 /** Known task ids, centralized so call sites can't typo one - add a line here when a new domain registers. */
 export const SYNC_TASK_IDS = {
   reports: 'reports',
+  protest: 'protest',
   me: 'me',
   recoveryKey: 'recovery-key',
   receiveShares: 'receive-shares',

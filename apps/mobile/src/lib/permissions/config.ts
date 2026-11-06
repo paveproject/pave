@@ -30,6 +30,15 @@ export const PERMISSIONS: PermissionConfigEntry[] = [
     consequenceKey: 'pages.onboarding.permissions.location_consequence',
   },
   {
+    // Here so `settings/permissions.tsx` can show and repair it like any
+    // other; it is actually requested from protest mode's own screen.
+    id: 'backgroundLocation',
+    icon: 'locate',
+    labelKey: 'pages.settings.permissions.background_location_label',
+    reasonKey: 'pages.onboarding.permissions.background_location_reason',
+    consequenceKey: 'pages.onboarding.permissions.background_location_consequence',
+  },
+  {
     id: 'bluetooth',
     icon: 'bluetooth',
     labelKey: 'pages.settings.permissions.bluetooth_label',

@@ -7,8 +7,11 @@ import { MeResponse, client } from '@libs/api-js';
 import { meKeys, meOptions } from '@libs/query-client';
 import { defaultSupportedLocale, SupportedLocale, supportedLocales } from '@libs/i18n';
 import { useMeSyncStore } from '../stores/useMeSyncStore';
+import { useDeviceIdStore } from '../stores/useDeviceIdStore';
 import { clearSessionToken, getSessionToken, setSessionToken } from '../lib/auth/session';
 import { clearLocalReports } from '../lib/watermelon/reports';
+import { clearLocalProtestData, flushAndClearProtestData } from '../lib/watermelon/protestSessions';
+import { clearAllProtestSessionKeys } from '../lib/protestMode/keyStore';
 
 type AuthContextProps = {
   user: MeResponse | null | undefined;
@@ -30,6 +33,9 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
   const { setLocale } = useLocaleContext();
   const [pushToken, setPushToken] = useState<string | null>(null);
   const { data: user, status: userStatus } = useQuery(meOptions());
+  // Hoisted: the React compiler can't preserve `logout`'s memoization with an
+  // optional-chain in its dependency array.
+  const userId = user?.id;
 
   const setSession = useCallback(
     async (token: string, email: string) => {
@@ -65,6 +71,9 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
         // less account-specific.
         clearPersistedQueryCache();
         await clearLocalReports();
+        // No flush attempt, unlike `logout`: the token in hand is already the
+        // new account's, so the old one's data can no longer be pushed.
+        await clearLocalProtestData();
         useMeSyncStore.setState({ pending: {} });
       }
       await queryClient.resetQueries();
@@ -88,10 +97,14 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
     await clearSessionToken();
     clearPersistedQueryCache();
     await clearLocalReports();
+    await flushAndClearProtestData(userId);
+    // The sealed copies on the server survive: this only drops the shortcut.
+    if (userId) await clearAllProtestSessionKeys(userId);
     useMeSyncStore.setState({ pending: {} });
+    useDeviceIdStore.getState().clear();
     queryClient.setQueryData(meKeys.details(), null);
     await queryClient.resetQueries();
-  }, [queryClient]);
+  }, [queryClient, userId]);
 
   // A 401 means the server already revoked this device's session - a
   // sibling reclaimed the account via the recovery phrase or trusted

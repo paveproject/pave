@@ -2,6 +2,7 @@ import { createContext, use, useCallback, useEffect, useMemo, useState } from 'r
 import { AppState, type AppStateStatus } from 'react-native';
 import { LocationManager } from '@maplibre/maplibre-react-native';
 import * as Notifications from 'expo-notifications';
+import * as Location from 'expo-location';
 import { useCameraPermissions } from 'expo-camera';
 import { requestBluetoothPermission } from 'munim-bluetooth';
 import { logger } from '../logger';
@@ -33,6 +34,8 @@ const PermissionsContext = createContext<PermissionsContextProps | undefined>(un
 export const PermissionsProvider = ({ children }: { children: React.ReactNode }) => {
   const [bluetoothStatus, setBluetoothStatus] = useState<PermissionStatus>('undetermined');
   const [locationStatus, setLocationStatus] = useState<PermissionStatus>('undetermined');
+  const [backgroundLocationStatus, setBackgroundLocationStatus] =
+    useState<PermissionStatus>('undetermined');
   const [notificationsStatus, setNotificationsStatus] = useState<PermissionStatus>('undetermined');
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const bluetoothEverRequested = usePermissionsStore((state) => state.bluetoothEverRequested);
@@ -69,6 +72,32 @@ export const PermissionsProvider = ({ children }: { children: React.ReactNode })
     return granted;
   }, []);
 
+  /**
+   * "Always" location, for protest mode's trajectory recording.
+   *
+   * Unlike the others this one has a genuine check-only API, but it can't be
+   * *requested* blind: both platforms require foreground location first, and
+   * iOS only shows the "Always Allow" prompt once the app has used location
+   * in the foreground.
+   */
+  const refreshBackgroundLocation = useCallback(async () => {
+    const { status } = await Location.getBackgroundPermissionsAsync();
+    setBackgroundLocationStatus(status);
+  }, []);
+
+  const requestBackgroundLocation = useCallback(async (): Promise<boolean> => {
+    // Foreground first: without it the background request is refused
+    // outright, which reads as "the user denied it".
+    const foreground = await Location.requestForegroundPermissionsAsync();
+    if (foreground.status !== 'granted') {
+      setBackgroundLocationStatus('denied');
+      return false;
+    }
+    const { status } = await Location.requestBackgroundPermissionsAsync();
+    setBackgroundLocationStatus(status);
+    return status === 'granted';
+  }, []);
+
   const refreshNotifications = useCallback(async () => {
     const { status } = await Notifications.getPermissionsAsync();
     setNotificationsStatus(status);
@@ -84,6 +113,9 @@ export const PermissionsProvider = ({ children }: { children: React.ReactNode })
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
         refreshLocation();
+        // Has to be re-checked on return from Settings: "Always" is most
+        // often granted there rather than from the in-app prompt.
+        refreshBackgroundLocation();
         refreshNotifications();
       }
     };
@@ -91,7 +123,7 @@ export const PermissionsProvider = ({ children }: { children: React.ReactNode })
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription.remove();
-  }, [refreshLocation, refreshNotifications]);
+  }, [refreshLocation, refreshBackgroundLocation, refreshNotifications]);
 
   const requestCamera = useCallback(async (): Promise<boolean> => {
     const response = await requestCameraPermission();
@@ -102,6 +134,10 @@ export const PermissionsProvider = ({ children }: { children: React.ReactNode })
     () => ({
       bluetooth: { status: bluetoothStatus, request: requestBluetooth },
       location: { status: locationStatus, request: refreshLocation },
+      backgroundLocation: {
+        status: backgroundLocationStatus,
+        request: requestBackgroundLocation,
+      },
       notifications: { status: notificationsStatus, request: requestNotifications },
       camera: { status: cameraPermission?.status ?? 'undetermined', request: requestCamera },
     }),
@@ -110,6 +146,8 @@ export const PermissionsProvider = ({ children }: { children: React.ReactNode })
       requestBluetooth,
       locationStatus,
       refreshLocation,
+      backgroundLocationStatus,
+      requestBackgroundLocation,
       notificationsStatus,
       requestNotifications,
       cameraPermission,

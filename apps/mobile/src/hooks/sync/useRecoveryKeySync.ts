@@ -8,6 +8,8 @@ import {
   useSetDeviceDekMutation,
   useSetSharesMutation,
 } from '@libs/query-client';
+import { getDek } from '../../lib/recoveryKey/storage';
+import { resealProtestSessions } from '../../lib/watermelon/protestSessions';
 import {
   commitReconciliation,
   getDeviceId,
@@ -135,7 +137,21 @@ export const useRecoveryKeySync = () => {
             uploads.push(setShares.mutateAsync(plan.shareUploads));
           }
           await Promise.all(uploads);
+
+          // Read before the commit replaces it: every protest session's
+          // `sealed_key` is an envelope under the old DEK, unopenable the
+          // moment this returns.
+          const previousDek = await getDek(userId);
           await commitReconciliation(userId, plan);
+
+          if (previousDek && !bytesEqual(previousDek, plan.dek)) {
+            // Not awaited into the failure path above: the DEK is already
+            // committed, so a failed re-seal must not make the reconciliation
+            // look failed and get retried.
+            resealProtestSessions(userId, previousDek).catch((error) =>
+              logger.error('protest: reseal after DEK rotation failed', { error }),
+            );
+          }
         }
         reporter.reportSuccess();
       } catch (error) {
@@ -158,3 +174,8 @@ export const useRecoveryKeySync = () => {
     reconcileMnemonicUpload,
   ]);
 };
+
+/** A pure addition re-seals the *existing* DEK rather than minting one, so
+ * the bytes are unchanged and there is nothing to re-seal downstream. */
+const bytesEqual = (a: Uint8Array, b: Uint8Array): boolean =>
+  a.length === b.length && a.every((byte, index) => byte === b[index]);
