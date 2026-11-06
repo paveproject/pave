@@ -83,10 +83,10 @@ services:
 
       rc bucket create --ignore-existing myrustfs/$${S3_BUCKET_PUBLIC};
       rc bucket anonymous set download myrustfs/$${S3_BUCKET_PUBLIC};
-      echo Bucket $${S3_BUCKET_PUBLIC} ready and set to public read.;
+      echo \"Bucket $${S3_BUCKET_PUBLIC} ready and set to public read.\";
 
       rc bucket create --ignore-existing myrustfs/$${S3_BUCKET_PRIVATE};
-      echo Bucket $${S3_BUCKET_PRIVATE} ready (private, no public-read policy).;
+      echo \"Bucket $${S3_BUCKET_PRIVATE} ready - private, no public-read policy.\";
       "
 
   assets-sync:
