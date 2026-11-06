@@ -110,7 +110,9 @@
         "location_consequence": "Reports you create won't be placed at your current location on the map automatically.",
         "bluetooth_consequence": "The mesh relay won't be available, so your reports can't reach the server without an internet connection.",
         "notifications_consequence": "You won't get push alerts for approvals, trusted-contact updates, or other account activity.",
-        "camera_consequence": "You won't be able to scan a QR code to add a trusted contact."
+        "camera_consequence": "You won't be able to scan a QR code to add a trusted contact.",
+        "background_location_reason": "Records your trajectory during a protest even when the app is closed.",
+        "background_location_consequence": "Protest mode can only record while the app is open."
       }
     },
     "auth": {
@@ -228,7 +230,17 @@
         "camera_label": "Camera",
         "status_granted": "Granted",
         "status_denied": "Denied",
-        "status_undetermined": "Not asked"
+        "status_undetermined": "Not asked",
+        "background_location_label": "Background location"
+      },
+      "protest_mode": {
+        "title": "Protest mode",
+        "gps_recording": "Record my trajectory",
+        "gps_recording_description": "Whether a session records where this phone goes.",
+        "gps_interval": "Position every",
+        "gps_interval_description": "More often is more precise and uses more battery. A protest lasts hours.",
+        "sync_interval": "Send every",
+        "sync_interval_description": "The most recording a phone taken from you could still be holding."
       }
     },
     "map": {
@@ -284,6 +296,37 @@
           "satellite": "Satellite"
         }
       }
+    },
+    "protest_mode": {
+      "title": "Protest mode",
+      "gps_recording": "Record my trajectory",
+      "gps_recording_description": "Uses location in the background while a session is open.",
+      "started_at": "Started",
+      "pending_upload": "Not sent yet",
+      "start": "Start a session",
+      "stop": "Stop the session",
+      "stop_confirm_title": "Stop recording?",
+      "stop_confirm_message": "The session will be closed. Anything already recorded stays on this device and keeps uploading in the background.",
+      "permission_denied_title": "Background location is off",
+      "permission_denied_message": "Without \"Always\" location, the trajectory stops being recorded as soon as you leave the app.",
+      "sign_in_required": "Sign in to record a session.",
+      "no_dek_title": "This device cannot protect a recording yet",
+      "no_dek_message": "Your account has a recovery phrase but this device does not hold the key — a reinstall clears it. Enter your recovery phrase here once, then start a session.",
+      "conflict_title": "A session is still open",
+      "conflict_message": "Another session is still open on your account and could not be closed from here. Reconnect and try again.",
+      "sessions": {
+        "title": "My sessions",
+        "detail": "Session",
+        "empty": "No sessions yet. Start one from protest mode.",
+        "open": "Open",
+        "ended_at": "Ended at {time}",
+        "positions": "{count, plural, one {# position} other {# positions}}",
+        "pending": "{count, plural, one {# not sent} other {# not sent}}",
+        "all_sent": "all sent",
+        "trace": "Trace"
+      },
+      "audio_recording": "Record audio",
+      "coming_soon": "Coming soon"
     }
   }
 }

@@ -110,7 +110,9 @@
         "location_consequence": "Les signalements que vous créez ne seront pas placés automatiquement à votre position actuelle sur la carte.",
         "bluetooth_consequence": "Le relais mesh ne sera pas disponible, donc vos signalements ne pourront pas atteindre le serveur sans connexion internet.",
         "notifications_consequence": "Vous ne recevrez pas d'alertes push pour les approbations, les mises à jour de vos contacts de confiance, ou d'autre activité de votre compte.",
-        "camera_consequence": "Vous ne pourrez pas scanner un QR code pour ajouter un contact de confiance."
+        "camera_consequence": "Vous ne pourrez pas scanner un QR code pour ajouter un contact de confiance.",
+        "background_location_reason": "Enregistre votre trajet pendant une manif même quand l'app est fermée.",
+        "background_location_consequence": "Le mode manif ne pourra enregistrer que lorsque l'app est ouverte."
       }
     },
     "auth": {
@@ -228,7 +230,17 @@
         "camera_label": "Caméra",
         "status_granted": "Accordée",
         "status_denied": "Refusée",
-        "status_undetermined": "Non demandée"
+        "status_undetermined": "Non demandée",
+        "background_location_label": "Localisation en arrière-plan"
+      },
+      "protest_mode": {
+        "title": "Mode manif",
+        "gps_recording": "Enregistrer mon trajet",
+        "gps_recording_description": "Détermine si une session enregistre les déplacements de ce téléphone.",
+        "gps_interval": "Position toutes les",
+        "gps_interval_description": "Plus souvent est plus précis et consomme plus de batterie. Une manif dure des heures.",
+        "sync_interval": "Envoyer toutes les",
+        "sync_interval_description": "Ce qu'un téléphone qu'on vous prend pourrait encore détenir, au maximum."
       }
     },
     "map": {
@@ -284,6 +296,37 @@
           "satellite": "Satellite"
         }
       }
+    },
+    "protest_mode": {
+      "title": "Mode manif",
+      "gps_recording": "Enregistrer mon trajet",
+      "gps_recording_description": "Utilise la localisation en arrière-plan tant qu'une session est ouverte.",
+      "started_at": "Démarrée à",
+      "pending_upload": "Pas encore envoyé",
+      "start": "Démarrer une session",
+      "stop": "Arrêter la session",
+      "stop_confirm_title": "Arrêter l'enregistrement ?",
+      "stop_confirm_message": "La session sera clôturée. Ce qui est déjà enregistré reste sur cet appareil et continue de s'envoyer en arrière-plan.",
+      "permission_denied_title": "La localisation en arrière-plan est désactivée",
+      "permission_denied_message": "Sans la localisation « Toujours », le trajet cesse d'être enregistré dès que vous quittez l'app.",
+      "sign_in_required": "Connectez-vous pour enregistrer une session.",
+      "no_dek_title": "Cet appareil ne peut pas encore protéger un enregistrement",
+      "no_dek_message": "Votre compte a une phrase de récupération mais cet appareil n'en détient pas la clé — une réinstallation l'efface. Saisissez votre phrase ici une fois, puis démarrez une session.",
+      "conflict_title": "Une session est encore ouverte",
+      "conflict_message": "Une autre session est encore ouverte sur votre compte et n'a pas pu être clôturée d'ici. Reconnectez-vous et réessayez.",
+      "sessions": {
+        "title": "Mes sessions",
+        "detail": "Session",
+        "empty": "Aucune session. Démarrez-en une depuis le mode manif.",
+        "open": "En cours",
+        "ended_at": "Terminée à {time}",
+        "positions": "{count, plural, one {# position} other {# positions}}",
+        "pending": "{count, plural, one {# non envoyée} other {# non envoyées}}",
+        "all_sent": "tout est envoyé",
+        "trace": "Tracé"
+      },
+      "audio_recording": "Enregistrer l'audio",
+      "coming_soon": "Bientôt"
     }
   }
 }

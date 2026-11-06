@@ -35,6 +35,13 @@ const TabsLayout = () => {
         <NativeTabs.Trigger.Label hidden>{t('messages.home')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md="home" />
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="protest-mode" disableAutomaticContentInsets={isIOS}>
+        <NativeTabs.Trigger.Label hidden>{t('pages.protest_mode.title')}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'megaphone', selected: 'megaphone.fill' }}
+          md="campaign"
+        />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings" disableAutomaticContentInsets={isIOS}>
         <NativeTabs.Trigger.Label hidden>{t('messages.settings')}</NativeTabs.Trigger.Label>
         {user?.image ? (

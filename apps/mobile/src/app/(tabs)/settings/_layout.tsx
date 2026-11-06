@@ -21,6 +21,10 @@ const SettingsLayout = () => {
       <Stack.Screen name="recovery" options={{ title: t('messages.recovery') }} />
       <Stack.Screen name="permissions" options={{ title: t('messages.permissions') }} />
       <Stack.Screen name="mesh-relay" options={{ title: t('messages.mesh_relay') }} />
+      <Stack.Screen
+        name="protest-mode"
+        options={{ title: t('pages.settings.protest_mode.title') }}
+      />
       <Stack.Protected guard={debug}>
         <Stack.Screen name="debug" options={{ title: 'Debug' }} />
         <Stack.Screen name="debug/recovery-keys" options={{ title: 'Recovery keys' }} />

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Alert, Pressable } from 'react-native';
 import { LegendList } from '@legendapp/list/react-native';
 import { useFormatter } from 'use-intl';
 import type { OfflineTransaction } from '@tanstack/offline-transactions/react-native';
 import { reportsExecutor } from '../../../../../providers/sync/offlineExecutor/reportsExecutor';
+import { protestExecutor } from '../../../../../providers/sync/offlineExecutor/protestExecutor';
 import { useTheme } from '../../../../../providers/ThemeProvider';
 import { View } from '../../../../../components/ui/view';
 import { Text } from '../../../../../components/ui/text';
@@ -16,6 +18,14 @@ interface OutboxEntry {
   executor: string;
   transaction: OfflineTransaction;
 }
+
+/** Every executor the app runs. Add a line here when a new one appears - this
+ * screen and `index.tsx`'s badge are the only two places that enumerate
+ * them. */
+const EXECUTORS = [
+  { name: 'reports', executor: reportsExecutor },
+  { name: 'protest', executor: protestExecutor },
+] as const;
 
 type Theme = ReturnType<typeof useTheme>;
 
@@ -75,9 +85,37 @@ const SyncOutboxDebugScreen = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const refreshOutbox = useCallback(async () => {
-    const reportsOutbox = await reportsExecutor.peekOutbox();
-    setOutbox(reportsOutbox.map((transaction) => ({ executor: 'reports', transaction })));
+    const perExecutor = await Promise.all(
+      EXECUTORS.map(async ({ name, executor }) =>
+        (await executor.peekOutbox()).map((transaction) => ({ executor: name, transaction })),
+      ),
+    );
+    setOutbox(perExecutor.flat());
   }, []);
+
+  /** Escape hatch for a wedged queue: a transaction that keeps failing stays
+   * in the outbox forever by design, with no other way out but a reinstall.
+   * Destructive - what is dropped never reaches the server. */
+  const handleClear = useCallback(
+    (name: string, executor: (typeof EXECUTORS)[number]['executor']) => {
+      Alert.alert(
+        `Clear the ${name} outbox?`,
+        'Anything still queued is dropped and never reaches the server. Debug only.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Clear',
+            style: 'destructive',
+            onPress: async () => {
+              await executor.clearOutbox();
+              await refreshOutbox();
+            },
+          },
+        ],
+      );
+    },
+    [refreshOutbox],
+  );
 
   useEffect(() => {
     // Fetch-on-mount/poll; `refreshOutbox` sets state after awaiting, same
@@ -102,6 +140,38 @@ const SyncOutboxDebugScreen = () => {
         renderItem={({ item }) => <OutboxEntryRow entry={item} theme={theme} colors={colors} />}
         refreshing={isRefreshing}
         onRefresh={handleRefresh}
+        // In the header, not below the list: `LegendList` takes the remaining
+        // height, so a sibling underneath renders at zero height.
+        ListHeaderComponent={
+          <View style={{ padding: theme.spaces.horizontal, gap: theme.spaces.sm }}>
+            {EXECUTORS.map(({ name, executor }) => {
+              const queued = outbox.filter((entry) => entry.executor === name).length;
+              return (
+                <Pressable
+                  key={name}
+                  onPress={() => handleClear(name, executor)}
+                  disabled={queued === 0}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: theme.spaces.md,
+                    borderRadius: theme.border.radius.md,
+                    backgroundColor: colors.muted,
+                    opacity: queued === 0 ? 0.4 : 1,
+                  }}
+                >
+                  <Text
+                    style={{ color: queued === 0 ? colors.mutedForeground : colors.destructive }}
+                  >
+                    {`Clear the ${name} outbox`}
+                  </Text>
+                  <Text textColor="muted">{String(queued)}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        }
         ListEmptyComponent={
           <View
             style={{

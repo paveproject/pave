@@ -99,6 +99,10 @@ const SettingsScreen = () => {
     router.push('/settings/mesh-relay');
   }, [router]);
 
+  const handleProtestMode = useCallback(() => {
+    router.push('/settings/protest-mode');
+  }, [router]);
+
   const handleSignOut = useCallback(() => {
     // Reports and offline-first `/me` field edits are the only things
     // this abandons (see `AuthProvider`'s `logout`) - the recovery-key
@@ -325,6 +329,23 @@ const SettingsScreen = () => {
               <Icon name={Icons.bluetooth} size={theme.icons.sizes.md} color={colors.foreground} />
               <NativeText textStyle={{ color: colors.foreground }}>
                 {t('messages.mesh_relay')}
+              </NativeText>
+              <Spacer flexible />
+              <Icon
+                name={Icons.chevronRight}
+                size={theme.icons.sizes.sm}
+                color={colors.mutedForeground}
+              />
+            </Row>
+            <Row
+              spacing={theme.spaces.md}
+              alignment="center"
+              onPress={handleProtestMode}
+              modifiers={Platform.OS === 'ios' ? [listRowBackground(colors.muted)] : undefined}
+            >
+              <Icon name={Icons.megaphone} size={theme.icons.sizes.md} color={colors.foreground} />
+              <NativeText textStyle={{ color: colors.foreground }}>
+                {t('pages.settings.protest_mode.title')}
               </NativeText>
               <Spacer flexible />
               <Icon

@@ -12,6 +12,7 @@ import {
 import { useFormatter } from 'use-intl';
 import { useSyncRegistry, useSyncLogStore, type SyncLogEntry } from '../../../../../providers/sync';
 import { reportsExecutor } from '../../../../../providers/sync/offlineExecutor/reportsExecutor';
+import { protestExecutor } from '../../../../../providers/sync/offlineExecutor/protestExecutor';
 import { useTheme } from '../../../../../providers/ThemeProvider';
 import { View } from '../../../../../components/ui/view';
 import { Icons } from '../../../../../constants/icons';
@@ -101,7 +102,11 @@ const SyncDebugScreen = () => {
   const [outboxCount, setOutboxCount] = useState(0);
 
   const refreshOutboxCount = useCallback(async () => {
-    const outbox = await reportsExecutor.peekOutbox();
+    // Both executors, or the badge under-reports whatever the other holds.
+    const outbox = [
+      ...(await reportsExecutor.peekOutbox()),
+      ...(await protestExecutor.peekOutbox()),
+    ];
     setOutboxCount(outbox.length);
   }, []);
 
