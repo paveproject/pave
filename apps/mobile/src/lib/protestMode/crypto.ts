@@ -109,3 +109,13 @@ export const sealMetadata = (sessionKey: Uint8Array, envelope: unknown): string 
       new TextEncoder().encode(JSON.stringify(envelope)),
     ),
   );
+
+export const openMetadata = <T>(sessionKey: Uint8Array, sealedHex: string): T =>
+  JSON.parse(
+    new TextDecoder().decode(
+      openBytes(
+        hkdf(sha256, sessionKey, undefined, METADATA_HKDF_INFO, KEY_LENGTH),
+        hexToBytes(sealedHex),
+      ),
+    ),
+  ) as T;

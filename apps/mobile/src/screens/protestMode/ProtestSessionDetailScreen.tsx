@@ -9,6 +9,7 @@ import { useObservable } from '../../hooks/useObservable';
 import { database } from '../../lib/watermelon/database';
 import { PROTEST_SESSION_TABLE } from '../../lib/watermelon/schema';
 import { observePositions } from '../../lib/watermelon/protestSessions';
+import { useRemoteProtestSessions } from '../../hooks/protestMode/useRemoteProtestSessions';
 import type { ProtestSession } from '../../lib/watermelon/models/ProtestSession';
 import type { ProtestPosition } from '../../lib/watermelon/models/ProtestPosition';
 import { View } from '../../components/ui/view';
@@ -56,9 +57,20 @@ const frameFor = (lngs: number[], lats: number[]) => {
   };
 };
 
+/** The least a point needs to be drawn, so the map doesn't care whether the
+ * trajectory came from the local database or from the server. */
+interface TracePoint {
+  key: string;
+  lat: number;
+  lng: number;
+  recordedAt: Date;
+  /** False only for a local point whose batch hasn't landed yet. */
+  synced: boolean;
+}
+
 /** Only rendered when there is something to draw: a map framing zero points
  * says less than no map at all. */
-const TraceMap = ({ positions }: { positions: ProtestPosition[] }) => {
+const TraceMap = ({ positions }: { positions: TracePoint[] }) => {
   const { colors, theme, mode } = useTheme();
   const { height } = useWindowDimensions();
 
@@ -159,8 +171,35 @@ const ProtestSessionDetailScreen = () => {
   }, [id]);
 
   const getPositions = useCallback(() => observePositions(id ?? ''), [id]);
-  const positions = useObservable<ProtestPosition[]>(getPositions, []);
+  const local = useObservable<ProtestPosition[]>(getPositions, []);
+  const { sessions: remote, isLoading: isReadingRemote } = useRemoteProtestSessions();
 
+  // Local wins when it has anything: it is instant, works offline, and is the
+  // only side that knows what is still unsent. The server is the fallback for
+  // a device that doesn't hold these rows - reinstalled, replaced, or simply
+  // not the one that recorded.
+  const remoteSession = remote.find((candidate) => candidate.id === id);
+  const positions: TracePoint[] = useMemo(() => {
+    if (local.length > 0) {
+      return local.map((row) => ({
+        key: row.id,
+        lat: row.lat,
+        lng: row.lng,
+        recordedAt: row.recordedAt,
+        synced: row.synced,
+      }));
+    }
+    return (remoteSession?.positions ?? []).map((point, index) => ({
+      key: `${point.recordedAt.toISOString()}-${index}`,
+      lat: point.lat,
+      lng: point.lng,
+      recordedAt: point.recordedAt,
+      synced: true,
+    }));
+  }, [local, remoteSession]);
+
+  const startedAt = session?.startedAt ?? remoteSession?.startedAt;
+  const endedAt = session?.endedAt ?? remoteSession?.endedAt ?? null;
   const synced = positions.filter((row) => row.synced).length;
 
   return (
@@ -168,8 +207,8 @@ const ProtestSessionDetailScreen = () => {
       <ScrollView contentInsetAdjustmentBehavior="automatic">
         <View style={{ padding: theme.spaces.horizontal, gap: theme.spaces.sm }}>
           <Text variant="title">
-            {session
-              ? format.dateTime(session.startedAt, {
+            {startedAt
+              ? format.dateTime(startedAt, {
                   weekday: 'long',
                   day: 'numeric',
                   month: 'long',
@@ -179,24 +218,27 @@ const ProtestSessionDetailScreen = () => {
               : '—'}
           </Text>
           <Text textColor="muted">
-            {session?.endedAt
+            {endedAt
               ? t('pages.protest_mode.sessions.ended_at', {
-                  time: format.dateTime(session.endedAt, {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  }),
+                  time: format.dateTime(endedAt, { hour: '2-digit', minute: '2-digit' }),
                 })
               : t('pages.protest_mode.sessions.open')}
           </Text>
-          <Text textColor="muted">
-            {`${t('pages.protest_mode.sessions.positions', { count: positions.length })} · ${
-              positions.length === synced
-                ? t('pages.protest_mode.sessions.all_sent')
-                : t('pages.protest_mode.sessions.pending', {
-                    count: positions.length - synced,
-                  })
-            }`}
-          </Text>
+          {/* While the blobs are still being fetched and decrypted there is
+              nothing to count yet - saying "0 positions" would be a lie. */}
+          {positions.length === 0 && isReadingRemote ? (
+            <Text textColor="muted">{t('pages.protest_mode.sessions.reading')}</Text>
+          ) : (
+            <Text textColor="muted">
+              {`${t('pages.protest_mode.sessions.positions', { count: positions.length })} · ${
+                positions.length === synced
+                  ? t('pages.protest_mode.sessions.all_sent')
+                  : t('pages.protest_mode.sessions.pending', {
+                      count: positions.length - synced,
+                    })
+              }`}
+            </Text>
+          )}
         </View>
 
         {positions.length > 0 ? (
@@ -215,7 +257,7 @@ const ProtestSessionDetailScreen = () => {
         <View style={{ paddingHorizontal: theme.spaces.horizontal, gap: theme.spaces.xs }}>
           {positions.map((position) => (
             <View
-              key={position.id}
+              key={position.key}
               style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spaces.sm }}
             >
               <Text

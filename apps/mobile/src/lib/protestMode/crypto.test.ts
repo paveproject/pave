@@ -3,8 +3,10 @@ import {
   decryptBlob,
   encryptBlob,
   mintSessionKey,
+  openMetadata,
   openSessionKey,
   resealSessionKeys,
+  sealMetadata,
   sealSessionKey,
 } from './crypto';
 import { getDek } from '../recoveryKey/storage';
@@ -79,6 +81,30 @@ describe('blobs', () => {
     ciphertext[ciphertext.length - 1] ^= 0xff;
 
     expect(() => decryptBlob(key, ciphertext)).toThrow();
+  });
+});
+
+describe('metadata', () => {
+  it('round-trips the session envelope', () => {
+    const key = mintSessionKey();
+    const envelope = { startedAt: '2026-11-06T18:00:00.000Z', endedAt: null };
+
+    expect(openMetadata(key, sealMetadata(key, envelope))).toEqual(envelope);
+  });
+
+  it('cannot be opened with another session key', () => {
+    const sealed = sealMetadata(mintSessionKey(), { startedAt: 'x', endedAt: null });
+
+    expect(() => openMetadata(mintSessionKey(), sealed)).toThrow();
+  });
+
+  /** The metadata key is derived with its own HKDF info, so a blob key must
+   * not open an envelope even though both come from the same session key. */
+  it('is not interchangeable with the blob key', () => {
+    const key = mintSessionKey();
+    const sealed = sealMetadata(key, { startedAt: 'x', endedAt: null });
+
+    expect(() => decryptBlob(key, Buffer.from(sealed, 'hex'))).toThrow();
   });
 });
 

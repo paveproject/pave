@@ -323,7 +323,8 @@
         "positions": "{count, plural, one {# position} other {# positions}}",
         "pending": "{count, plural, one {# non envoyée} other {# non envoyées}}",
         "all_sent": "tout est envoyé",
-        "trace": "Tracé"
+        "trace": "Tracé",
+        "reading": "Lecture de l’enregistrement…"
       },
       "audio_recording": "Enregistrer l'audio",
       "coming_soon": "Bientôt"

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Pressable } from 'react-native';
 import { LegendList } from '@legendapp/list/react-native';
 import { useRouter } from 'expo-router';
@@ -12,30 +12,58 @@ import { Text } from '../../components/ui/text';
 import { Badge } from '../../components/ui/badge';
 import Empty from '../../components/ui/empty';
 import { Icons } from '../../constants/icons';
+import { useRemoteProtestSessions } from '../../hooks/protestMode/useRemoteProtestSessions';
 
 /**
- * Read straight from WatermelonDB, not from `GET /me/protest-sessions`: a
- * recording has to be visible the moment it exists, including offline or
- * while a push is failing. The server copy is for reading a session back on
- * another device.
+ * One line, whichever side the recording came from.
+ *
+ * The local database is the primary source - a recording has to be visible
+ * the moment it exists, offline or while a push is failing. The server is
+ * what covers the case the feature exists for: a device that no longer holds
+ * the local rows (reinstalled, replaced, or simply not the one that recorded)
+ * still gets its trajectories back, decrypted here.
  */
-const SessionRow = ({ session }: { session: ProtestSession }) => {
-  const router = useRouter();
-  const t = useTranslations();
-  const format = useFormatter();
-  const { theme } = useTheme();
+interface SessionLine {
+  id: string;
+  startedAt: Date;
+  isOpen: boolean;
+  total: number;
+  /** Positions still only on this device. Always 0 for a server-read line -
+   * everything it holds is, by definition, already uploaded. */
+  pending: number;
+}
 
+/** Local rows watch their own counts, so a flush updates the line live. */
+const LocalSessionRow = ({ session }: { session: ProtestSession }) => {
   const getTotal = useCallback(() => observeSessionCounts(session.id).total, [session.id]);
   const getSynced = useCallback(() => observeSessionCounts(session.id).synced, [session.id]);
   const total = useObservable<number>(getTotal, 0);
   const synced = useObservable<number>(getSynced, 0);
 
-  const pending = total - synced;
-  const isOpen = session.endedAt === null;
+  return (
+    <SessionRow
+      line={{
+        id: session.id,
+        startedAt: session.startedAt,
+        isOpen: session.endedAt === null,
+        total,
+        pending: total - synced,
+      }}
+    />
+  );
+};
+
+const SessionRow = ({ line }: { line: SessionLine }) => {
+  const router = useRouter();
+  const t = useTranslations();
+  const format = useFormatter();
+  const { theme } = useTheme();
+
+  const { total, pending, isOpen } = line;
 
   return (
     <Pressable
-      onPress={() => router.push(`/(tabs)/protest-mode/${session.id}`)}
+      onPress={() => router.push(`/(tabs)/protest-mode/${line.id}`)}
       style={{
         flexDirection: 'row',
         // Centres the badge against the whole two-line block.
@@ -47,7 +75,7 @@ const SessionRow = ({ session }: { session: ProtestSession }) => {
     >
       <View style={{ flex: 1, gap: theme.spaces.xs }}>
         <Text>
-          {format.dateTime(session.startedAt, {
+          {format.dateTime(line.startedAt, {
             weekday: 'short',
             day: 'numeric',
             month: 'short',
@@ -76,14 +104,44 @@ const ProtestSessionsScreen = () => {
   const { colors, theme } = useTheme();
 
   const getSessions = useCallback(() => observeSessions(), []);
-  const sessions = useObservable<ProtestSession[]>(getSessions, []);
+  const local = useObservable<ProtestSession[]>(getSessions, []);
+  const { sessions: remote, isLoading: isReadingRemote } = useRemoteProtestSessions();
+
+  // Local first, then whatever the server holds that this device doesn't.
+  // Merged on id so a session that exists on both sides is shown once, from
+  // the local row, which is the one that knows what is still unsent.
+  const lines = useMemo(() => {
+    const localIds = new Set(local.map((session) => session.id));
+    const extra: SessionLine[] = remote
+      .filter((session) => !localIds.has(session.id))
+      .map((session) => ({
+        id: session.id,
+        startedAt: session.startedAt,
+        isOpen: session.endedAt === null,
+        total: session.positions.length,
+        pending: 0,
+      }));
+    return { local, extra };
+  }, [local, remote]);
+
+  type Item = { kind: 'local'; session: ProtestSession } | { kind: 'remote'; line: SessionLine };
+  const items: Item[] = [
+    ...lines.local.map((session) => ({ kind: 'local' as const, session })),
+    ...lines.extra.map((line) => ({ kind: 'remote' as const, line })),
+  ];
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <LegendList
-        data={sessions}
-        keyExtractor={(session) => session.id}
-        renderItem={({ item }) => <SessionRow session={item} />}
+        data={items}
+        keyExtractor={(item) => (item.kind === 'local' ? item.session.id : item.line.id)}
+        renderItem={({ item }) =>
+          item.kind === 'local' ? (
+            <LocalSessionRow session={item.session} />
+          ) : (
+            <SessionRow line={item.line} />
+          )
+        }
         contentInsetAdjustmentBehavior="automatic"
         ListEmptyComponent={
           <View
@@ -94,7 +152,17 @@ const ProtestSessionsScreen = () => {
               padding: theme.spaces.xl,
             }}
           >
-            <Empty icon={Icons.megaphone} title={t('pages.protest_mode.sessions.empty')} />
+            <Empty
+              icon={Icons.megaphone}
+              title={t(
+                // A device that has just been set up has nothing local, and
+                // the server's copies are still being fetched and decrypted -
+                // "no recordings" would be wrong, not just early.
+                isReadingRemote
+                  ? 'pages.protest_mode.sessions.reading'
+                  : 'pages.protest_mode.sessions.empty',
+              )}
+            />
           </View>
         }
       />
