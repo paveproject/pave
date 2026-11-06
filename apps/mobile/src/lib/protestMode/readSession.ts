@@ -1,5 +1,5 @@
 import { File, Paths } from 'expo-file-system';
-import { listSessions } from '@libs/api-js';
+import { getSession, listSessions } from '@libs/api-js';
 import type { ProtestSessionResponse } from '@libs/api-js';
 import { API_ENDPOINT } from '../../env/common';
 import { getSessionToken } from '../auth/session';
@@ -138,10 +138,22 @@ export const readRemoteSessions = async (userId: string): Promise<ReadSession[]>
   return out.sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
 };
 
-/** One session, by id - reuses the list because there is no `GET` for a
- * single session, the row only travels with its siblings. */
+/** One session, by id, without pulling every sibling along. */
 export const readRemoteSession = async (
   userId: string,
   sessionId: string,
-): Promise<ReadSession | null> =>
-  (await readRemoteSessions(userId)).find((session) => session.id === sessionId) ?? null;
+): Promise<ReadSession | null> => {
+  const token = await getSessionToken();
+  if (!token) throw new Error('not signed in');
+
+  const { data, error, response } = await getSession({
+    path: { protest_session_id: sessionId },
+  });
+  // 404 covers both "no such session" and "not yours" - the route can't tell
+  // them apart on purpose.
+  if (response.status === 404) return null;
+  if (error) throw error;
+  if (!data) return null;
+
+  return openSession(userId, data, token);
+};

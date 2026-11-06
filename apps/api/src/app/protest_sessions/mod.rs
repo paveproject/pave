@@ -24,7 +24,9 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route(
             "/protest-session/{protest_session_id}",
-            put(handlers::upsert_session).patch(handlers::end_session),
+            put(handlers::upsert_session)
+                .patch(handlers::end_session)
+                .get(handlers::get_session),
         )
         .route(
             "/protest-session/{protest_session_id}/blob/{blob_id}",
@@ -35,6 +37,7 @@ pub fn router() -> Router<AppState> {
 #[derive(utoipa::OpenApi)]
 #[openapi(
     paths(
+        handlers::get_session,
         handlers::upsert_session,
         handlers::end_session,
         handlers::upload_blob,

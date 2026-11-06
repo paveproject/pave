@@ -9,7 +9,7 @@ import { useObservable } from '../../hooks/useObservable';
 import { database } from '../../lib/watermelon/database';
 import { PROTEST_SESSION_TABLE } from '../../lib/watermelon/schema';
 import { observePositions } from '../../lib/watermelon/protestSessions';
-import { useRemoteProtestSessions } from '../../hooks/protestMode/useRemoteProtestSessions';
+import { useRemoteProtestSession } from '../../hooks/protestMode/useRemoteProtestSession';
 import type { ProtestSession } from '../../lib/watermelon/models/ProtestSession';
 import type { ProtestPosition } from '../../lib/watermelon/models/ProtestPosition';
 import { View } from '../../components/ui/view';
@@ -172,13 +172,14 @@ const ProtestSessionDetailScreen = () => {
 
   const getPositions = useCallback(() => observePositions(id ?? ''), [id]);
   const local = useObservable<ProtestPosition[]>(getPositions, []);
-  const { sessions: remote, isLoading: isReadingRemote } = useRemoteProtestSessions();
+  // Just this one, by id - no need to pull and decrypt every sibling to show
+  // one trajectory.
+  const { session: remoteSession, isLoading: isReadingRemote } = useRemoteProtestSession(id);
 
   // Local wins when it has anything: it is instant, works offline, and is the
   // only side that knows what is still unsent. The server is the fallback for
   // a device that doesn't hold these rows - reinstalled, replaced, or simply
   // not the one that recorded.
-  const remoteSession = remote.find((candidate) => candidate.id === id);
   const positions: TracePoint[] = useMemo(() => {
     if (local.length > 0) {
       return local.map((row) => ({

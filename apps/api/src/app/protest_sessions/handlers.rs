@@ -253,6 +253,45 @@ pub async fn end_session(
     }
 }
 
+/// One session with its blob index, for reading a recording back on a device
+/// that doesn't hold the local rows. The payloads come separately, through
+/// `download_blob`.
+#[utoipa::path(
+    get,
+    path = "/protest-session/{protest_session_id}",
+    tag = "ProtestSessions",
+    params(("protest_session_id" = String, Path, description = "Session id")),
+    responses(
+        (status = 200, description = "The session and its blob index", body = ProtestSessionResponse),
+        (status = 404, description = "No such session for this account")
+    )
+)]
+pub async fn get_session(
+    State(state): State<AppState>,
+    session: CurrentSession<AppAuthSchema>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    let Ok(session_id) = Uuid::parse_str(&id) else {
+        return (StatusCode::BAD_REQUEST, "id must be a uuid").into_response();
+    };
+
+    let existing = match find_owned_session(&state.db, session_id, &session.user.id).await {
+        Ok(Some(row)) => row,
+        Ok(None) => return (StatusCode::NOT_FOUND, "no such session").into_response(),
+        Err(error) => {
+            tracing::error!(?error, "failed to look up the protest session");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "could not read the session",
+            )
+                .into_response();
+        }
+    };
+
+    let blobs = load_blobs(&state.db, session_id).await;
+    Json(to_response(existing, blobs)).into_response()
+}
+
 /// Idempotent blob upload, keyed on the client-minted `blob_id`.
 ///
 /// Multipart rather than JSON because the payload is raw ciphertext, and

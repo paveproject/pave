@@ -486,6 +486,77 @@ async fn another_account_cannot_upload_into_a_session() {
 }
 
 // ---------------------------------------------------------------------------
+// get_session (GET /protest-session/{id})
+// ---------------------------------------------------------------------------
+
+/// Reading one session back by id, which is what a device that doesn't hold
+/// the local rows needs. The blob index comes with it; the payloads come
+/// separately through `download_blob`.
+#[tokio::test]
+#[serial_test::serial]
+async fn a_session_can_be_read_by_id_with_its_blob_index() {
+    let env = shared_test_env().await;
+    let app = fresh_app(env).await;
+    let token = app.sign_in("owner@example.com").await;
+
+    let session = Uuid::new_v4().to_string();
+    let path = format!("/protest-session/{session}");
+    app.request("PUT", &path, Some(&token), Some(upsert_payload()))
+        .await;
+
+    let blob = Uuid::new_v4().to_string();
+    let boundary = "x-test-boundary";
+    app.request_multipart(
+        "PUT",
+        &format!("{path}/blob/{blob}"),
+        &token,
+        boundary,
+        blob_body(boundary, "position_batch", 0, b"payload"),
+    )
+    .await;
+
+    let (status, body) = app.request("GET", &path, Some(&token), None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["id"], session);
+    assert_eq!(body["sealedKey"], "sealed-session-key");
+    assert_eq!(body["metadata"], "encrypted-envelope");
+    let blobs = body["blobs"].as_array().expect("blobs array");
+    assert_eq!(blobs.len(), 1);
+    assert_eq!(blobs[0]["id"], blob);
+    assert_eq!(blobs[0]["kind"], "position_batch");
+}
+
+/// Same 404-not-403 rule as every other route here: a session id belonging to
+/// someone else must look absent, not forbidden.
+#[tokio::test]
+#[serial_test::serial]
+async fn reading_another_accounts_session_by_id_is_not_found() {
+    let env = shared_test_env().await;
+    let app = fresh_app(env).await;
+    let owner = app.sign_in("owner@example.com").await;
+    let stranger = app.sign_in("stranger@example.com").await;
+
+    let session = Uuid::new_v4().to_string();
+    app.request(
+        "PUT",
+        &format!("/protest-session/{session}"),
+        Some(&owner),
+        Some(upsert_payload()),
+    )
+    .await;
+
+    let (status, _) = app
+        .request(
+            "GET",
+            &format!("/protest-session/{session}"),
+            Some(&stranger),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+// ---------------------------------------------------------------------------
 // no delete route
 // ---------------------------------------------------------------------------
 
