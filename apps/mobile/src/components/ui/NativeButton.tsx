@@ -1,11 +1,14 @@
+import { useMemo } from 'react';
 import { Platform } from 'react-native';
 import { Button, type ButtonProps } from '@expo/ui';
 import {
   Button as ComposeButton,
   Text as ComposeText,
   type ButtonContentPadding,
+  type ShapeJSXElement,
 } from '@expo/ui/jetpack-compose';
 import type { ModifierConfig } from '@expo/ui/jetpack-compose/modifiers';
+import { withHaptic } from '../../utils/with-haptic';
 
 export interface NativeButtonColors {
   /** Background of the button itself. */
@@ -28,6 +31,11 @@ export interface NativeButtonProps extends Omit<ButtonProps, 'modifiers' | 'vari
   androidModifiers?: ModifierConfig[];
   /** Material3 content padding, Android only (`style` is the iOS equivalent). */
   androidContentPadding?: ButtonContentPadding;
+  /** Android only - the iOS equivalent is a `buttonBorderShape(...)`
+   * modifier. Defaults to `ButtonDefaults.shape`. */
+  androidShape?: ShapeJSXElement;
+  /** No-op off iOS, see `withHaptic`. @default true */
+  haptic?: boolean;
 }
 
 /**
@@ -59,14 +67,22 @@ export const NativeButton = ({
   iosModifiers,
   androidModifiers,
   androidContentPadding,
+  androidShape,
+  haptic = true,
   ...rest
 }: NativeButtonProps) => {
+  // Gated on `disabled` too: a button that does nothing must not buzz.
+  const handlePress = useMemo(
+    () => (onPress && haptic && !disabled ? withHaptic(onPress) : onPress),
+    [onPress, haptic, disabled],
+  );
+
   if (Platform.OS !== 'android') {
     return (
       <Button
         variant="filled"
         label={label}
-        onPress={onPress}
+        onPress={handlePress}
         disabled={disabled}
         modifiers={iosModifiers}
         {...rest}
@@ -78,10 +94,11 @@ export const NativeButton = ({
 
   return (
     <ComposeButton
-      onClick={disabled ? undefined : onPress}
+      onClick={disabled ? undefined : handlePress}
       enabled={!disabled}
       colors={colors}
       contentPadding={androidContentPadding}
+      shape={androidShape}
       modifiers={androidModifiers}
     >
       {children ?? <ComposeText>{label ?? ''}</ComposeText>}
