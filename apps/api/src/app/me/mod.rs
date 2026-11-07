@@ -1,4 +1,5 @@
 pub mod avatar;
+pub mod data_access;
 pub mod dto;
 pub mod events;
 pub mod handlers;
@@ -25,6 +26,7 @@ pub fn router() -> Router<AppState> {
             get(handlers::check_username_available),
         )
         .nest("/avatar", avatar::router())
+        .nest("/data-access", data_access::router())
         .nest("/pending-actions", pending_actions::router())
         .nest("/push-token", push_token::router())
         .nest("/recovery-key-mnemonic", recovery_key_mnemonic::router())
@@ -65,6 +67,7 @@ struct ApiDoc;
 pub fn openapi() -> utoipa::openapi::OpenApi {
     ApiDoc::openapi()
         .merge_from(avatar::ApiDoc::openapi())
+        .merge_from(data_access::openapi())
         .merge_from(pending_actions::ApiDoc::openapi())
         .merge_from(push_token::ApiDoc::openapi())
         .merge_from(recovery_key_mnemonic::ApiDoc::openapi())

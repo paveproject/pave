@@ -9,6 +9,10 @@
 //! `focusManager`.
 
 use super::dto::MePendingAction;
+use crate::app::data_access::requests::handlers::{
+    close_if_expired, load_contact_rows, to_contact_response as data_access_contact_response,
+    to_response as data_access_response,
+};
 use crate::app::devices::dto::{MeDevicesResponse, MeOwnDeviceRegistrationResponse};
 use crate::app::devices::handlers::{resolve_active_caller_device, to_device_response};
 use crate::app::recovery_requests::handlers::to_pending_contact_response;
@@ -18,11 +22,14 @@ use axum::extract::State;
 use axum::response::IntoResponse;
 use axum::Json;
 use better_auth::integrations::axum::CurrentSession;
+use db_rs::data_access_request;
+use db_rs::data_access_request_contact;
 use db_rs::device;
 use db_rs::recovery_request;
 use db_rs::recovery_request_contact;
 use db_rs::sea_orm_active_enums::{
-    DeviceStatusEnum, RecoveryRequestContactStatusEnum, RecoveryRequestStatusEnum,
+    DataAccessRequestContactStatusEnum, DataAccessRequestStatusEnum, DeviceStatusEnum,
+    RecoveryRequestContactStatusEnum, RecoveryRequestStatusEnum,
 };
 use db_rs::trusted_contact;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -42,13 +49,10 @@ pub async fn get_pending_actions(
     let user_id = session.user.id.clone();
     let mut actions = Vec::new();
 
-    // Three independent lookups, resolved concurrently: this user's own
-    // pending devices (split below by whether each *is* the caller's own
-    // session - a device can't approve its own registration, only an
-    // already-`active` sibling can), whether the caller itself is active
-    // enough to approve anyone, and every relationship where this user is
-    // the trusted contact.
-    let (device_rows, caller_is_active, my_contact_rows) = tokio::join!(
+    // Four independent lookups, resolved concurrently. The pending devices
+    // are split below by whether each *is* the caller's own session: a device
+    // can't approve its own registration, only an `active` sibling can.
+    let (device_rows, caller_is_active, my_contact_rows, requests_on_my_data) = tokio::join!(
         device::Entity::find()
             .filter(device::Column::UserId.eq(user_id.clone()))
             .filter(device::Column::Status.eq(DeviceStatusEnum::Pending))
@@ -56,6 +60,10 @@ pub async fn get_pending_actions(
         resolve_active_caller_device(&state.db, &user_id, &session.session.id),
         trusted_contact::Entity::find()
             .filter(trusted_contact::Column::ContactUserId.eq(user_id.clone()))
+            .all(&state.db),
+        data_access_request::Entity::find()
+            .filter(data_access_request::Column::OwnerUserId.eq(user_id.clone()))
+            .filter(data_access_request::Column::Status.eq(DataAccessRequestStatusEnum::Pending))
             .all(&state.db),
     );
     let (own_pending, pending_devices): (Vec<_>, Vec<_>) = device_rows
@@ -132,6 +140,58 @@ pub async fn get_pending_actions(
         .into_iter()
         .map(|row| (row.id, row))
         .collect();
+
+    // Same two batched lookups for the data-access side.
+    let data_access_rows = data_access_request_contact::Entity::find()
+        .filter(
+            data_access_request_contact::Column::TrustedContactId
+                .is_in(my_contact_rows.iter().map(|c| c.id)),
+        )
+        .filter(
+            data_access_request_contact::Column::Status
+                .eq(DataAccessRequestContactStatusEnum::Pending),
+        )
+        .all(&state.db)
+        .await
+        .expect("failed to query data access request contact rows");
+    let data_access_by_id: HashMap<Uuid, data_access_request::Model> =
+        data_access_request::Entity::find()
+            .filter(
+                data_access_request::Column::Id
+                    .is_in(data_access_rows.iter().map(|r| r.data_access_request_id)),
+            )
+            .filter(data_access_request::Column::Status.eq(DataAccessRequestStatusEnum::Pending))
+            .all(&state.db)
+            .await
+            .expect("failed to query data access requests")
+            .into_iter()
+            .map(|row| (row.id, row))
+            .collect();
+
+    // Still listed once access has opened - refusing works after the grant
+    // opened, and that is when the owner most needs the button.
+    for request in requests_on_my_data.expect("failed to query requests on the caller's data") {
+        // Written down, not just filtered: an elapsed request left `pending`
+        // would both keep presenting this sheet and block the contact from
+        // ever asking again (see `close_if_expired`).
+        let request = close_if_expired(&state.db, request).await;
+        if request.status != DataAccessRequestStatusEnum::Pending {
+            continue;
+        }
+        let rows = load_contact_rows(&state.db, request.id).await;
+        actions.push(MePendingAction::DataAccessRequestOwner(
+            data_access_response(&state, request, &rows).await,
+        ));
+    }
+
+    for row in data_access_rows {
+        let Some(request) = data_access_by_id.get(&row.data_access_request_id) else {
+            continue;
+        };
+        if let Some(payload) = data_access_contact_response(&state, request, row).await {
+            actions.push(MePendingAction::DataAccessRequestContact(payload));
+        }
+    }
 
     // `to_pending_contact_response` still runs once per match (its own
     // profile/device lookups aren't batched) - fine in practice, since a

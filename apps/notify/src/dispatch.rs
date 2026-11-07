@@ -106,6 +106,15 @@ fn render_content(
             t("recovery_request.failed.title"),
             t("recovery_request.failed.body"),
         ),
+        PushContent::DataAccessRequested { requester_username } => {
+            let requester_name = requester_username
+                .clone()
+                .unwrap_or_else(|| t("data_access.someone"));
+            (
+                t("data_access.requested.title"),
+                t("data_access.requested.body").replace("{requesterName}", &requester_name),
+            )
+        }
         PushContent::DeviceApprovalRequested => (
             t("device.approval_requested.title"),
             t("device.approval_requested.body"),

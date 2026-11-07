@@ -4,8 +4,8 @@ pub mod libs;
 pub mod state;
 
 use app::{
-    auth_otp, devices, health, internal, me, protest_sessions, recovery_requests, reports, system,
-    trusted_contacts, users, webhooks,
+    auth_otp, data_access, devices, health, internal, me, protest_sessions, recovery_requests,
+    reports, system, trusted_contacts, users, webhooks,
 };
 use axum::Router;
 use better_auth::integrations::axum::AxumIntegration;
@@ -24,6 +24,7 @@ pub fn build_openapi() -> utoipa::openapi::OpenApi {
         .merge_from(system::ApiDoc::openapi())
         .merge_from(auth_otp::ApiDoc::openapi())
         .merge_from(me::openapi())
+        .merge_from(data_access::openapi())
         .merge_from(devices::ApiDoc::openapi())
         .merge_from(protest_sessions::ApiDoc::openapi())
         .merge_from(trusted_contacts::openapi())
@@ -50,6 +51,7 @@ pub fn build_app(state: AppState) -> Router {
         // Merged, not nested: these declare absolute paths, so the router and
         // the `#[utoipa::path]` attribute spell the same string and a grep
         // finds both. `users` holds the `/user/{user_id}/...` tree.
+        .merge(data_access::router())
         .merge(devices::router())
         .merge(protest_sessions::router())
         .merge(trusted_contacts::router())

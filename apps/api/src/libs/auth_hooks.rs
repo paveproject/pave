@@ -56,6 +56,7 @@ impl SeaOrmHooks<AppAuthSchema> for CreatePaveUserRowHook {
             protest_mode_enabled: Set(false),
             recovery_delay_seconds: Set(86400),
             recovery_delay_protest_seconds: Set(3600),
+            data_access_delay_seconds: Set(86400),
         };
 
         match ctx.tx {

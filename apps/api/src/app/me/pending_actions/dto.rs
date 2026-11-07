@@ -1,3 +1,6 @@
+use crate::app::data_access::requests::dto::{
+    DataAccessRequestContactResponse, DataAccessRequestResponse,
+};
 use crate::app::devices::dto::{MeDevicesResponse, MeOwnDeviceRegistrationResponse};
 use crate::app::recovery_requests::dto::MeRecoveryRequestsContactResponse;
 use serde::{Deserialize, Serialize};
@@ -16,4 +19,11 @@ pub enum MePendingAction {
     /// The flip side of `DeviceRegistration`: this device's own pending
     /// status, shown to itself while it waits.
     OwnDeviceRegistration(MeOwnDeviceRegistrationResponse),
+    /// Another contact of the same owner is asking to read that owner's
+    /// recordings, and this user's approval is part of the quorum.
+    DataAccessRequestContact(DataAccessRequestContactResponse),
+    /// To the **owner**. The one kind that asks for nothing: it is a veto
+    /// window, and dismissing it is a valid answer. In this feed anyway
+    /// because a request the owner never saw is one they could not refuse.
+    DataAccessRequestOwner(DataAccessRequestResponse),
 }

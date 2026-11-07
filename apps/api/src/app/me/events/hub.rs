@@ -31,7 +31,9 @@ enum HubCommand {
     },
     Publish {
         user_id: String,
-        message: MeEventsUserEvent,
+        // Boxed, or every `Register`/`Deregister` on this channel would be
+        // padded to the largest event payload (~400 bytes).
+        message: Box<MeEventsUserEvent>,
     },
 }
 
@@ -70,7 +72,10 @@ impl UserEventsHub {
     }
 
     pub fn publish(&self, user_id: String, message: MeEventsUserEvent) {
-        let _ = self.cmd_tx.send(HubCommand::Publish { user_id, message });
+        let _ = self.cmd_tx.send(HubCommand::Publish {
+            user_id,
+            message: Box::new(message),
+        });
     }
 }
 
@@ -170,7 +175,9 @@ async fn run(redis_url: String, mut cmd_rx: mpsc::UnboundedReceiver<HubCommand>)
                         state.deregister(&mut sink, conn_id).await;
                     }
                     HubCommand::Publish { user_id, message } => {
-                        let Ok(payload) = serde_json::to_string(&message) else { continue };
+                        let Ok(payload) = serde_json::to_string(&*message) else {
+                            continue;
+                        };
                         let res: redis::RedisResult<i64> =
                             publish_conn.publish(channel_name(&user_id), payload).await;
                         if let Err(err) = res {

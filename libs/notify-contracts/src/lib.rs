@@ -129,6 +129,15 @@ pub enum PushContent {
     /// is guaranteed impossible regardless of the (server-unknown) Shamir
     /// threshold. See `recovery_requests::handlers::fail_if_unrecoverable`.
     RecoveryRequestFailed,
+    /// Sent to the **owner** the moment a trusted contact asks to read their
+    /// recordings. The only data-access event that pushes: the owner's chance
+    /// to refuse is bounded by `releaseAt`, so a request they never saw is a
+    /// request they could not refuse. See
+    /// `libs/db/src/lib/schemas/dataAccessRequest.ts` for the threat model.
+    DataAccessRequested {
+        #[serde(rename = "requesterUsername")]
+        requester_username: Option<String>,
+    },
     /// Sent to every one of this user's *other*, already-`active` devices
     /// the moment a new one registers and needs approval - see
     /// `devices::handlers::set_device`. Never sent to the new device

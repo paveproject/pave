@@ -1,3 +1,4 @@
+pub mod data_access;
 pub mod devices;
 pub mod protest_sessions;
 pub mod recovery_request;
@@ -17,6 +18,7 @@ use utoipa::OpenApi as _;
 /// imported from here, so a response shape has one owner.
 pub fn router() -> Router<AppState> {
     Router::new()
+        .merge(data_access::router())
         .merge(devices::router())
         .merge(protest_sessions::router())
         .merge(trusted_contacts::router())
@@ -26,7 +28,8 @@ pub fn router() -> Router<AppState> {
 }
 
 pub fn openapi() -> utoipa::openapi::OpenApi {
-    devices::ApiDoc::openapi()
+    data_access::openapi()
+        .merge_from(devices::ApiDoc::openapi())
         .merge_from(protest_sessions::ApiDoc::openapi())
         .merge_from(trusted_contacts::ApiDoc::openapi())
         .merge_from(trusted_contact::openapi())

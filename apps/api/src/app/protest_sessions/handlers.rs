@@ -2,6 +2,7 @@ use super::dto::{
     ProtestBlobResponse, ProtestSessionEndRequest, ProtestSessionResponse,
     ProtestSessionUpsertRequest,
 };
+use crate::app::access::can_read_owner;
 use crate::libs::media;
 use crate::state::AppState;
 use auth::AppAuthSchema;
@@ -14,6 +15,25 @@ use db_rs::sea_orm_active_enums::ProtestBlobKindEnum;
 use db_rs::{protest_blob, protest_session};
 use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use uuid::Uuid;
+
+/// Only the two read handlers use this. Every write keeps
+/// `find_owned_session`, so a grant never becomes write access.
+async fn find_readable_session(
+    state: &AppState,
+    session: &CurrentSession<AppAuthSchema>,
+    session_id: Uuid,
+) -> Result<Option<protest_session::Model>, sea_orm::DbErr> {
+    let Some(row) = protest_session::Entity::find_by_id(session_id)
+        .one(&state.db)
+        .await?
+    else {
+        return Ok(None);
+    };
+
+    Ok(can_read_owner(&state.db, session, &row.owner_user_id)
+        .await
+        .then_some(row))
+}
 
 /// A session id the caller doesn't own must look absent, not forbidden: a 403
 /// would confirm someone else's session exists under that id.
@@ -153,6 +173,12 @@ pub async fn upsert_session(
             )
                 .into_response();
         }
+        // A session exists under this id and isn't the caller's. Answer as
+        // absent: a 500 here is an error anyone with a readable grant could
+        // trigger at will.
+        if message.contains("protest_session_pkey") {
+            return (StatusCode::NOT_FOUND, "no such session").into_response();
+        }
         tracing::error!(?error, "failed to create the protest session");
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -275,7 +301,7 @@ pub async fn get_session(
         return (StatusCode::BAD_REQUEST, "id must be a uuid").into_response();
     };
 
-    let existing = match find_owned_session(&state.db, session_id, &session.user.id).await {
+    let existing = match find_readable_session(&state, &session, session_id).await {
         Ok(Some(row)) => row,
         Ok(None) => return (StatusCode::NOT_FOUND, "no such session").into_response(),
         Err(error) => {
@@ -493,12 +519,11 @@ pub async fn download_blob(
     session: CurrentSession<AppAuthSchema>,
     Path((id, blob_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    let user_id = session.user.id.clone();
     let (Ok(session_id), Ok(blob_uuid)) = (Uuid::parse_str(&id), Uuid::parse_str(&blob_id)) else {
         return (StatusCode::BAD_REQUEST, "ids must be uuids").into_response();
     };
 
-    match find_owned_session(&state.db, session_id, &user_id).await {
+    match find_readable_session(&state, &session, session_id).await {
         Ok(Some(_)) => {}
         Ok(None) => return (StatusCode::NOT_FOUND, "no such session").into_response(),
         Err(error) => {

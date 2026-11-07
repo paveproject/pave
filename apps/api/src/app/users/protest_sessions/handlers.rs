@@ -1,4 +1,4 @@
-use crate::app::access::authorize_user_scope;
+use crate::app::access::authorize_user_read_scope;
 use crate::app::protest_sessions::dto::ProtestSessionResponse;
 use crate::app::protest_sessions::handlers::{load_blobs, to_response};
 use crate::state::AppState;
@@ -26,7 +26,8 @@ pub async fn list_sessions(
     session: CurrentSession<AppAuthSchema>,
     Path(user_id): Path<String>,
 ) -> impl IntoResponse {
-    if let Err(status) = authorize_user_scope(&session, &user_id) {
+    // Read scope: a trusted contact with an open grant sees this list too.
+    if let Err(status) = authorize_user_read_scope(&state.db, &session, &user_id).await {
         return status.into_response();
     }
 

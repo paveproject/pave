@@ -1,5 +1,6 @@
 pub mod access;
 pub mod auth_otp;
+pub mod data_access;
 pub mod devices;
 pub mod health;
 pub mod internal;
