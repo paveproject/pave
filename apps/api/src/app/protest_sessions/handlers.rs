@@ -69,6 +69,7 @@ pub(crate) fn to_response(
 ) -> ProtestSessionResponse {
     ProtestSessionResponse {
         id: session.id.to_string(),
+        owner_user_id: session.owner_user_id,
         active: session.active,
         sealed_key: session.sealed_key,
         metadata: session.metadata,

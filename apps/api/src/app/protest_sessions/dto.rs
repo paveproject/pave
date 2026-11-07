@@ -43,6 +43,14 @@ pub struct ProtestBlobResponse {
 #[serde(rename_all = "camelCase")]
 pub struct ProtestSessionResponse {
     pub id: String,
+    /// Whose recording this is.
+    ///
+    /// Only ever served to a caller the read gate already let through - the
+    /// owner, or a contact holding an open grant - so it tells them nothing
+    /// they did not already know. What it buys is a session id that is
+    /// self-sufficient: the client no longer has to be told whose key to
+    /// reach for, which is what lets one route serve both cases.
+    pub owner_user_id: String,
     pub active: bool,
     pub sealed_key: String,
     pub metadata: String,
