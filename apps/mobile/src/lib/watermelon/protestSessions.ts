@@ -4,10 +4,12 @@ import { listSessions, endSession } from '@libs/api-js';
 import { database } from './database';
 import { ProtestSession } from './models/ProtestSession';
 import { ProtestPosition } from './models/ProtestPosition';
-import { PROTEST_POSITION_TABLE, PROTEST_SESSION_TABLE } from './schema';
+import { ProtestAudioChunk } from './models/ProtestAudioChunk';
+import { PROTEST_AUDIO_CHUNK_TABLE, PROTEST_POSITION_TABLE, PROTEST_SESSION_TABLE } from './schema';
 import {
   protestExecutor,
   protestMutationMarkers,
+  type PushAudioChunkMetadata,
   type PushPositionBatchMetadata,
   type PushSessionMetadata,
 } from '../../providers/sync/offlineExecutor/protestExecutor';
@@ -20,6 +22,8 @@ import {
   sealSessionKey,
 } from '../protestMode/crypto';
 import { getProtestSessionKey, setProtestSessionKey } from '../protestMode/keyStore';
+import { File } from 'expo-file-system';
+import { sweepOrphanedChunks } from '../protestMode/protestAudio';
 import { logger } from '../../logger';
 
 /**
@@ -31,6 +35,7 @@ import { logger } from '../../logger';
 
 const sessions = () => database.get<ProtestSession>(PROTEST_SESSION_TABLE);
 const positions = () => database.get<ProtestPosition>(PROTEST_POSITION_TABLE);
+const audioChunks = () => database.get<ProtestAudioChunk>(PROTEST_AUDIO_CHUNK_TABLE);
 
 /** Contents of the session's encrypted `metadata` column. */
 interface SessionEnvelope {
@@ -79,6 +84,7 @@ export const startSession = async (userId: string): Promise<ProtestSession> => {
   // A session left open server-side with nothing local pointing at it makes
   // every future start fail with a permanent 409, with no way out of the UI.
   await closeOrphanedServerSessions(userId);
+  await sweepOrphanedAudio();
 
   const sessionId = randomUUID();
   const key = mintSessionKey();
@@ -151,6 +157,27 @@ export const endActiveSession = async (userId: string): Promise<void> => {
   await enqueueSessionPush(userId, session, metadata, true);
 };
 
+/**
+ * Reads and bumps `nextSeq` in a single write.
+ *
+ * `seq` is unique per session server-side, and the 409 a duplicate earns is
+ * permanent as far as the outbox is concerned. Reading outside the write was
+ * survivable while position flushes were the only consumer; audio rotation is
+ * a second one, and a rotation firing while a flush is in flight would hand
+ * both the same number.
+ */
+export const claimSeq = async (session: ProtestSession): Promise<number> => {
+  let claimed = 0;
+  await database.write(async () => {
+    const fresh = await sessions().find(session.id);
+    claimed = fresh.nextSeq;
+    await fresh.update((s) => {
+      s.nextSeq = claimed + 1;
+    });
+  });
+  return claimed;
+};
+
 export const recordPosition = async (params: {
   sessionId: string;
   lat: number;
@@ -168,6 +195,52 @@ export const recordPosition = async (params: {
       p.synced = false;
     }),
   );
+};
+
+/**
+ * Takes one already-encrypted audio segment and queues it.
+ *
+ * The caller seals the bytes (see `protestAudio.ts`) and hands over a path -
+ * this only writes the row and the outbox entry, in that order, so a crash
+ * between the two is recoverable by `reconcileUnsyncedProtestData`.
+ *
+ * `nextSeq` is shared with the position batches: `seq` is unique per session
+ * on the server, whatever the blob holds.
+ */
+export const recordAudioChunk = async (params: {
+  userId: string;
+  sessionId: string;
+  ciphertextUri: string;
+  startedAt: Date;
+  durationMs: number;
+}): Promise<void> => {
+  await protestExecutor.waitForInit();
+  const session = await sessions().find(params.sessionId);
+
+  const seq = await claimSeq(session);
+  const blobId = randomUUID();
+
+  const chunk = await database.write(() =>
+    audioChunks().create((c) => {
+      c.sessionId = params.sessionId;
+      c.seq = seq;
+      c.blobId = blobId;
+      c.uri = params.ciphertextUri;
+      c.startedAt = params.startedAt;
+      c.durationMs = params.durationMs;
+      c.synced = false;
+    }),
+  );
+
+  await enqueueAudioChunkPush({
+    userId: params.userId,
+    sessionId: params.sessionId,
+    sealedKey: session.sealedKey,
+    metadata: await sealEnvelope(params.userId, session, session.endedAt),
+    blobId,
+    seq,
+    chunkId: chunk.id,
+  });
 };
 
 /**
@@ -197,13 +270,7 @@ export const flushPositions = async (userId: string, sessionId: string): Promise
   const pending = unsynced.filter((row) => !alreadyQueued.has(row.id));
   if (pending.length === 0) return;
 
-  const seq = session.nextSeq;
-  await database.write(() =>
-    session.update((s) => {
-      s.nextSeq = seq + 1;
-    }),
-  );
-
+  const seq = await claimSeq(session);
   const metadata = await sealEnvelope(userId, session, session.endedAt);
 
   await enqueueBatchPush({
@@ -223,9 +290,9 @@ const logLine = (status: 'syncing' | 'idle' | 'error', message: string) =>
 /** See `reports.ts`'s `enqueuePush` for why `autoCommit: false`, a real
  * `.mutate()` body and an un-awaited `commit()` are all load-bearing. */
 const enqueue = async (
-  mutationFnName: 'pushSession' | 'pushPositionBatch',
+  mutationFnName: 'pushSession' | 'pushPositionBatch' | 'pushAudioChunk',
   idempotencyKey: string,
-  metadata: PushSessionMetadata | PushPositionBatchMetadata,
+  metadata: PushSessionMetadata | PushPositionBatchMetadata | PushAudioChunkMetadata,
   label: string,
 ): Promise<void> => {
   await protestExecutor.waitForInit();
@@ -288,6 +355,9 @@ const enqueueBatchPush = (metadata: PushPositionBatchMetadata): Promise<void> =>
     `batch ${metadata.blobId.slice(0, 8)}… (${metadata.positionIds.length} points)`,
   );
 
+const enqueueAudioChunkPush = (metadata: PushAudioChunkMetadata): Promise<void> =>
+  enqueue('pushAudioChunk', metadata.blobId, metadata, `audio ${metadata.blobId.slice(0, 8)}…`);
+
 /**
  * Re-seals every session key under the DEK currently in storage, and pushes
  * the new envelopes. Call it right after a rotation, with the DEK it
@@ -335,11 +405,27 @@ export const resealProtestSessions = async (
   });
 };
 
-export const getUnsyncedProtestCount = async (): Promise<number> =>
-  positions().query(Q.where('synced', false)).fetchCount();
+/** Sealed segments with no row pointing at them - a crash between writing
+ * the file and writing its row. Swept on start, the one moment the answer
+ * cannot be "it is still in flight". */
+export const sweepOrphanedAudio = async (): Promise<void> => {
+  const known = new Set((await audioChunks().query().fetch()).map((row) => row.uri));
+  await sweepOrphanedChunks(known);
+};
+
+export const getUnsyncedProtestCount = async (): Promise<number> => {
+  const [points, chunks] = await Promise.all([
+    positions().query(Q.where('synced', false)).fetchCount(),
+    audioChunks().query(Q.where('synced', false)).fetchCount(),
+  ]);
+  return points + chunks;
+};
 
 export const observeUnsyncedPositionCount = () =>
   positions().query(Q.where('synced', false)).observeCount();
+
+export const observeUnsyncedAudioCount = () =>
+  audioChunks().query(Q.where('synced', false)).observeCount();
 
 /** Startup catch-up for the case where the app died between a local write and
  * its outbox entry. Both endpoints are idempotent on their client-minted ids,
@@ -356,6 +442,25 @@ export const reconcileUnsyncedProtestData = async (userId: string): Promise<void
   );
   for (const sessionId of sessionIds) {
     await flushPositions(userId, sessionId);
+  }
+
+  // Already encrypted on disk, so re-queueing is just a new outbox entry.
+  for (const chunk of await audioChunks().query(Q.where('synced', false)).fetch()) {
+    const session = await sessions()
+      .find(chunk.sessionId)
+      .catch(() => null);
+    if (!session) continue;
+    // The row's own ids, never fresh ones: re-uploading the same blob at the
+    // same seq is idempotent, a new blob at that seq is a permanent 409.
+    await enqueueAudioChunkPush({
+      userId,
+      sessionId: chunk.sessionId,
+      sealedKey: session.sealedKey,
+      metadata: await sealEnvelope(userId, session, session.endedAt),
+      blobId: chunk.blobId,
+      seq: chunk.seq,
+      chunkId: chunk.id,
+    });
   }
 };
 
@@ -402,12 +507,26 @@ export const flushAndClearProtestData = async (userId: string | undefined): Prom
  * Destroys unconditionally - prefer `flushAndClearProtestData` on logout. */
 export const clearLocalProtestData = async (): Promise<void> => {
   await protestExecutor.clearOutbox();
-  const [allSessions, allPositions] = await Promise.all([
+  const [allSessions, allPositions, allChunks] = await Promise.all([
     sessions().query().fetch(),
     positions().query().fetch(),
+    audioChunks().query().fetch(),
   ]);
+
+  // The rows are only pointers; the audio itself is a file. Deleted first, so
+  // a failure here still leaves a row to find it by.
+  for (const chunk of allChunks) {
+    try {
+      const file = new File(chunk.uri);
+      if (file.exists) file.delete();
+    } catch (error) {
+      logger.error('protest: failed to delete an audio chunk file', { error });
+    }
+  }
+
   await database.write(() =>
     database.batch(
+      ...allChunks.map((row) => row.prepareDestroyPermanently()),
       ...allPositions.map((row) => row.prepareDestroyPermanently()),
       ...allSessions.map((row) => row.prepareDestroyPermanently()),
     ),

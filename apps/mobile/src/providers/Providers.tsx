@@ -16,6 +16,7 @@ import { ToastProvider } from '../components/Toast';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { ApiProvider } from './ApiProvider';
 import { SyncProvider } from './sync';
+import { ProtestAudioProvider } from './ProtestAudioProvider';
 import { useAppVersionCheck } from '../hooks/useAppVersionCheck';
 import { useUserEventsSocket } from '../hooks/websocket/useUserEventsSocket';
 
@@ -56,11 +57,17 @@ const Providers = ({ children }: ProvidersProps) => {
                               <ApiProvider>
                                 <BottomSheetModalProvider>
                                   <NotificationsProvider>
-                                    {children}
-                                    <BottomSheetManager />
-                                    <SyncProvider />
-                                    <AppVersionCheckBootstrap />
-                                    <UserEventsBootstrap />
+                                    {/* Above the screens, not inside the
+                                        protest tab: a recording has to keep
+                                        running while the user walks over to
+                                        the map. */}
+                                    <ProtestAudioProvider>
+                                      {children}
+                                      <BottomSheetManager />
+                                      <SyncProvider />
+                                      <AppVersionCheckBootstrap />
+                                      <UserEventsBootstrap />
+                                    </ProtestAudioProvider>
                                   </NotificationsProvider>
                                 </BottomSheetModalProvider>
                               </ApiProvider>

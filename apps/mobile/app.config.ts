@@ -117,7 +117,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         'The camera is used to upload profile pictures, playlist covers, story background images, and to scan trusted-contact codes.',
       NSPhotoLibraryUsageDescription:
         'Photos are used to select profile images, playlist covers, and shared story backgrounds.',
-      UIBackgroundModes: ['location'],
+      // `audio` keeps a protest recording running once the phone is in a
+      // pocket - which is where it will be. Without it iOS tears the audio
+      // session down on background and the recorder stops mid-segment.
+      UIBackgroundModes: ['location', 'audio'],
     },
     usesAppleSignIn: true,
   },

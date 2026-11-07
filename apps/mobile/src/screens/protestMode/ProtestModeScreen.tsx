@@ -22,7 +22,7 @@ import {
   tint,
 } from '@expo/ui/swift-ui/modifiers';
 import { useTranslations } from 'use-intl';
-import { LocateFixed, Mic } from 'lucide-react-native';
+import { LocateFixed, Mic, Video } from 'lucide-react-native';
 import type { LucideProps } from 'lucide-react-native';
 import { useTheme } from '../../providers/ThemeProvider';
 import { useProtestSession } from '../../hooks/protestMode/useProtestSession';
@@ -30,6 +30,8 @@ import { useProtestSettingsStore } from '../../stores/useProtestSettingsStore';
 import { View } from '../../components/ui/view';
 import { Text } from '../../components/ui/text';
 import { NativeButton } from '../../components/ui/NativeButton';
+import { Waveform } from './components/Waveform';
+import { useProtestAudio } from '../../providers/ProtestAudioProvider';
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
@@ -115,10 +117,14 @@ const PendingBadge = ({
   );
 };
 
-/** One recordable stream. Three states carried by the opacity: on, off, and
- * not available yet - the last one so an upcoming stream reads as coming
- * rather than missing. */
-const StreamTile = ({
+/** One tool the session puts within reach. Three states carried by the
+ * opacity: running, idle, and not available yet - the last one so an upcoming
+ * tool reads as coming rather than missing.
+ *
+ * A tool is not a setting: GPS recording is configured once in
+ * `settings/protest-mode` and stays on, so it has no button here. These are
+ * the things you reach for *during* a protest. */
+const ToolButton = ({
   icon: StreamIcon,
   label,
   hint,
@@ -177,9 +183,10 @@ const BUTTON_SIZE = 184;
 const ProtestModeScreen = () => {
   const t = useTranslations();
   const { colors, theme, isLiquidGlassAvailable } = useTheme();
-  const { session, isActive, pendingPositions, isBusy, start, stop } = useProtestSession();
+  const { session, isActive, pendingPositions, pendingAudio, isBusy, start, stop } =
+    useProtestSession();
   const gpsEnabled = useProtestSettingsStore((state) => state.gpsEnabled);
-  const setGpsEnabled = useProtestSettingsStore((state) => state.setGpsEnabled);
+  const audio = useProtestAudio();
   const reducedMotion = useReducedMotion();
 
   const startedAtMs = session?.startedAt.getTime();
@@ -217,6 +224,30 @@ const ProtestModeScreen = () => {
         : undefined,
     );
   }, [start, t]);
+
+  const handleAudio = useCallback(async () => {
+    if (audio.isRecording) {
+      await audio.stop();
+      return;
+    }
+    if (!session) return;
+
+    const failure = await audio.start(session.id);
+    if (!failure) return;
+
+    if (failure === 'no-permission') {
+      Alert.alert(
+        t('pages.protest_mode.microphone_denied_title'),
+        t('pages.protest_mode.microphone_denied_message'),
+        [
+          { text: t('messages.cancel'), style: 'cancel' },
+          { text: t('messages.open_settings'), onPress: () => Linking.openSettings() },
+        ],
+      );
+      return;
+    }
+    Alert.alert(t('messages.an_error_occurred'));
+  }, [audio, session, t]);
 
   const handleStop = useCallback(() => {
     // Says nothing about unsent data, and must not: stopping is not
@@ -262,17 +293,37 @@ const ProtestModeScreen = () => {
                 style={{ alignSelf: 'stretch', alignItems: 'center', gap: theme.spaces.xs }}
               >
                 <ElapsedTime sinceMs={startedAtMs} color={colors.foreground} />
-                {/* One badge per stream; audio lands beside this one. */}
-                {pendingPositions > 0 ? (
+                {pendingPositions > 0 || pendingAudio > 0 ? (
                   <View style={{ flexDirection: 'row', gap: theme.spaces.md }}>
-                    <PendingBadge
-                      icon={LocateFixed}
-                      count={pendingPositions}
-                      label={t('pages.protest_mode.sessions.pending', {
-                        count: pendingPositions,
-                      })}
-                    />
+                    {pendingPositions > 0 ? (
+                      <PendingBadge
+                        icon={LocateFixed}
+                        count={pendingPositions}
+                        label={t('pages.protest_mode.sessions.pending', {
+                          count: pendingPositions,
+                        })}
+                      />
+                    ) : null}
+                    {pendingAudio > 0 ? (
+                      <PendingBadge
+                        icon={Mic}
+                        count={pendingAudio}
+                        label={t('pages.protest_mode.sessions.pending', { count: pendingAudio })}
+                      />
+                    ) : null}
                   </View>
+                ) : null}
+                {audio.isRecording && audio.startedAtMs !== null ? (
+                  <Animated.View
+                    entering={reducedMotion ? undefined : FadeInUp.duration(260)}
+                    exiting={reducedMotion ? undefined : FadeOutUp.duration(180)}
+                    style={{ alignSelf: 'stretch', alignItems: 'center', gap: theme.spaces.xs }}
+                  >
+                    <Waveform />
+                    <Text textColor="muted" style={{ fontVariant: ['tabular-nums'] }}>
+                      {t('pages.protest_mode.audio_running')}
+                    </Text>
+                  </Animated.View>
                 ) : null}
               </Animated.View>
             ) : null}
@@ -320,22 +371,34 @@ const ProtestModeScreen = () => {
           </Animated.View>
         </LayoutAnimationConfig>
 
-        <View style={{ flexDirection: 'row', gap: theme.spaces.md }}>
-          <StreamTile
-            icon={LocateFixed}
-            label={t('pages.protest_mode.gps_recording')}
-            enabled={gpsEnabled}
-            available
-            onPress={() => setGpsEnabled(!gpsEnabled)}
-          />
-          <StreamTile
-            icon={Mic}
-            label={t('pages.protest_mode.audio_recording')}
-            hint={t('pages.protest_mode.coming_soon')}
-            enabled={false}
-            available={false}
-          />
-        </View>
+        {/* Says it rather than recording nothing in silence: with GPS off and
+            no tool started, an open session captures nothing at all. */}
+        {isActive && !gpsEnabled ? (
+          <Text textColor="muted" style={{ textAlign: 'center' }}>
+            {t('pages.protest_mode.gps_off_hint')}
+          </Text>
+        ) : null}
+
+        {/* Only while a session is open: these record *into* one, and a row
+            of dead buttons invites tapping them first. */}
+        {isActive ? (
+          <View style={{ flexDirection: 'row', gap: theme.spaces.md }}>
+            <ToolButton
+              icon={Mic}
+              label={t('pages.protest_mode.audio_recording')}
+              enabled={audio.isRecording}
+              available
+              onPress={handleAudio}
+            />
+            <ToolButton
+              icon={Video}
+              label={t('pages.protest_mode.video_recording')}
+              hint={t('pages.protest_mode.coming_soon')}
+              enabled={false}
+              available={false}
+            />
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );

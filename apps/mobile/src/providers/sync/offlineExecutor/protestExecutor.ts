@@ -8,7 +8,12 @@ import { throwForFailedResponse } from './classifyError';
 import { database } from '../../../lib/watermelon/database';
 import { ProtestSession } from '../../../lib/watermelon/models/ProtestSession';
 import { ProtestPosition } from '../../../lib/watermelon/models/ProtestPosition';
-import { PROTEST_POSITION_TABLE, PROTEST_SESSION_TABLE } from '../../../lib/watermelon/schema';
+import { ProtestAudioChunk } from '../../../lib/watermelon/models/ProtestAudioChunk';
+import {
+  PROTEST_AUDIO_CHUNK_TABLE,
+  PROTEST_POSITION_TABLE,
+  PROTEST_SESSION_TABLE,
+} from '../../../lib/watermelon/schema';
 import { encryptBlob, openSessionKey } from '../../../lib/protestMode/crypto';
 import { getProtestSessionKey } from '../../../lib/protestMode/keyStore';
 import { logger } from '../../../logger';
@@ -45,8 +50,15 @@ export interface PushPositionBatchMetadata extends ProtestPushBase {
   positionIds: string[];
 }
 
+export interface PushAudioChunkMetadata extends ProtestPushBase {
+  blobId: string;
+  seq: number;
+  chunkId: string;
+}
+
 const sessions = () => database.get<ProtestSession>(PROTEST_SESSION_TABLE);
 const positions = () => database.get<ProtestPosition>(PROTEST_POSITION_TABLE);
+const audioChunks = () => database.get<ProtestAudioChunk>(PROTEST_AUDIO_CHUNK_TABLE);
 
 /**
  * Create-or-get, called by *both* mutation functions: nothing orders two
@@ -135,6 +147,61 @@ const resolveSessionKey = async ({
 }: ProtestPushBase): Promise<Uint8Array> =>
   (await getProtestSessionKey(userId, sessionId)) ?? openSessionKey(userId, sealedKey);
 
+/**
+ * Uploads one blob's ciphertext.
+ *
+ * Staged to a file because a `Uint8Array` cannot become a multipart part
+ * directly: RN's `Blob` constructor throws on typed arrays
+ * (`Libraries/Blob/BlobManager.js`). The part must then be the
+ * `expo-file-system` `File` instance itself - a `{ uri, name, type }` object,
+ * which RN's FormData docs show, does not go through this generated client.
+ */
+const uploadCiphertext = async (
+  meta: { sessionId: string; blobId: string; seq: number },
+  kind: 'position_batch' | 'audio_chunk',
+  ciphertext: Uint8Array,
+): Promise<void> => {
+  const staged = new File(Paths.cache, `protest-${meta.blobId}.bin`);
+  try {
+    staged.create({ overwrite: true, intermediates: true });
+    // `write` is async, unlike `create` and `delete`. Not awaiting it uploads
+    // a file that isn't on disk yet, which surfaces as a bare "network error".
+    await staged.write(ciphertext);
+
+    // Before the request: a missing file makes the native layer fail with no
+    // response at all, which also reads as "network error".
+    if (!staged.exists) {
+      throw new Error(`staged blob was not written to disk: ${staged.uri}`);
+    }
+
+    const form = new FormData();
+    form.append('kind', kind);
+    form.append('seq', String(meta.seq));
+    form.append('file', staged as unknown as Blob);
+
+    const { error, response } = await uploadBlob({
+      path: { protest_session_id: meta.sessionId, blob_id: meta.blobId },
+      // Multipart isn't representable in the generated types - same escape
+      // hatch as the avatar upload.
+      body: form as never,
+      bodySerializer: (value) => value,
+    });
+    if (error) {
+      describeFailure('uploadBlob', meta.sessionId, error, response);
+      throwForFailedResponse(response?.status, `protest ${kind}`);
+    }
+  } finally {
+    // Ciphertext in the cache is still someone's recording.
+    try {
+      // Guarded: the upload can consume the file, and `delete` throws on a
+      // missing path.
+      if (staged.exists) staged.delete();
+    } catch (cleanupError) {
+      logger.error('protest: failed to clean up a staged blob', { cleanupError });
+    }
+  }
+};
+
 export const protestExecutor = startOfflineExecutor({
   collections: { protestMutationMarkers },
   // A namespace of its own: `clear()` calls `mmkv.clearAll()`, so sharing one
@@ -213,54 +280,7 @@ export const protestExecutor = startOfflineExecutor({
         ),
       );
       const ciphertext = encryptBlob(sessionKey, payload);
-
-      // Staged to a file because a `Uint8Array` cannot become a multipart
-      // part directly: RN's `Blob` constructor throws on typed arrays
-      // (`Libraries/Blob/BlobManager.js`). The part must then be the
-      // `expo-file-system` `File` instance itself - a `{ uri, name, type }`
-      // object, which RN's FormData docs show, does not go through this
-      // generated client. Keeps the bytes raw either way.
-      const staged = new File(Paths.cache, `protest-${meta.blobId}.bin`);
-      try {
-        staged.create({ overwrite: true, intermediates: true });
-        // `write` is async, unlike `create` and `delete`. Not awaiting it
-        // uploads a file that isn't on disk yet, which surfaces as a bare
-        // "network error".
-        await staged.write(ciphertext);
-
-        // Before the request: a missing file makes the native layer fail with
-        // no response at all, which also reads as "network error".
-        if (!staged.exists) {
-          throw new Error(`staged blob was not written to disk: ${staged.uri}`);
-        }
-
-        const form = new FormData();
-        form.append('kind', 'position_batch');
-        form.append('seq', String(meta.seq));
-        // The `File` instance itself - see the staging comment above.
-        form.append('file', staged as unknown as Blob);
-
-        const { error, response } = await uploadBlob({
-          path: { protest_session_id: meta.sessionId, blob_id: meta.blobId },
-          // Multipart isn't representable in the generated types - same
-          // escape hatch as the avatar upload.
-          body: form as never,
-          bodySerializer: (value) => value,
-        });
-        if (error) {
-          describeFailure('uploadBlob', meta.sessionId, error, response);
-          throwForFailedResponse(response?.status, 'protest position batch');
-        }
-      } finally {
-        // Ciphertext in the cache is still someone's trajectory.
-        try {
-          // Guarded: the upload can consume the file, and `delete` throws on
-          // a missing path.
-          if (staged.exists) staged.delete();
-        } catch (cleanupError) {
-          logger.error('protest: failed to clean up a staged blob', { cleanupError });
-        }
-      }
+      await uploadCiphertext(meta, 'position_batch', ciphertext);
 
       protestMutationMarkers.utils.acceptMutations(transaction);
 
@@ -277,6 +297,60 @@ export const protestExecutor = startOfflineExecutor({
         sessionId: meta.sessionId,
         blobId: meta.blobId,
         points: rows.length,
+      });
+    },
+
+    pushAudioChunk: async ({ transaction }) => {
+      const meta = transaction.metadata as unknown as PushAudioChunkMetadata;
+      logger.debug('protest: pushAudioChunk called', {
+        sessionId: meta.sessionId,
+        blobId: meta.blobId,
+      });
+
+      await ensureServerSession(meta);
+
+      const row = await audioChunks()
+        .find(meta.chunkId)
+        .catch(() => null);
+      if (!row || row.synced) {
+        // An earlier attempt landed, or the row was cleaned up.
+        protestMutationMarkers.utils.acceptMutations(transaction);
+        return;
+      }
+
+      // Already ciphertext on disk - sealed when the recorder closed the
+      // segment, not here, so a seized phone holds no plaintext audio for
+      // whatever is still queued. The executor only moves bytes, and unlike
+      // the position path it needs no session key at all.
+      const chunk = new File(row.uri);
+      if (!chunk.exists) {
+        logger.error('protest: an audio chunk is gone from disk, dropping it', {
+          chunkId: meta.chunkId,
+          uri: row.uri,
+        });
+        protestMutationMarkers.utils.acceptMutations(transaction);
+        await database.write(() => row.destroyPermanently());
+        return;
+      }
+
+      await uploadCiphertext(meta, 'audio_chunk', await chunk.bytes());
+
+      protestMutationMarkers.utils.acceptMutations(transaction);
+
+      await database.write(() =>
+        row.update((r) => {
+          r.synced = true;
+        }),
+      );
+      // Only now: until the blob is durably stored this file is the only copy.
+      try {
+        if (chunk.exists) chunk.delete();
+      } catch (cleanupError) {
+        logger.error('protest: failed to delete an uploaded audio chunk', { cleanupError });
+      }
+      logger.debug('protest: audio chunk marked synced', {
+        sessionId: meta.sessionId,
+        blobId: meta.blobId,
       });
     },
   },

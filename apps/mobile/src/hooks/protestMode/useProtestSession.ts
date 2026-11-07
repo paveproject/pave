@@ -6,6 +6,7 @@ import { useObservable } from '../useObservable';
 import {
   endActiveSession,
   observeActiveSession,
+  observeUnsyncedAudioCount,
   observeUnsyncedPositionCount,
   startSession,
 } from '../../lib/watermelon/protestSessions';
@@ -16,6 +17,7 @@ import {
 } from '../../lib/protestMode/locationTask';
 import type { ProtestSession } from '../../lib/watermelon/models/ProtestSession';
 import { MissingDekError } from '../../lib/protestMode/crypto';
+import { useProtestAudio } from '../../providers/ProtestAudioProvider';
 import { logger } from '../../logger';
 
 export type StartFailure =
@@ -43,15 +45,18 @@ export const useProtestSession = () => {
   const { user } = useAuth();
   const userId = user?.id;
   const { backgroundLocation } = usePermissions();
+  const audio = useProtestAudio();
   const { gpsEnabled, gpsIntervalSeconds, cloudSyncIntervalSeconds } = useProtestSettingsStore();
 
   const getActive = useCallback(() => observeActiveSession(), []);
   const activeSessions = useObservable<ProtestSession[]>(getActive, []);
   const session = activeSessions[0] ?? null;
 
-  // Per stream: the UI reports them separately, and audio adds its own.
+  // Per stream: the UI reports them separately.
   const getPendingPositions = useCallback(() => observeUnsyncedPositionCount(), []);
   const pendingPositions = useObservable<number>(getPendingPositions, 0);
+  const getPendingAudio = useCallback(() => observeUnsyncedAudioCount(), []);
+  const pendingAudio = useObservable<number>(getPendingAudio, 0);
 
   const [isBusy, setIsBusy] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -100,8 +105,9 @@ export const useProtestSession = () => {
     if (!userId) return false;
     setIsBusy(true);
     try {
-      // Detached first, and it flushes on the way out, so the tail is queued
-      // before the session is marked closed.
+      // Both detached first, and each flushes its tail on the way out, so
+      // everything is queued before the session is marked closed.
+      await audio.stop();
       await stopLocationRecording();
       setRecording(false);
       await endActiveSession(userId);
@@ -112,7 +118,7 @@ export const useProtestSession = () => {
     } finally {
       setIsBusy(false);
     }
-  }, [userId]);
+  }, [userId, audio]);
 
   /** Re-arms a running session on a settings change: the new GPS interval
    * would otherwise do nothing until the next session. */
@@ -137,7 +143,16 @@ export const useProtestSession = () => {
   }, [session, gpsEnabled]);
 
   return useMemo(
-    () => ({ session, isActive: !!session, recording, pendingPositions, isBusy, start, stop }),
-    [session, recording, pendingPositions, isBusy, start, stop],
+    () => ({
+      session,
+      isActive: !!session,
+      recording,
+      pendingPositions,
+      pendingAudio,
+      isBusy,
+      start,
+      stop,
+    }),
+    [session, recording, pendingPositions, pendingAudio, isBusy, start, stop],
   );
 };

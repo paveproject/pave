@@ -1,5 +1,6 @@
 import {
   schemaMigrations,
+  addColumns,
   createTable,
   unsafeExecuteSql,
 } from '@nozbe/watermelondb/Schema/migrations';
@@ -74,6 +75,35 @@ export const watermelonMigrations = schemaMigrations({
             { name: 'recorded_at', type: 'number' },
             { name: 'synced', type: 'boolean' },
           ],
+        }),
+      ],
+    },
+    {
+      toVersion: 5,
+      steps: [
+        createTable({
+          name: 'protest_audio_chunk_rows',
+          columns: [
+            { name: 'session_id', type: 'string', isIndexed: true },
+            { name: 'seq', type: 'number' },
+            { name: 'uri', type: 'string' },
+            { name: 'started_at', type: 'number' },
+            { name: 'duration_ms', type: 'number' },
+            { name: 'synced', type: 'boolean' },
+          ],
+        }),
+      ],
+    },
+    {
+      // `blob_id` could not be folded into the v5 step above: devices had
+      // already run it, and a migration never re-applies - they ended up with
+      // the table and without the column, which only showed up as a SQLite
+      // error at the first recording. Its own version, as it should have been.
+      toVersion: 6,
+      steps: [
+        addColumns({
+          table: 'protest_audio_chunk_rows',
+          columns: [{ name: 'blob_id', type: 'string' }],
         }),
       ],
     },

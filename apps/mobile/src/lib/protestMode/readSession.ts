@@ -3,7 +3,13 @@ import { getSession, listSessions } from '@libs/api-js';
 import type { ProtestSessionResponse } from '@libs/api-js';
 import { API_ENDPOINT } from '../../env/common';
 import { getSessionToken } from '../auth/session';
-import { decryptBlob, openMetadata, openSessionKey, openSessionKeyWithDek } from './crypto';
+import {
+  decryptBlob,
+  openMetadata,
+  openSessionKey,
+  openSessionKeyWithDek,
+  parseAudioChunk,
+} from './crypto';
 import { logger } from '../../logger';
 
 /** What a `position_batch` blob holds, as written by `protestExecutor`. */
@@ -37,11 +43,22 @@ export interface ProtestDataSource {
   dek: Uint8Array;
 }
 
+/** One decrypted audio segment, written to a local file so a player can take
+ * a uri. The caller owns the file and should delete it when done. */
+export interface ReadAudioChunk {
+  startedAt: Date;
+  durationMs: number;
+  /** Silence lost while the recorder rotated, before this segment. */
+  gapBeforeMs: number;
+  uri: string;
+}
+
 export interface ReadSession {
   id: string;
   startedAt: Date;
   endedAt: Date | null;
   positions: ReadPosition[];
+  audio: ReadAudioChunk[];
 }
 
 /**
@@ -99,12 +116,10 @@ const openSession = async (
     : await openSessionKey(userId, row.sealedKey);
   const envelope = openMetadata<StoredEnvelope>(sessionKey, row.metadata);
 
-  const batches = row.blobs
-    .filter((blob) => blob.kind === 'position_batch')
-    .sort((a, b) => a.seq - b.seq);
+  const ordered = [...row.blobs].sort((a, b) => a.seq - b.seq);
 
   const positions: ReadPosition[] = [];
-  for (const blob of batches) {
+  for (const blob of ordered.filter((entry) => entry.kind === 'position_batch')) {
     const ciphertext = await fetchBlobBytes(row.id, blob.id, token);
     const plaintext = JSON.parse(
       new TextDecoder().decode(decryptBlob(sessionKey, ciphertext)),
@@ -119,6 +134,26 @@ const openSession = async (
     }
   }
 
+  const audio: ReadAudioChunk[] = [];
+  for (const blob of ordered.filter((entry) => entry.kind === 'audio_chunk')) {
+    const ciphertext = await fetchBlobBytes(row.id, blob.id, token);
+    const { header, media } = parseAudioChunk(decryptBlob(sessionKey, ciphertext));
+
+    // Written out rather than returned as bytes: a player takes a uri, and
+    // holding every segment of an hour-long recording in memory would not
+    // survive the session it is meant to read.
+    const decoded = new File(Paths.cache, `protest-audio-${blob.id}.m4a`);
+    decoded.create({ overwrite: true, intermediates: true });
+    await decoded.write(media);
+
+    audio.push({
+      startedAt: new Date(header.startedAtMs),
+      durationMs: header.durationMs,
+      gapBeforeMs: header.gapBeforeMs,
+      uri: decoded.uri,
+    });
+  }
+
   // By time, not by `seq`: a batch is ordered, but two batches queued
   // concurrently can interleave.
   positions.sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime());
@@ -128,6 +163,7 @@ const openSession = async (
     startedAt: new Date(envelope.startedAt),
     endedAt: envelope.endedAt ? new Date(envelope.endedAt) : null,
     positions,
+    audio,
   };
 };
 

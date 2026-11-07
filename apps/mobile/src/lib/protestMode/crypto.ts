@@ -127,3 +127,56 @@ export const openMetadata = <T>(sessionKey: Uint8Array, sealedHex: string): T =>
       ),
     ),
   ) as T;
+
+/**
+ * An audio chunk's plaintext: a JSON header, then the raw media bytes.
+ *
+ * Audio needs its timing to travel *inside* the encryption, the way a
+ * position carries its own `recordedAt` - the server deliberately keeps no
+ * timestamp on a blob (see `protestSession.ts`). Hence one framed payload
+ * rather than a column: `[4-byte big-endian header length][header][media]`.
+ *
+ * A chunk is a segment of a longer recording, so `startedAtMs` is what places
+ * it on the timeline and `gapBeforeMs` is what admits the silence lost while
+ * the recorder rotated. An export that hides those gaps would be claiming a
+ * continuous recording it does not have.
+ */
+export interface AudioChunkHeader {
+  startedAtMs: number;
+  durationMs: number;
+  /** As the OS wrote it - `audio/m4a` on both platforms today. */
+  mimeType: string;
+  gapBeforeMs: number;
+}
+
+const HEADER_LENGTH_BYTES = 4;
+
+export const frameAudioChunk = (header: AudioChunkHeader, media: Uint8Array): Uint8Array => {
+  const headerBytes = new TextEncoder().encode(JSON.stringify(header));
+  const framed = new Uint8Array(HEADER_LENGTH_BYTES + headerBytes.length + media.length);
+  new DataView(framed.buffer).setUint32(0, headerBytes.length, false);
+  framed.set(headerBytes, HEADER_LENGTH_BYTES);
+  framed.set(media, HEADER_LENGTH_BYTES + headerBytes.length);
+  return framed;
+};
+
+export const parseAudioChunk = (
+  framed: Uint8Array,
+): { header: AudioChunkHeader; media: Uint8Array } => {
+  if (framed.length < HEADER_LENGTH_BYTES) throw new Error('audio chunk is too short to be framed');
+  const headerLength = new DataView(framed.buffer, framed.byteOffset, framed.byteLength).getUint32(
+    0,
+    false,
+  );
+  const mediaStart = HEADER_LENGTH_BYTES + headerLength;
+  if (mediaStart > framed.length) throw new Error('audio chunk header length is out of bounds');
+
+  return {
+    header: JSON.parse(
+      new TextDecoder().decode(framed.subarray(HEADER_LENGTH_BYTES, mediaStart)),
+    ) as AudioChunkHeader,
+    // A copy, not a view: callers hand this to the file layer, and a view
+    // keeps the whole framed buffer (header and all) alive behind it.
+    media: framed.slice(mediaStart),
+  };
+};

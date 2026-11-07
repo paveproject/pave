@@ -5,6 +5,7 @@ export const REPORT_TABLE = 'reports';
  * v3 and a residual SQLite file could still hold them. */
 export const PROTEST_SESSION_TABLE = 'protest_session_rows';
 export const PROTEST_POSITION_TABLE = 'protest_position_rows';
+export const PROTEST_AUDIO_CHUNK_TABLE = 'protest_audio_chunk_rows';
 
 /**
  * Local-only outbox for map reports (see `models/Report.ts`) - not a
@@ -24,7 +25,7 @@ export const PROTEST_POSITION_TABLE = 'protest_position_rows';
  * so it lives in SecureStore and only its sealed form reaches a row.
  */
 export const watermelonSchema = appSchema({
-  version: 4,
+  version: 6,
   tables: [
     tableSchema({
       name: REPORT_TABLE,
@@ -45,6 +46,24 @@ export const watermelonSchema = appSchema({
         { name: 'ended_at', type: 'number', isOptional: true },
         { name: 'sealed_key', type: 'string' },
         { name: 'next_seq', type: 'number' },
+        { name: 'synced', type: 'boolean' },
+      ],
+    }),
+    tableSchema({
+      name: PROTEST_AUDIO_CHUNK_TABLE,
+      columns: [
+        { name: 'session_id', type: 'string', isIndexed: true },
+        { name: 'seq', type: 'number' },
+        // Minted with the row, not per upload attempt: `(session, seq)` is
+        // unique server-side, so a replay that mints a fresh id would collide
+        // with its own first attempt and fail for good.
+        { name: 'blob_id', type: 'string' },
+        // Points at *ciphertext*: a chunk is encrypted the moment the
+        // recorder closes it, so a seized phone holds no plaintext audio for
+        // whatever is still waiting to upload.
+        { name: 'uri', type: 'string' },
+        { name: 'started_at', type: 'number' },
+        { name: 'duration_ms', type: 'number' },
         { name: 'synced', type: 'boolean' },
       ],
     }),
