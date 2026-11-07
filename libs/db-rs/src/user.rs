@@ -15,6 +15,11 @@ pub struct Model {
     pub protest_mode_enabled: bool,
     pub recovery_delay_seconds: i32,
     pub recovery_delay_protest_seconds: i32,
+    /// Veto window when a trusted contact asks to read this account's
+    /// recordings. Its own column on purpose - the two above shorten during
+    /// protest mode, which is backwards for a request coming from a third
+    /// party.
+    pub data_access_delay_seconds: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

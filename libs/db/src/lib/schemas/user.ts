@@ -40,6 +40,13 @@ export const user = pgTable(
     // delay silently changes the moment this column exists.
     recoveryDelaySeconds: integer('recovery_delay_seconds').notNull().default(86400),
     recoveryDelayProtestSeconds: integer('recovery_delay_protest_seconds').notNull().default(3600),
+    /**
+     * Veto window when a *trusted contact* asks to read this account's
+     * recordings. Its own column because the two above *shorten* during
+     * protest mode - right for an owner recovering their own account,
+     * backwards here, where protest mode is when coercion is likeliest.
+     */
+    dataAccessDelaySeconds: integer('data_access_delay_seconds').notNull().default(86400),
   },
   (table) => [
     check(
@@ -55,6 +62,10 @@ export const user = pgTable(
       'check_user_recovery_delay_minimums',
       sql`${table.recoveryDelaySeconds} >= 3600 AND ${table.recoveryDelayProtestSeconds} >= 900`,
     ),
+    // Floored an hour higher than the recovery delay: this window is the
+    // owner's only chance to refuse a third party, and unlike a recovery it is
+    // not them who started the clock.
+    check('check_user_data_access_delay_minimum', sql`${table.dataAccessDelaySeconds} >= 7200`),
   ],
 );
 

@@ -8,6 +8,8 @@
 
 pub mod prelude;
 
+pub mod data_access_request;
+pub mod data_access_request_contact;
 pub mod device;
 pub mod protest_blob;
 pub mod protest_session;

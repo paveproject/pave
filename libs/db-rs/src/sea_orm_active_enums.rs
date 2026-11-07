@@ -138,3 +138,45 @@ pub enum VersionReleaseStateEnum {
     #[sea_orm(string_value = "live")]
     Live,
 }
+
+// Hand-added (same reasoning as the enums above): mirrors Postgres
+// `data_access_request_status_enum` (see
+// libs/db/src/lib/schemas/dataAccessRequest.ts).
+//
+// No `granted`: whether a request currently opens anything depends on the
+// clock and on the approval count, and nothing runs on a timer to write that
+// down. It is derived - see `data_access_requests::handlers`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "Enum",
+    db_type = "Enum",
+    enum_name = "data_access_request_status_enum"
+)]
+pub enum DataAccessRequestStatusEnum {
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "refused")]
+    Refused,
+    #[sea_orm(string_value = "failed")]
+    Failed,
+    #[sea_orm(string_value = "cancelled")]
+    Cancelled,
+    #[sea_orm(string_value = "expired")]
+    Expired,
+}
+
+// Hand-added: mirrors Postgres `data_access_request_contact_status_enum`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "Enum",
+    db_type = "Enum",
+    enum_name = "data_access_request_contact_status_enum"
+)]
+pub enum DataAccessRequestContactStatusEnum {
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "approved")]
+    Approved,
+    #[sea_orm(string_value = "declined")]
+    Declined,
+}

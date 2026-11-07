@@ -260,6 +260,27 @@
       "when": 1793348615994,
       "tag": "0036_futuristic_lyja",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794008405490,
+      "tag": "0037_lowly_chronomancer",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794045420918,
+      "tag": "0038_soft_centennial",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1794051604159,
+      "tag": "0039_remarkable_jackal",
+      "breakpoints": true
     }
   ]
 }
