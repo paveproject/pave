@@ -1,5 +1,5 @@
-import { claimSeq, recordAudioChunk } from './protestSessions';
-import { PROTEST_AUDIO_CHUNK_TABLE, PROTEST_SESSION_TABLE } from './schema';
+import { claimSeq, recordMediaChunk } from './protestSessions';
+import { PROTEST_MEDIA_CHUNK_TABLE, PROTEST_SESSION_TABLE } from './schema';
 import type { ProtestSession } from './models/ProtestSession';
 
 interface FakeRow {
@@ -89,7 +89,7 @@ jest.mock('../protestMode/keyStore', () => ({
   getProtestSessionKey: async () => new Uint8Array(32),
   setProtestSessionKey: async () => undefined,
 }));
-jest.mock('../protestMode/protestAudio', () => ({ sweepOrphanedChunks: async () => undefined }));
+jest.mock('../protestMode/protestMedia', () => ({ sweepOrphanedChunks: async () => undefined }));
 // `virtual`: the workspace alias isn't on jest's resolver path, and these
 // tests never reach the network anyway.
 jest.mock(
@@ -129,7 +129,7 @@ const seedSession = (nextSeq = 0) => {
   return session as unknown as ProtestSession;
 };
 
-const chunkRows = () => db.__rows.get(PROTEST_AUDIO_CHUNK_TABLE) ?? [];
+const chunkRows = () => db.__rows.get(PROTEST_MEDIA_CHUNK_TABLE) ?? [];
 
 beforeEach(() => {
   db.__reset();
@@ -158,10 +158,11 @@ describe('claimSeq', () => {
   });
 });
 
-describe('recordAudioChunk', () => {
+describe('recordMediaChunk', () => {
   const chunk = {
     userId: 'user-1',
     sessionId: 'session-1',
+    kind: 'audio' as const,
     ciphertextUri: 'file:///sealed-1.bin',
     startedAt: new Date(1_700_000_000_000),
     durationMs: 60_000,
@@ -173,7 +174,7 @@ describe('recordAudioChunk', () => {
     // may already have landed, and that 409 is permanent.
     seedSession();
 
-    await recordAudioChunk(chunk);
+    await recordMediaChunk(chunk);
 
     const [row] = chunkRows();
     expect(executor.__enqueued).toHaveLength(1);
@@ -185,7 +186,7 @@ describe('recordAudioChunk', () => {
   it('writes the chunk unsynced, pointing at the sealed file', async () => {
     seedSession();
 
-    await recordAudioChunk(chunk);
+    await recordMediaChunk(chunk);
 
     const [row] = chunkRows();
     expect(row.uri).toBe(chunk.ciphertextUri);
@@ -198,7 +199,7 @@ describe('recordAudioChunk', () => {
   it('gives two chunks of one session distinct sequence numbers', async () => {
     seedSession();
 
-    await Promise.all([recordAudioChunk(chunk), recordAudioChunk(chunk)]);
+    await Promise.all([recordMediaChunk(chunk), recordMediaChunk(chunk)]);
 
     expect(new Set(chunkRows().map((row) => row.seq)).size).toBe(2);
   });

@@ -4,11 +4,28 @@ import { database } from '../../lib/watermelon/database';
 import { PROTEST_SESSION_TABLE } from '../../lib/watermelon/schema';
 import { observePositions } from '../../lib/watermelon/protestSessions';
 import { useRemoteProtestSession } from './useRemoteProtestSession';
+import { useLocalProtestMedia } from './useLocalProtestMedia';
 import type { ProtestSession } from '../../lib/watermelon/models/ProtestSession';
 import type { ProtestPosition } from '../../lib/watermelon/models/ProtestPosition';
-import type { ProtestDataSource, ReadAudioChunk } from '../../lib/protestMode/readSession';
+import type {
+  ProtestDataSource,
+  ReadAudioChunk,
+  ReadVideoChunk,
+} from '../../lib/protestMode/readSession';
 import type { TracePoint } from '../../screens/protestMode/components/ProtestTraceMap';
 import { logger } from '../../logger';
+
+/** Server first, so an uploaded chunk wins over a stale local file. */
+const mergeChunks = <T extends { blobId: string; startedAt: Date }>(
+  remote: T[],
+  local: T[],
+): T[] => {
+  const byBlob = new Map(remote.map((chunk) => [chunk.blobId, chunk]));
+  for (const chunk of local) {
+    if (!byBlob.has(chunk.blobId)) byBlob.set(chunk.blobId, chunk);
+  }
+  return [...byBlob.values()].sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
+};
 
 /** The local database has nothing to say about someone else's recording. */
 const NEVER_OBSERVABLE: Subscribable<ProtestPosition[]> = {
@@ -72,11 +89,25 @@ export const useSessionTrace = (id: string | undefined, source?: ProtestDataSour
     }));
   }, [local, remote]);
 
-  const audio: ReadAudioChunk[] = remote?.audio ?? [];
+  // A union, not "local wins" like the positions above: a chunk is on disk
+  // only until its blob lands, so the two sides describe *different* chunks
+  // rather than two copies of the same recording. Deduped on `blobId` all the
+  // same, for the window where an upload succeeded but deleting the file
+  // afterwards did not.
+  const localMedia = useLocalProtestMedia(id, source);
+  const audio: ReadAudioChunk[] = useMemo(
+    () => mergeChunks(remote?.audio ?? [], localMedia.audio),
+    [remote, localMedia.audio],
+  );
+  const video: ReadVideoChunk[] = useMemo(
+    () => mergeChunks(remote?.video ?? [], localMedia.video),
+    [remote, localMedia.video],
+  );
 
   return {
     points,
     audio,
+    video,
     startedAt: session?.startedAt ?? remote?.startedAt,
     endedAt: session?.endedAt ?? remote?.endedAt ?? null,
     syncedCount: points.filter((point) => point.synced).length,

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."protest_blob_kind_enum" ADD VALUE 'video_chunk';

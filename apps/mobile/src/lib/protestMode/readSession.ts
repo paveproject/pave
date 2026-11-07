@@ -8,7 +8,7 @@ import {
   openMetadata,
   openSessionKey,
   openSessionKeyWithDek,
-  parseAudioChunk,
+  parseMediaChunk,
 } from './crypto';
 import { logger } from '../../logger';
 
@@ -46,11 +46,26 @@ export interface ProtestDataSource {
 /** One decrypted audio segment, written to a local file so a player can take
  * a uri. The caller owns the file and should delete it when done. */
 export interface ReadAudioChunk {
+  /** The blob's id, minted on the device that recorded it - which makes it the
+   * identity a local chunk and its uploaded copy share. */
+  blobId: string;
   startedAt: Date;
   durationMs: number;
   /** Silence lost while the recorder rotated, before this segment. */
   gapBeforeMs: number;
   uri: string;
+  /** False while the blob is still only on the device that recorded it. */
+  synced: boolean;
+}
+
+/** One decrypted video clip, written to a local file so a player can take a
+ * uri. The caller owns the file and should delete it when done. */
+export interface ReadVideoChunk {
+  blobId: string;
+  startedAt: Date;
+  durationMs: number;
+  uri: string;
+  synced: boolean;
 }
 
 export interface ReadSession {
@@ -59,6 +74,7 @@ export interface ReadSession {
   endedAt: Date | null;
   positions: ReadPosition[];
   audio: ReadAudioChunk[];
+  video: ReadVideoChunk[];
 }
 
 /**
@@ -137,7 +153,7 @@ const openSession = async (
   const audio: ReadAudioChunk[] = [];
   for (const blob of ordered.filter((entry) => entry.kind === 'audio_chunk')) {
     const ciphertext = await fetchBlobBytes(row.id, blob.id, token);
-    const { header, media } = parseAudioChunk(decryptBlob(sessionKey, ciphertext));
+    const { header, media } = parseMediaChunk(decryptBlob(sessionKey, ciphertext));
 
     // Written out rather than returned as bytes: a player takes a uri, and
     // holding every segment of an hour-long recording in memory would not
@@ -147,10 +163,30 @@ const openSession = async (
     await decoded.write(media);
 
     audio.push({
+      blobId: blob.id,
       startedAt: new Date(header.startedAtMs),
       durationMs: header.durationMs,
-      gapBeforeMs: header.gapBeforeMs,
+      gapBeforeMs: header.gapBeforeMs ?? 0,
       uri: decoded.uri,
+      synced: true,
+    });
+  }
+
+  const video: ReadVideoChunk[] = [];
+  for (const blob of ordered.filter((entry) => entry.kind === 'video_chunk')) {
+    const ciphertext = await fetchBlobBytes(row.id, blob.id, token);
+    const { header, media } = parseMediaChunk(decryptBlob(sessionKey, ciphertext));
+
+    const decoded = new File(Paths.cache, `protest-video-${blob.id}.mp4`);
+    decoded.create({ overwrite: true, intermediates: true });
+    await decoded.write(media);
+
+    video.push({
+      blobId: blob.id,
+      startedAt: new Date(header.startedAtMs),
+      durationMs: header.durationMs,
+      uri: decoded.uri,
+      synced: true,
     });
   }
 
@@ -164,6 +200,7 @@ const openSession = async (
     endedAt: envelope.endedAt ? new Date(envelope.endedAt) : null,
     positions,
     audio,
+    video,
   };
 };
 

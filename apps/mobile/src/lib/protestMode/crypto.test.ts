@@ -2,16 +2,16 @@ import {
   MissingDekError,
   decryptBlob,
   encryptBlob,
-  frameAudioChunk,
+  frameMediaChunk,
   mintSessionKey,
-  parseAudioChunk,
+  parseMediaChunk,
   openMetadata,
   openSessionKey,
   resealSessionKeys,
   sealMetadata,
   sealSessionKey,
 } from './crypto';
-import type { AudioChunkHeader } from './crypto';
+import type { MediaChunkHeader } from './crypto';
 import { getDek } from '../recoveryKey/storage';
 
 jest.mock('../recoveryKey/storage', () => ({ getDek: jest.fn() }));
@@ -175,7 +175,7 @@ describe('DEK rotation', () => {
 });
 
 describe('audio chunk framing', () => {
-  const header: AudioChunkHeader = {
+  const header: MediaChunkHeader = {
     startedAtMs: 1762000000000,
     durationMs: 60_000,
     mimeType: 'audio/m4a',
@@ -186,7 +186,7 @@ describe('audio chunk framing', () => {
   const media = Uint8Array.from([0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0xff, 0xfe]);
 
   it('round-trips the header and the media bytes', () => {
-    const { header: parsed, media: bytes } = parseAudioChunk(frameAudioChunk(header, media));
+    const { header: parsed, media: bytes } = parseMediaChunk(frameMediaChunk(header, media));
 
     expect(parsed).toEqual(header);
     expect(bytes).toEqual(media);
@@ -194,9 +194,9 @@ describe('audio chunk framing', () => {
 
   it('survives the encryption it actually travels through', () => {
     const sessionKey = mintSessionKey();
-    const framed = frameAudioChunk(header, media);
+    const framed = frameMediaChunk(header, media);
 
-    const { header: parsed, media: bytes } = parseAudioChunk(
+    const { header: parsed, media: bytes } = parseMediaChunk(
       decryptBlob(sessionKey, encryptBlob(sessionKey, framed)),
     );
 
@@ -207,7 +207,7 @@ describe('audio chunk framing', () => {
   it('keeps media bytes that look like a header length', () => {
     // The first four media bytes are themselves a plausible length. Reading
     // the frame by offset rather than by scanning is what makes this work.
-    const { media: bytes } = parseAudioChunk(frameAudioChunk(header, media));
+    const { media: bytes } = parseMediaChunk(frameMediaChunk(header, media));
 
     expect(bytes.subarray(0, 4)).toEqual(media.subarray(0, 4));
   });
@@ -215,20 +215,20 @@ describe('audio chunk framing', () => {
   it('hands back a copy, not a view on the framed buffer', () => {
     // A view would keep the whole frame alive behind every chunk the reader
     // holds - an hour of audio instead of the media it asked for.
-    const { media: bytes } = parseAudioChunk(frameAudioChunk(header, media));
+    const { media: bytes } = parseMediaChunk(frameMediaChunk(header, media));
 
     expect(bytes.byteOffset).toBe(0);
     expect(bytes.buffer.byteLength).toBe(media.length);
   });
 
   it('refuses a frame whose header length runs past the end', () => {
-    const framed = frameAudioChunk(header, media);
+    const framed = frameMediaChunk(header, media);
     new DataView(framed.buffer).setUint32(0, 0xffff, false);
 
-    expect(() => parseAudioChunk(framed)).toThrow('out of bounds');
+    expect(() => parseMediaChunk(framed)).toThrow('out of bounds');
   });
 
   it('refuses a frame too short to hold a length', () => {
-    expect(() => parseAudioChunk(new Uint8Array([1, 2]))).toThrow('too short');
+    expect(() => parseMediaChunk(new Uint8Array([1, 2]))).toThrow('too short');
   });
 });

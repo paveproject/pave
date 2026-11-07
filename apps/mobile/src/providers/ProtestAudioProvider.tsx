@@ -9,9 +9,9 @@ import type { RecordingOptions } from 'expo-audio';
 import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import { useAuth } from './AuthProvider';
 import { useProtestSettingsStore } from '../stores/useProtestSettingsStore';
-import { claimSegmentFile, sealChunk } from '../lib/protestMode/protestAudio';
+import { claimSegmentFile, sealChunk } from '../lib/protestMode/protestMedia';
 import { setPlaybackAudioMode, setRecordingAudioMode } from '../lib/protestMode/audioMode';
-import { recordAudioChunk } from '../lib/watermelon/protestSessions';
+import { recordMediaChunk } from '../lib/watermelon/protestSessions';
 import { logger } from '../logger';
 
 /**
@@ -130,7 +130,7 @@ export const ProtestAudioProvider = ({ children }: { children: React.ReactNode }
 
       // Claimed before the next segment is prepared: the recorder may reuse
       // its own path, and sealing happens after the restart.
-      const claimed = recorded ? claimSegmentFile(recorded, sessionId) : null;
+      const claimed = recorded ? claimSegmentFile(recorded, sessionId, 'audio') : null;
 
       if (!final) {
         await recorder.prepareToRecordAsync();
@@ -145,6 +145,7 @@ export const ProtestAudioProvider = ({ children }: { children: React.ReactNode }
       }
 
       const sealed = await sealChunk({
+        kind: 'audio',
         userId,
         sessionId,
         sourceUri: claimed,
@@ -153,7 +154,7 @@ export const ProtestAudioProvider = ({ children }: { children: React.ReactNode }
         gapBeforeMs: gapRef.current,
         mimeType: MIME_TYPE,
       });
-      await recordAudioChunk({ userId, sessionId, ...sealed });
+      await recordMediaChunk({ userId, sessionId, kind: 'audio', ...sealed });
     },
     [recorder, userId],
   );

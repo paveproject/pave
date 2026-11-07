@@ -8,9 +8,12 @@ import { throwForFailedResponse } from './classifyError';
 import { database } from '../../../lib/watermelon/database';
 import { ProtestSession } from '../../../lib/watermelon/models/ProtestSession';
 import { ProtestPosition } from '../../../lib/watermelon/models/ProtestPosition';
-import { ProtestAudioChunk } from '../../../lib/watermelon/models/ProtestAudioChunk';
 import {
-  PROTEST_AUDIO_CHUNK_TABLE,
+  ProtestMediaChunk,
+  type MediaChunkKind,
+} from '../../../lib/watermelon/models/ProtestMediaChunk';
+import {
+  PROTEST_MEDIA_CHUNK_TABLE,
   PROTEST_POSITION_TABLE,
   PROTEST_SESSION_TABLE,
 } from '../../../lib/watermelon/schema';
@@ -50,15 +53,16 @@ export interface PushPositionBatchMetadata extends ProtestPushBase {
   positionIds: string[];
 }
 
-export interface PushAudioChunkMetadata extends ProtestPushBase {
+export interface PushMediaChunkMetadata extends ProtestPushBase {
   blobId: string;
+  kind: MediaChunkKind;
   seq: number;
   chunkId: string;
 }
 
 const sessions = () => database.get<ProtestSession>(PROTEST_SESSION_TABLE);
 const positions = () => database.get<ProtestPosition>(PROTEST_POSITION_TABLE);
-const audioChunks = () => database.get<ProtestAudioChunk>(PROTEST_AUDIO_CHUNK_TABLE);
+const audioChunks = () => database.get<ProtestMediaChunk>(PROTEST_MEDIA_CHUNK_TABLE);
 
 /**
  * Create-or-get, called by *both* mutation functions: nothing orders two
@@ -158,7 +162,7 @@ const resolveSessionKey = async ({
  */
 const uploadCiphertext = async (
   meta: { sessionId: string; blobId: string; seq: number },
-  kind: 'position_batch' | 'audio_chunk',
+  kind: 'position_batch' | 'audio_chunk' | 'video_chunk',
   ciphertext: Uint8Array,
 ): Promise<void> => {
   const staged = new File(Paths.cache, `protest-${meta.blobId}.bin`);
@@ -300,9 +304,9 @@ export const protestExecutor = startOfflineExecutor({
       });
     },
 
-    pushAudioChunk: async ({ transaction }) => {
-      const meta = transaction.metadata as unknown as PushAudioChunkMetadata;
-      logger.debug('protest: pushAudioChunk called', {
+    pushMediaChunk: async ({ transaction }) => {
+      const meta = transaction.metadata as unknown as PushMediaChunkMetadata;
+      logger.debug('protest: pushMediaChunk called', {
         sessionId: meta.sessionId,
         blobId: meta.blobId,
       });
@@ -319,12 +323,12 @@ export const protestExecutor = startOfflineExecutor({
       }
 
       // Already ciphertext on disk - sealed when the recorder closed the
-      // segment, not here, so a seized phone holds no plaintext audio for
+      // file, not here, so a seized phone holds no plaintext media for
       // whatever is still queued. The executor only moves bytes, and unlike
       // the position path it needs no session key at all.
       const chunk = new File(row.uri);
       if (!chunk.exists) {
-        logger.error('protest: an audio chunk is gone from disk, dropping it', {
+        logger.error('protest: a media chunk is gone from disk, dropping it', {
           chunkId: meta.chunkId,
           uri: row.uri,
         });
@@ -333,7 +337,11 @@ export const protestExecutor = startOfflineExecutor({
         return;
       }
 
-      await uploadCiphertext(meta, 'audio_chunk', await chunk.bytes());
+      await uploadCiphertext(
+        meta,
+        meta.kind === 'video' ? 'video_chunk' : 'audio_chunk',
+        await chunk.bytes(),
+      );
 
       protestMutationMarkers.utils.acceptMutations(transaction);
 
@@ -346,9 +354,9 @@ export const protestExecutor = startOfflineExecutor({
       try {
         if (chunk.exists) chunk.delete();
       } catch (cleanupError) {
-        logger.error('protest: failed to delete an uploaded audio chunk', { cleanupError });
+        logger.error('protest: failed to delete an uploaded media chunk', { cleanupError });
       }
-      logger.debug('protest: audio chunk marked synced', {
+      logger.debug('protest: media chunk marked synced', {
         sessionId: meta.sessionId,
         blobId: meta.blobId,
       });

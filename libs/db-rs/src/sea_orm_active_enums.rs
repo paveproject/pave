@@ -37,6 +37,8 @@ pub enum ProtestBlobKindEnum {
     PositionBatch,
     #[sea_orm(string_value = "audio_chunk")]
     AudioChunk,
+    #[sea_orm(string_value = "video_chunk")]
+    VideoChunk,
 }
 
 // Hand-added (not sea-orm-codegen output, same reasoning as the enums

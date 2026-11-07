@@ -29,7 +29,7 @@ pub struct ProtestSessionEndRequest {
 #[serde(rename_all = "camelCase")]
 pub struct ProtestBlobResponse {
     pub id: String,
-    /// `position_batch` or `audio_chunk`.
+    /// `position_batch`, `audio_chunk` or `video_chunk`.
     pub kind: String,
     pub size: i32,
     /// Position within the session: the only ordering available, there being

@@ -52,6 +52,7 @@ fn kind_label(kind: &ProtestBlobKindEnum) -> &'static str {
     match kind {
         ProtestBlobKindEnum::PositionBatch => "position_batch",
         ProtestBlobKindEnum::AudioChunk => "audio_chunk",
+        ProtestBlobKindEnum::VideoChunk => "video_chunk",
     }
 }
 
@@ -59,6 +60,7 @@ fn parse_kind(raw: &str) -> Option<ProtestBlobKindEnum> {
     match raw {
         "position_batch" => Some(ProtestBlobKindEnum::PositionBatch),
         "audio_chunk" => Some(ProtestBlobKindEnum::AudioChunk),
+        "video_chunk" => Some(ProtestBlobKindEnum::VideoChunk),
         _ => None,
     }
 }

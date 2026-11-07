@@ -4,12 +4,12 @@ import { listSessions, endSession } from '@libs/api-js';
 import { database } from './database';
 import { ProtestSession } from './models/ProtestSession';
 import { ProtestPosition } from './models/ProtestPosition';
-import { ProtestAudioChunk } from './models/ProtestAudioChunk';
-import { PROTEST_AUDIO_CHUNK_TABLE, PROTEST_POSITION_TABLE, PROTEST_SESSION_TABLE } from './schema';
+import { ProtestMediaChunk, type MediaChunkKind } from './models/ProtestMediaChunk';
+import { PROTEST_MEDIA_CHUNK_TABLE, PROTEST_POSITION_TABLE, PROTEST_SESSION_TABLE } from './schema';
 import {
   protestExecutor,
   protestMutationMarkers,
-  type PushAudioChunkMetadata,
+  type PushMediaChunkMetadata,
   type PushPositionBatchMetadata,
   type PushSessionMetadata,
 } from '../../providers/sync/offlineExecutor/protestExecutor';
@@ -23,7 +23,7 @@ import {
 } from '../protestMode/crypto';
 import { getProtestSessionKey, setProtestSessionKey } from '../protestMode/keyStore';
 import { File } from 'expo-file-system';
-import { sweepOrphanedChunks } from '../protestMode/protestAudio';
+import { sweepOrphanedChunks } from '../protestMode/protestMedia';
 import { logger } from '../../logger';
 
 /**
@@ -35,7 +35,7 @@ import { logger } from '../../logger';
 
 const sessions = () => database.get<ProtestSession>(PROTEST_SESSION_TABLE);
 const positions = () => database.get<ProtestPosition>(PROTEST_POSITION_TABLE);
-const audioChunks = () => database.get<ProtestAudioChunk>(PROTEST_AUDIO_CHUNK_TABLE);
+const audioChunks = () => database.get<ProtestMediaChunk>(PROTEST_MEDIA_CHUNK_TABLE);
 
 /** Contents of the session's encrypted `metadata` column. */
 interface SessionEnvelope {
@@ -198,18 +198,19 @@ export const recordPosition = async (params: {
 };
 
 /**
- * Takes one already-encrypted audio segment and queues it.
+ * Takes one already-encrypted segment or clip and queues it.
  *
- * The caller seals the bytes (see `protestAudio.ts`) and hands over a path -
+ * The caller seals the bytes (see `protestMedia.ts`) and hands over a path -
  * this only writes the row and the outbox entry, in that order, so a crash
  * between the two is recoverable by `reconcileUnsyncedProtestData`.
  *
  * `nextSeq` is shared with the position batches: `seq` is unique per session
  * on the server, whatever the blob holds.
  */
-export const recordAudioChunk = async (params: {
+export const recordMediaChunk = async (params: {
   userId: string;
   sessionId: string;
+  kind: MediaChunkKind;
   ciphertextUri: string;
   startedAt: Date;
   durationMs: number;
@@ -224,6 +225,7 @@ export const recordAudioChunk = async (params: {
     audioChunks().create((c) => {
       c.sessionId = params.sessionId;
       c.seq = seq;
+      c.kind = params.kind;
       c.blobId = blobId;
       c.uri = params.ciphertextUri;
       c.startedAt = params.startedAt;
@@ -232,9 +234,10 @@ export const recordAudioChunk = async (params: {
     }),
   );
 
-  await enqueueAudioChunkPush({
+  await enqueueMediaChunkPush({
     userId: params.userId,
     sessionId: params.sessionId,
+    kind: params.kind,
     sealedKey: session.sealedKey,
     metadata: await sealEnvelope(params.userId, session, session.endedAt),
     blobId,
@@ -290,9 +293,9 @@ const logLine = (status: 'syncing' | 'idle' | 'error', message: string) =>
 /** See `reports.ts`'s `enqueuePush` for why `autoCommit: false`, a real
  * `.mutate()` body and an un-awaited `commit()` are all load-bearing. */
 const enqueue = async (
-  mutationFnName: 'pushSession' | 'pushPositionBatch' | 'pushAudioChunk',
+  mutationFnName: 'pushSession' | 'pushPositionBatch' | 'pushMediaChunk',
   idempotencyKey: string,
-  metadata: PushSessionMetadata | PushPositionBatchMetadata | PushAudioChunkMetadata,
+  metadata: PushSessionMetadata | PushPositionBatchMetadata | PushMediaChunkMetadata,
   label: string,
 ): Promise<void> => {
   await protestExecutor.waitForInit();
@@ -355,8 +358,13 @@ const enqueueBatchPush = (metadata: PushPositionBatchMetadata): Promise<void> =>
     `batch ${metadata.blobId.slice(0, 8)}… (${metadata.positionIds.length} points)`,
   );
 
-const enqueueAudioChunkPush = (metadata: PushAudioChunkMetadata): Promise<void> =>
-  enqueue('pushAudioChunk', metadata.blobId, metadata, `audio ${metadata.blobId.slice(0, 8)}…`);
+const enqueueMediaChunkPush = (metadata: PushMediaChunkMetadata): Promise<void> =>
+  enqueue(
+    'pushMediaChunk',
+    metadata.blobId,
+    metadata,
+    `${metadata.kind} ${metadata.blobId.slice(0, 8)}…`,
+  );
 
 /**
  * Re-seals every session key under the DEK currently in storage, and pushes
@@ -452,9 +460,11 @@ export const reconcileUnsyncedProtestData = async (userId: string): Promise<void
     if (!session) continue;
     // The row's own ids, never fresh ones: re-uploading the same blob at the
     // same seq is idempotent, a new blob at that seq is a permanent 409.
-    await enqueueAudioChunkPush({
+    await enqueueMediaChunkPush({
       userId,
       sessionId: chunk.sessionId,
+      // Null before schema v7, when the table only ever held audio.
+      kind: chunk.kind ?? 'audio',
       sealedKey: session.sealedKey,
       metadata: await sealEnvelope(userId, session, session.endedAt),
       blobId: chunk.blobId,
@@ -520,7 +530,7 @@ export const clearLocalProtestData = async (): Promise<void> => {
       const file = new File(chunk.uri);
       if (file.exists) file.delete();
     } catch (error) {
-      logger.error('protest: failed to delete an audio chunk file', { error });
+      logger.error('protest: failed to delete a media chunk file', { error });
     }
   }
 

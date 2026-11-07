@@ -107,5 +107,18 @@ export const watermelonMigrations = schemaMigrations({
         }),
       ],
     },
+    {
+      // Video joined the table rather than getting one of its own: a video
+      // chunk row is the same shape, and the sweep, the reconcile, the
+      // unsynced count and the logout wipe all work on both unchanged.
+      // Existing rows keep a null `kind`, read as `audio`.
+      toVersion: 7,
+      steps: [
+        addColumns({
+          table: 'protest_audio_chunk_rows',
+          columns: [{ name: 'kind', type: 'string', isOptional: true }],
+        }),
+      ],
+    },
   ],
 });

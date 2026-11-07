@@ -57,6 +57,7 @@ export const protestSession = pgTable(
 export const protestBlobKindEnum = pgEnum('protest_blob_kind_enum', [
   'position_batch',
   'audio_chunk',
+  'video_chunk',
 ]);
 
 export const protestBlob = pgTable(

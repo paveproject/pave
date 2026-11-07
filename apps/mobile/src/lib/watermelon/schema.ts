@@ -5,7 +5,9 @@ export const REPORT_TABLE = 'reports';
  * v3 and a residual SQLite file could still hold them. */
 export const PROTEST_SESSION_TABLE = 'protest_session_rows';
 export const PROTEST_POSITION_TABLE = 'protest_position_rows';
-export const PROTEST_AUDIO_CHUNK_TABLE = 'protest_audio_chunk_rows';
+/** The SQLite name is historical: the table held only audio until video
+ * joined it in v7, and WatermelonDB migrations cannot rename a table. */
+export const PROTEST_MEDIA_CHUNK_TABLE = 'protest_audio_chunk_rows';
 
 /**
  * Local-only outbox for map reports (see `models/Report.ts`) - not a
@@ -25,7 +27,7 @@ export const PROTEST_AUDIO_CHUNK_TABLE = 'protest_audio_chunk_rows';
  * so it lives in SecureStore and only its sealed form reaches a row.
  */
 export const watermelonSchema = appSchema({
-  version: 6,
+  version: 7,
   tables: [
     tableSchema({
       name: REPORT_TABLE,
@@ -50,10 +52,13 @@ export const watermelonSchema = appSchema({
       ],
     }),
     tableSchema({
-      name: PROTEST_AUDIO_CHUNK_TABLE,
+      name: PROTEST_MEDIA_CHUNK_TABLE,
       columns: [
         { name: 'session_id', type: 'string', isIndexed: true },
         { name: 'seq', type: 'number' },
+        // Null on rows written before v7, which is why every reader treats a
+        // missing value as `audio`.
+        { name: 'kind', type: 'string', isOptional: true },
         // Minted with the row, not per upload attempt: `(session, seq)` is
         // unique server-side, so a replay that mints a fresh id would collide
         // with its own first attempt and fail for good.
