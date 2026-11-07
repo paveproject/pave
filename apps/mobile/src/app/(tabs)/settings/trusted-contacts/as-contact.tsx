@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { AnimatedLegendList } from '@legendapp/list/reanimated';
@@ -30,7 +30,15 @@ interface Row {
   readonly reviewActionId: string | undefined;
 }
 
-const TrustedByRowItem = ({ row, onReview }: { row: Row; onReview: (id: string) => void }) => {
+const TrustedByRowItem = ({
+  row,
+  onReview,
+  onOpen,
+}: {
+  row: Row;
+  onReview: (id: string) => void;
+  onOpen: (trustedContactId: string) => void;
+}) => {
   const { contact: item, reviewActionId } = row;
   const t = useTranslations();
   const format = useFormatter();
@@ -38,7 +46,8 @@ const TrustedByRowItem = ({ row, onReview }: { row: Row; onReview: (id: string) 
   const insets = useSafeAreaInsets();
 
   return (
-    <View
+    <Pressable
+      onPress={() => onOpen(item.id)}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -63,7 +72,7 @@ const TrustedByRowItem = ({ row, onReview }: { row: Row; onReview: (id: string) 
           {format.dateTime(new Date(item.createdAt), { dateStyle: 'medium' })}
         </Text>
       )}
-    </View>
+    </Pressable>
   );
 };
 
@@ -111,6 +120,16 @@ const TrustedByScreen = () => {
     [router],
   );
 
+  const handleOpen = useCallback(
+    (trustedContactId: string) => {
+      router.push({
+        pathname: '/trusted-contact/[id]',
+        params: { id: trustedContactId },
+      });
+    },
+    [router],
+  );
+
   const padding = {
     paddingTop: theme.spaces.vertical,
     paddingLeft: insets.left + theme.spaces.horizontal,
@@ -119,8 +138,10 @@ const TrustedByScreen = () => {
   };
 
   const renderItem = useCallback(
-    ({ item }: { item: Row }) => <TrustedByRowItem row={item} onReview={handleReview} />,
-    [handleReview],
+    ({ item }: { item: Row }) => (
+      <TrustedByRowItem row={item} onReview={handleReview} onOpen={handleOpen} />
+    ),
+    [handleReview, handleOpen],
   );
 
   if (isPending) {

@@ -10,6 +10,8 @@ const ROUTE_BY_KIND = {
   device_registration: 'validation/device/[id]',
   recovery_request_contact: 'validation/recovery-request/[id]',
   own_device_registration: 'validation/own-device/[id]',
+  data_access_request_contact: 'validation/data-access/as-contact/[id]',
+  data_access_request_owner: 'validation/data-access/as-owner/[id]',
 } as const;
 
 /**
@@ -55,6 +57,16 @@ export const usePendingActionsGate = (): AppGate => {
       router.push({ pathname: '/validation/device/[id]', params: { id: current.id } });
     } else if (current.kind === 'recovery_request_contact') {
       router.push({ pathname: '/validation/recovery-request/[id]', params: { id: current.id } });
+    } else if (current.kind === 'data_access_request_contact') {
+      router.push({
+        pathname: '/validation/data-access/as-contact/[id]',
+        params: { id: current.id },
+      });
+    } else if (current.kind === 'data_access_request_owner') {
+      router.push({
+        pathname: '/validation/data-access/as-owner/[id]',
+        params: { id: current.id },
+      });
     } else {
       router.push({ pathname: '/validation/own-device/[id]', params: { id: current.id } });
     }

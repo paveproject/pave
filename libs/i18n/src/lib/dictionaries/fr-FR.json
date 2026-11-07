@@ -92,7 +92,9 @@
     "camera_access_needed_to_scan_code": "L'accès à la caméra est nécessaire pour scanner un code.",
     "grant_camera_access": "Autoriser la caméra",
     "my_contacts": "Mes contacts",
-    "trusts_me": "Me font confiance"
+    "trusts_me": "Me font confiance",
+    "trusted_contact": "Contact de confiance",
+    "protest_sessions": "Sessions de manifestation"
   },
   "pages": {
     "onboarding": {
@@ -177,6 +179,23 @@
           "wrong_phrase": "Cette phrase ne correspond pas à ce compte.",
           "continue": "Récupérer l'accès"
         }
+      },
+      "data_access_request": {
+        "title": "Demande d’accès",
+        "requester": "Demande",
+        "owner": {
+          "title": "{requesterName} demande à lire vos enregistrements",
+          "waiting_body": "{approved} de vos autres contacts de confiance sur {required} ont approuvé. Si vous ne faites rien, {requesterName} pourra lire vos enregistrements de manifestation à partir du {releaseAt}.",
+          "open_body": "{requesterName} peut lire vos enregistrements de manifestation jusqu’au {expiresAt}. Refuser referme l’accès immédiatement.",
+          "refuse": "Refuser",
+          "refuse_confirm_title": "Refuser la demande ?",
+          "refuse_confirm_message": "{requesterName} ne pourra pas lire vos enregistrements. Faites-le si vous n’attendiez pas cette demande.",
+          "sheet_title": "Demande sur vos enregistrements",
+          "dismiss_hint": "Fermer ne change rien — la demande suit son cours. Vous pourrez encore refuser depuis Réglages › Récupération."
+        },
+        "body": "{requesterName} demande à lire les enregistrements de manifestation de {ownerName} — en général parce qu’il est injoignable. Approuver libère la part que vous détenez, et une majorité des autres contacts de {ownerName} doit faire de même. {ownerName} peut encore refuser pendant un délai.",
+        "approve_confirm_title": "Libérer votre part ?",
+        "approve_confirm_message": "Cela remet à {requesterName} un morceau de ce qui déverrouille les enregistrements de {ownerName}. Ne le faites que si vous êtes sûr que {ownerName} le voudrait."
       }
     },
     "settings": {
@@ -241,6 +260,31 @@
         "gps_interval_description": "Plus souvent est plus précis et consomme plus de batterie. Une manif dure des heures.",
         "sync_interval": "Envoyer toutes les",
         "sync_interval_description": "Ce qu'un téléphone qu'on vous prend pourrait encore détenir, au maximum."
+      },
+      "trusted_contact": {
+        "since": "Contact de confiance depuis le {date}",
+        "access": {
+          "request": "Demander l’accès à ses enregistrements",
+          "request_body": "Si {ownerName} ne peut plus accéder à ses propres enregistrements — en garde à vue, ou son téléphone disparu — vous pouvez demander à les lire. Une majorité des autres contacts de {ownerName} doit approuver, et {ownerName} peut refuser pendant un délai.",
+          "request_confirm_title": "Demander l’accès ?",
+          "request_confirm_message": "{ownerName} en sera averti immédiatement, ainsi que ses autres contacts de confiance. Ne demandez que s’il ne peut vraiment pas le faire lui-même.",
+          "waiting": "En attente des autres contacts",
+          "waiting_body": "Même avec assez d’approbations, {ownerName} peut refuser jusqu’au {releaseAt}.",
+          "progress": "{approved} approbations sur {required}",
+          "lone_contact": "Vous êtes le seul autre contact de {ownerName}, personne n’a donc à approuver — il ne reste que le délai jusqu’au {releaseAt}.",
+          "cancel": "Annuler la demande",
+          "cancel_confirm_title": "Annuler la demande ?",
+          "cancel_confirm_message": "Elle disparaît de l’écran de tout le monde. Vous pourrez redemander plus tard.",
+          "open_until": "Accès ouvert jusqu’au {expiresAt}",
+          "not_open": "L’accès n’est pas ouvert",
+          "combine_failed": "L’accès est ouvert, mais aucune clé pour ces enregistrements n’est arrivée sur cet appareil.",
+          "closed": {
+            "refused": "{ownerName} a refusé votre dernière demande.",
+            "failed": "Trop peu des autres contacts de {ownerName} ont approuvé votre dernière demande.",
+            "expired": "Votre dernière fenêtre d’accès est fermée.",
+            "cancelled": "Vous avez annulé votre dernière demande."
+          }
+        }
       }
     },
     "map": {

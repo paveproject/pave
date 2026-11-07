@@ -92,7 +92,9 @@
     "camera_access_needed_to_scan_code": "Camera access is needed to scan a code.",
     "grant_camera_access": "Grant camera access",
     "my_contacts": "My contacts",
-    "trusts_me": "Trusts me"
+    "trusts_me": "Trusts me",
+    "trusted_contact": "Trusted contact",
+    "protest_sessions": "Protest sessions"
   },
   "pages": {
     "onboarding": {
@@ -177,6 +179,23 @@
           "wrong_phrase": "That phrase doesn't match this account.",
           "continue": "Recover access"
         }
+      },
+      "data_access_request": {
+        "title": "Access request",
+        "requester": "Asking",
+        "owner": {
+          "title": "{requesterName} is asking to read your recordings",
+          "waiting_body": "{approved} of {required} of your other trusted contacts have approved. If you do nothing, {requesterName} can read your protest recordings from {releaseAt}.",
+          "open_body": "{requesterName} can read your protest recordings until {expiresAt}. Refusing closes that now.",
+          "refuse": "Refuse",
+          "refuse_confirm_title": "Refuse the request?",
+          "refuse_confirm_message": "{requesterName} will not be able to read your recordings. Do this if you did not expect the request.",
+          "sheet_title": "Request on your recordings",
+          "dismiss_hint": "Closing this changes nothing - the request carries on. You can still refuse later from Settings › Recovery."
+        },
+        "body": "{requesterName} is asking to read {ownerName}'s protest recordings - usually because they can't be reached. Approving releases the share you hold, and a majority of {ownerName}'s other contacts has to do the same. {ownerName} can still refuse during a waiting period.",
+        "approve_confirm_title": "Release your share?",
+        "approve_confirm_message": "This hands {requesterName} a piece of what unlocks {ownerName}'s recordings. Only do it if you are sure {ownerName} would want it."
       }
     },
     "settings": {
@@ -241,6 +260,31 @@
         "gps_interval_description": "More often is more precise and uses more battery. A protest lasts hours.",
         "sync_interval": "Send every",
         "sync_interval_description": "The most recording a phone taken from you could still be holding."
+      },
+      "trusted_contact": {
+        "since": "Trusted contact since {date}",
+        "access": {
+          "request": "Request access to their recordings",
+          "request_body": "If {ownerName} can no longer get at their own recordings - detained, or their phone gone - you can ask to read them. A majority of {ownerName}'s other contacts has to approve, and {ownerName} can refuse during a waiting period.",
+          "request_confirm_title": "Ask for access?",
+          "request_confirm_message": "{ownerName} will be told immediately, and so will their other trusted contacts. Only ask if they really cannot do it themselves.",
+          "waiting": "Waiting for the other contacts",
+          "waiting_body": "Even with enough approvals, {ownerName} can refuse until {releaseAt}.",
+          "progress": "{approved} of {required} approvals",
+          "lone_contact": "You are {ownerName}'s only other contact, so nobody has to approve - the waiting period until {releaseAt} is the only thing left.",
+          "cancel": "Withdraw the request",
+          "cancel_confirm_title": "Withdraw the request?",
+          "cancel_confirm_message": "It disappears from everyone's screen. You can ask again later.",
+          "open_until": "Access open until {expiresAt}",
+          "not_open": "Access is not open",
+          "combine_failed": "Access is open, but no key for these recordings reached this device.",
+          "closed": {
+            "refused": "{ownerName} refused your last request.",
+            "failed": "Too few of {ownerName}'s other contacts approved your last request.",
+            "expired": "Your last access window has closed.",
+            "cancelled": "You withdrew your last request."
+          }
+        }
       }
     },
     "map": {

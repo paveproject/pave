@@ -22,6 +22,7 @@ import {
 } from '@libs/query-client';
 import type { MePendingAction } from '@libs/api-js';
 import { RecoveryProgressSection } from './components/RecoveryProgressSection';
+import { DataAccessRequestSection } from './components/DataAccessRequestSection';
 import { getIdentityPublicKeyHex } from '../../lib/recoveryKey';
 import { useDeviceId } from '../../hooks/useDeviceId';
 import { DURATION_OPTIONS_SECONDS, useDurationLabel } from '../../hooks/useDurationLabel';
@@ -227,6 +228,10 @@ const SettingsRecovery = () => {
           </Picker>
         </Row>
       </FieldGroup.Section>
+
+      {/* First, before this screen's own device/recovery business: it is the
+          owner's only chance to refuse, and it is time-bounded. */}
+      <DataAccessRequestSection />
 
       {ownPending ? (
         isRecovering && recoveryRequest ? (

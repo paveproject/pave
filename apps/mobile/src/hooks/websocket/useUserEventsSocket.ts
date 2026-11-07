@@ -8,6 +8,9 @@ import {
   userTrustedContactOfOptions,
   userTrustedContactInviteOptions,
   userTrustedContactsOptions,
+  dataAccessRequestKeys,
+  upsertMyDataAccessRequest,
+  userKeys,
 } from '@libs/query-client';
 import type {
   MeDevicesResponse,
@@ -247,6 +250,52 @@ export const useUserEventsSocket = (enabled: boolean) => {
             );
           } else if (message.event === 'recovery_request_cancelled') {
             removePendingAction(queryClient, 'recovery_request_contact', message.id);
+          } else if (message.event === 'data_access_requested') {
+            // Written in rather than invalidated: the veto window is already
+            // running. The pending action is what pops the sheet.
+            queryClient.setQueryData(userKeys.dataAccessRequestCurrent({ userId }), message);
+            upsertPendingAction(queryClient, {
+              kind: 'data_access_request_owner',
+              ...message,
+            });
+          } else if (message.event === 'data_access_request_asked') {
+            upsertPendingAction(queryClient, {
+              kind: 'data_access_request_contact',
+              ...message,
+            });
+          } else if (message.event === 'data_access_request_updated') {
+            // Both parties get this, and each keeps it somewhere different -
+            // only the by-id cache is common to them.
+            queryClient.setQueryData(
+              dataAccessRequestKeys.details({ dataAccessRequestId: message.id }),
+              message,
+            );
+            if (message.owner.id === userId) {
+              queryClient.setQueryData(userKeys.dataAccessRequestCurrent({ userId }), message);
+              // Keeps the open sheet's "N of M approved" honest.
+              upsertPendingAction(queryClient, {
+                kind: 'data_access_request_owner',
+                ...message,
+              });
+            }
+            if (message.requester.id === userId) {
+              upsertMyDataAccessRequest(queryClient, message);
+            }
+          } else if (message.event === 'data_access_request_closed') {
+            queryClient.setQueryData(
+              dataAccessRequestKeys.details({ dataAccessRequestId: message.id }),
+              message,
+            );
+            if (message.owner.id === userId) {
+              queryClient.setQueryData(userKeys.dataAccessRequestCurrent({ userId }), null);
+            }
+            // The requester keeps the closed row: a missing one reads as if
+            // they had never asked, and "refused" is what they must see.
+            if (message.requester.id === userId) {
+              upsertMyDataAccessRequest(queryClient, message);
+            }
+            removePendingAction(queryClient, 'data_access_request_contact', message.id);
+            removePendingAction(queryClient, 'data_access_request_owner', message.id);
           }
         } catch {
           // Malformed frame - ignore rather than crash the socket loop.

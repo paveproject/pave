@@ -1,6 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../providers/AuthProvider';
-import { readRemoteSessions, type ReadSession } from '../../lib/protestMode/readSession';
+import {
+  readRemoteSessions,
+  type ProtestDataSource,
+  type ReadSession,
+} from '../../lib/protestMode/readSession';
 
 /**
  * Recordings read back from the server and decrypted on this device.
@@ -17,17 +21,21 @@ import { readRemoteSessions, type ReadSession } from '../../lib/protestMode/read
 export const remoteProtestSessionsKey = (userId: string | undefined) =>
   ['protest-mode', 'remote-sessions', userId ?? ''] as const;
 
-export const useRemoteProtestSessions = (): {
+/** `source` reads someone else's recordings. Their id is part of the query
+ * key, so the two never share a cache entry. */
+export const useRemoteProtestSessions = (
+  source?: ProtestDataSource,
+): {
   sessions: ReadSession[];
   isLoading: boolean;
   failed: boolean;
 } => {
   const { user } = useAuth();
-  const userId = user?.id;
+  const userId = source?.ownerUserId ?? user?.id;
 
   const { data, isLoading, isError } = useQuery({
     queryKey: remoteProtestSessionsKey(userId),
-    queryFn: () => readRemoteSessions(userId!),
+    queryFn: () => readRemoteSessions(userId!, source?.dek),
     enabled: !!userId,
     // Decrypting every blob is not free, and recordings don't change behind
     // the app's back - only this device appends to them.

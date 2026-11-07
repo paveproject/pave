@@ -1,6 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../providers/AuthProvider';
-import { readRemoteSession, type ReadSession } from '../../lib/protestMode/readSession';
+import {
+  readRemoteSession,
+  type ProtestDataSource,
+  type ReadSession,
+} from '../../lib/protestMode/readSession';
 import { remoteProtestSessionsKey } from './useRemoteProtestSessions';
 
 /**
@@ -13,13 +17,14 @@ import { remoteProtestSessionsKey } from './useRemoteProtestSessions';
  */
 export const useRemoteProtestSession = (
   sessionId: string | undefined,
+  source?: ProtestDataSource,
 ): { session: ReadSession | null; isLoading: boolean } => {
   const { user } = useAuth();
-  const userId = user?.id;
+  const userId = source?.ownerUserId ?? user?.id;
 
   const { data, isLoading } = useQuery({
     queryKey: [...remoteProtestSessionsKey(userId), sessionId ?? ''],
-    queryFn: () => readRemoteSession(userId!, sessionId!),
+    queryFn: () => readRemoteSession(userId!, sessionId!, source?.dek),
     enabled: !!userId && !!sessionId,
     staleTime: 5 * 60 * 1000,
   });

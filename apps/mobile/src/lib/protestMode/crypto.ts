@@ -71,6 +71,14 @@ export const sealSessionKey = async (userId: string, sessionKey: Uint8Array): Pr
 export const openSessionKey = async (userId: string, sealedHex: string): Promise<Uint8Array> =>
   openHex(await deriveFromDek(userId, SESSION_KEY_HKDF_INFO), sealedHex);
 
+/**
+ * Same, with the DEK handed in rather than read from this device's store. For
+ * a trusted contact: the DEK they reconstruct belongs to the *owner*, so it
+ * stays in memory and never reaches storage under the reader's own id.
+ */
+export const openSessionKeyWithDek = (dek: Uint8Array, sealedHex: string): Uint8Array =>
+  openHex(hkdf(sha256, dek, undefined, SESSION_KEY_HKDF_INFO, KEY_LENGTH), sealedHex);
+
 /** Call *after* a rotation is committed, passing the previous DEK: the keys
  * have to be opened with the old one before being sealed with the new. */
 export const resealSessionKeys = async (

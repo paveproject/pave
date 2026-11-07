@@ -5,11 +5,12 @@ import { useLocalSearchParams } from 'expo-router';
 import { useFormatter, useTranslations } from 'use-intl';
 import { useTheme } from '../../providers/ThemeProvider';
 import { MAPTILER_API_KEY } from '../../env/common';
-import { useObservable } from '../../hooks/useObservable';
+import { useObservable, type Subscribable } from '../../hooks/useObservable';
 import { database } from '../../lib/watermelon/database';
 import { PROTEST_SESSION_TABLE } from '../../lib/watermelon/schema';
 import { observePositions } from '../../lib/watermelon/protestSessions';
 import { useRemoteProtestSession } from '../../hooks/protestMode/useRemoteProtestSession';
+import type { ProtestDataSource } from '../../lib/protestMode/readSession';
 import type { ProtestSession } from '../../lib/watermelon/models/ProtestSession';
 import type { ProtestPosition } from '../../lib/watermelon/models/ProtestPosition';
 import { View } from '../../components/ui/view';
@@ -148,15 +149,31 @@ const TraceMap = ({ positions }: { positions: TracePoint[] }) => {
   );
 };
 
-const ProtestSessionDetailScreen = () => {
-  const { id } = useLocalSearchParams<{ id: string }>();
+interface ProtestSessionDetailScreenProps {
+  /** Overrides the route param, for a caller whose segment isn't named `id`. */
+  sessionId?: string;
+  /** Whose recording, when not the signed-in user's. */
+  source?: ProtestDataSource;
+}
+
+/** The local database has nothing to say about someone else's recording. */
+const NEVER_OBSERVABLE: Subscribable<ProtestPosition[]> = {
+  subscribe: () => ({ unsubscribe: () => undefined }),
+};
+
+const ProtestSessionDetailScreen = ({
+  sessionId,
+  source,
+}: ProtestSessionDetailScreenProps = {}) => {
+  const params = useLocalSearchParams<{ id?: string }>();
+  const id = sessionId ?? params.id;
   const t = useTranslations();
   const format = useFormatter();
   const { colors, theme } = useTheme();
   const [session, setSession] = useState<ProtestSession | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || source) return;
     let cancelled = false;
     database
       .get<ProtestSession>(PROTEST_SESSION_TABLE)
@@ -168,13 +185,19 @@ const ProtestSessionDetailScreen = () => {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, source]);
 
-  const getPositions = useCallback(() => observePositions(id ?? ''), [id]);
+  const getPositions = useCallback(
+    () => (source ? NEVER_OBSERVABLE : observePositions(id ?? '')),
+    [id, source],
+  );
   const local = useObservable<ProtestPosition[]>(getPositions, []);
   // Just this one, by id - no need to pull and decrypt every sibling to show
   // one trajectory.
-  const { session: remoteSession, isLoading: isReadingRemote } = useRemoteProtestSession(id);
+  const { session: remoteSession, isLoading: isReadingRemote } = useRemoteProtestSession(
+    id,
+    source,
+  );
 
   // Local wins when it has anything: it is instant, works offline, and is the
   // only side that knows what is still unsent. The server is the fallback for

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-interface Subscribable<T> {
+export interface Subscribable<T> {
   subscribe: (callback: (value: T) => void) => { unsubscribe: () => void };
 }
 

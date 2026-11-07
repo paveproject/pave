@@ -13,6 +13,7 @@ import {
   userRecoveryRequestCurrentOptions,
   userTrustedContactsOptions,
   useMePushTokenSetMutation,
+  userKeys,
 } from '@libs/query-client';
 import { useTranslations } from 'use-intl';
 import type { PushContent } from '@libs/api-js';
@@ -118,6 +119,15 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
           queryClient.invalidateQueries({ queryKey: mePendingActionsOptions().queryKey });
           queryClient.invalidateQueries({ queryKey: userDevicesOptions({ userId }).queryKey });
           break;
+        // Somebody is asking to read this account's recordings. The owner's
+        // window to refuse is bounded, so this has to land on screen even if
+        // the app was closed when the request was made.
+        case 'data-access-requested':
+          queryClient.invalidateQueries({
+            queryKey: userKeys.dataAccessRequestCurrent({ userId: userId ?? '' }),
+          });
+          queryClient.invalidateQueries({ queryKey: mePendingActionsOptions().queryKey });
+          break;
         case 'device-approved':
         case 'device-declined':
           queryClient.invalidateQueries({ queryKey: mePendingActionsOptions().queryKey });
@@ -154,6 +164,12 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
           break;
         case 'device-approval-requested':
           router.push('/settings/devices');
+          break;
+        // No request id in the payload, so no deep link to the `as-owner`
+        // sheet - it isn't needed: the invalidation above refreshes the
+        // pending-actions feed and the gate pops that sheet over this screen.
+        case 'data-access-requested':
+          router.push('/settings/recovery');
           break;
         default:
           data satisfies never;

@@ -3,7 +3,7 @@ import { getSession, listSessions } from '@libs/api-js';
 import type { ProtestSessionResponse } from '@libs/api-js';
 import { API_ENDPOINT } from '../../env/common';
 import { getSessionToken } from '../auth/session';
-import { decryptBlob, openMetadata, openSessionKey } from './crypto';
+import { decryptBlob, openMetadata, openSessionKey, openSessionKeyWithDek } from './crypto';
 import { logger } from '../../logger';
 
 /** What a `position_batch` blob holds, as written by `protestExecutor`. */
@@ -25,6 +25,16 @@ export interface ReadPosition {
   lng: number;
   accuracy: number | null;
   recordedAt: Date;
+}
+
+/**
+ * Whose recordings to read, when they are not the signed-in user's. The `dek`
+ * is the *owner's*, reconstructed from a quorum and held in memory alone - it
+ * must never reach this device's own key store.
+ */
+export interface ProtestDataSource {
+  ownerUserId: string;
+  dek: Uint8Array;
 }
 
 export interface ReadSession {
@@ -71,13 +81,22 @@ const fetchBlobBytes = async (
   }
 };
 
-/** Opens one session row: its key, then its timestamps, then every batch. */
+/**
+ * Opens one session row: its key, then its timestamps, then every batch.
+ *
+ * `dek` is for the trusted-contact path - the owner's DEK, reconstructed from
+ * a quorum of shares and held in memory only. Omitted, the reader is the owner
+ * and the DEK comes from their own store.
+ */
 const openSession = async (
   userId: string,
   row: ProtestSessionResponse,
   token: string,
+  dek?: Uint8Array,
 ): Promise<ReadSession> => {
-  const sessionKey = await openSessionKey(userId, row.sealedKey);
+  const sessionKey = dek
+    ? openSessionKeyWithDek(dek, row.sealedKey)
+    : await openSessionKey(userId, row.sealedKey);
   const envelope = openMetadata<StoredEnvelope>(sessionKey, row.metadata);
 
   const batches = row.blobs
@@ -119,7 +138,10 @@ const openSession = async (
  * single unreadable envelope (a key this device never held) must not hide
  * every other recording.
  */
-export const readRemoteSessions = async (userId: string): Promise<ReadSession[]> => {
+export const readRemoteSessions = async (
+  userId: string,
+  dek?: Uint8Array,
+): Promise<ReadSession[]> => {
   const token = await getSessionToken();
   if (!token) throw new Error('not signed in');
 
@@ -130,7 +152,7 @@ export const readRemoteSessions = async (userId: string): Promise<ReadSession[]>
   const out: ReadSession[] = [];
   for (const row of data) {
     try {
-      out.push(await openSession(userId, row, token));
+      out.push(await openSession(userId, row, token, dek));
     } catch (failure) {
       logger.error('protest: could not read a session back', { sessionId: row.id, failure });
     }
@@ -142,6 +164,7 @@ export const readRemoteSessions = async (userId: string): Promise<ReadSession[]>
 export const readRemoteSession = async (
   userId: string,
   sessionId: string,
+  dek?: Uint8Array,
 ): Promise<ReadSession | null> => {
   const token = await getSessionToken();
   if (!token) throw new Error('not signed in');
@@ -155,5 +178,5 @@ export const readRemoteSession = async (
   if (error) throw error;
   if (!data) return null;
 
-  return openSession(userId, data, token);
+  return openSession(userId, data, token, dek);
 };

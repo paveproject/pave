@@ -4,7 +4,7 @@ import { LegendList } from '@legendapp/list/react-native';
 import { useRouter } from 'expo-router';
 import { useFormatter, useTranslations } from 'use-intl';
 import { useTheme } from '../../providers/ThemeProvider';
-import { useObservable } from '../../hooks/useObservable';
+import { useObservable, type Subscribable } from '../../hooks/useObservable';
 import { observeSessionCounts, observeSessions } from '../../lib/watermelon/protestSessions';
 import type { ProtestSession } from '../../lib/watermelon/models/ProtestSession';
 import { View } from '../../components/ui/view';
@@ -13,6 +13,7 @@ import { Badge } from '../../components/ui/badge';
 import Empty from '../../components/ui/empty';
 import { Icons } from '../../constants/icons';
 import { useRemoteProtestSessions } from '../../hooks/protestMode/useRemoteProtestSessions';
+import type { ProtestDataSource } from '../../lib/protestMode/readSession';
 
 /**
  * One line, whichever side the recording came from.
@@ -34,7 +35,13 @@ interface SessionLine {
 }
 
 /** Local rows watch their own counts, so a flush updates the line live. */
-const LocalSessionRow = ({ session }: { session: ProtestSession }) => {
+const LocalSessionRow = ({
+  session,
+  onPress,
+}: {
+  session: ProtestSession;
+  onPress: (sessionId: string) => void;
+}) => {
   const getTotal = useCallback(() => observeSessionCounts(session.id).total, [session.id]);
   const getSynced = useCallback(() => observeSessionCounts(session.id).synced, [session.id]);
   const total = useObservable<number>(getTotal, 0);
@@ -42,6 +49,7 @@ const LocalSessionRow = ({ session }: { session: ProtestSession }) => {
 
   return (
     <SessionRow
+      onPress={onPress}
       line={{
         id: session.id,
         startedAt: session.startedAt,
@@ -53,8 +61,13 @@ const LocalSessionRow = ({ session }: { session: ProtestSession }) => {
   );
 };
 
-const SessionRow = ({ line }: { line: SessionLine }) => {
-  const router = useRouter();
+const SessionRow = ({
+  line,
+  onPress,
+}: {
+  line: SessionLine;
+  onPress: (sessionId: string) => void;
+}) => {
   const t = useTranslations();
   const format = useFormatter();
   const { theme } = useTheme();
@@ -63,7 +76,7 @@ const SessionRow = ({ line }: { line: SessionLine }) => {
 
   return (
     <Pressable
-      onPress={() => router.push(`/(tabs)/protest-mode/${line.id}`)}
+      onPress={() => onPress(line.id)}
       style={{
         flexDirection: 'row',
         // Centres the badge against the whole two-line block.
@@ -99,13 +112,34 @@ const SessionRow = ({ line }: { line: SessionLine }) => {
   );
 };
 
-const ProtestSessionsScreen = () => {
+interface ProtestSessionsScreenProps {
+  /** Whose recordings, when not the signed-in user's. */
+  source?: ProtestDataSource;
+  onPressSession?: (sessionId: string) => void;
+}
+
+/** Stands in for the local database on the foreign-source path: it only ever
+ * holds this device's own rows. */
+const NEVER_OBSERVABLE: Subscribable<ProtestSession[]> = {
+  subscribe: () => ({ unsubscribe: () => undefined }),
+};
+
+const ProtestSessionsScreen = ({ source, onPressSession }: ProtestSessionsScreenProps) => {
   const t = useTranslations();
+  const router = useRouter();
   const { colors, theme } = useTheme();
 
-  const getSessions = useCallback(() => observeSessions(), []);
+  const getSessions = useCallback(() => (source ? NEVER_OBSERVABLE : observeSessions()), [source]);
   const local = useObservable<ProtestSession[]>(getSessions, []);
-  const { sessions: remote, isLoading: isReadingRemote } = useRemoteProtestSessions();
+  const { sessions: remote, isLoading: isReadingRemote } = useRemoteProtestSessions(source);
+
+  const handlePress = useCallback(
+    (sessionId: string) => {
+      if (onPressSession) return onPressSession(sessionId);
+      router.push(`/(tabs)/protest-mode/${sessionId}`);
+    },
+    [onPressSession, router],
+  );
 
   // Local first, then whatever the server holds that this device doesn't.
   // Merged on id so a session that exists on both sides is shown once, from
@@ -137,9 +171,9 @@ const ProtestSessionsScreen = () => {
         keyExtractor={(item) => (item.kind === 'local' ? item.session.id : item.line.id)}
         renderItem={({ item }) =>
           item.kind === 'local' ? (
-            <LocalSessionRow session={item.session} />
+            <LocalSessionRow session={item.session} onPress={handlePress} />
           ) : (
-            <SessionRow line={item.line} />
+            <SessionRow line={item.line} onPress={handlePress} />
           )
         }
         contentInsetAdjustmentBehavior="automatic"

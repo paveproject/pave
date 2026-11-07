@@ -646,16 +646,20 @@ export async function peekRecoveryThreshold(
  * makes the very next reconciliation pass see "already in sync" - a
  * correct no-op - instead of rotating away the recovered key.
  */
-export async function completeRecovery(
+/**
+ * Combines a quorum of sealed shares into a DEK and **returns** it without
+ * storing anything - `completeRecovery` stores the caller's own key, while a
+ * trusted contact reading someone else's recordings must never write that DEK
+ * as their own. `null` when no generation has a threshold's worth of shares.
+ */
+export async function combineSharesToDek(
   userId: string,
   shares: RecoveryRequestShare[],
-  eligibleContactIds: string[],
-  ownDeviceIds: string[],
-): Promise<boolean> {
+): Promise<{ dek: Uint8Array; generation: number } | null> {
   const opened = await openShares(userId, shares);
 
   // Only same-generation shares combine meaningfully - a mixed batch would
-  // only happen if a rotation somehow raced an in-flight recovery, which
+  // only happen if a rotation somehow raced an in-flight request, which
   // shouldn't be possible (see `recoveryRequest.ts`'s own doc comment), but
   // grouping defensively costs nothing.
   const byGeneration = new Map<number, typeof opened>();
@@ -672,12 +676,28 @@ export async function completeRecovery(
         ? group[0].share
         : await ShamirSecretSharing.combine(group.slice(0, threshold).map((entry) => entry.share));
 
-    await setDek(userId, dek);
-    await setSyncedState(userId, { contactIds: eligibleContactIds, ownDeviceIds, generation });
-    return true;
+    return { dek, generation };
   }
 
-  return false;
+  return null;
+}
+
+export async function completeRecovery(
+  userId: string,
+  shares: RecoveryRequestShare[],
+  eligibleContactIds: string[],
+  ownDeviceIds: string[],
+): Promise<boolean> {
+  const combined = await combineSharesToDek(userId, shares);
+  if (!combined) return false;
+
+  await setDek(userId, combined.dek);
+  await setSyncedState(userId, {
+    contactIds: eligibleContactIds,
+    ownDeviceIds,
+    generation: combined.generation,
+  });
+  return true;
 }
 
 export interface RecoveryKeyDebugSnapshot {
