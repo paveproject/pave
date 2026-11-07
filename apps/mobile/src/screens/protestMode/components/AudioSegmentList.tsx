@@ -18,6 +18,8 @@ import { useTheme } from '../../../providers/ThemeProvider';
 import { View } from '../../../components/ui/view';
 import { Text } from '../../../components/ui/text';
 import { Scrubber } from '../../../components/ui/Scrubber';
+import { MediaActionsMenu } from '../../../components/ui/MediaActionsMenu';
+import { shareMediaChunk } from '../../../lib/protestMode/shareMedia';
 import { setPlaybackAudioMode } from '../../../lib/protestMode/audioMode';
 import { logger } from '../../../logger';
 import { Icons } from '../../../constants/icons';
@@ -208,7 +210,9 @@ export const AudioSegmentList = ({ chunks }: { chunks: ReadAudioChunk[] }) => {
   return (
     <AnimatedLegendList
       data={chunks}
-      keyExtractor={(chunk) => chunk.uri}
+      // The blob id, not the uri: a chunk read from disk and the same chunk
+      // read back from the server land in different cache files.
+      keyExtractor={(chunk) => chunk.blobId}
       // Required: the list memoizes a row against its item, and `chunks` never
       // changes when the selection does - without this no row re-renders and
       // the tap appears to do nothing.
@@ -228,13 +232,11 @@ export const AudioSegmentList = ({ chunks }: { chunks: ReadAudioChunk[] }) => {
       scrollIndicatorInsets={{ bottom: insets.bottom }}
       renderItem={({ item, index }) => (
         <View>
-          <Pressable
-            onPress={() => select(item.uri)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: item.uri === selected }}
-            accessibilityLabel={t('pages.protest_mode.sessions.audio_segment', {
-              index: index + 1,
-            })}
+          {/* The menu is a *sibling* of the row's `Pressable`, not a child:
+              nested inside it the parent won the responder, so tapping the
+              ellipsis selected the row and closed it instead of opening the
+              menu. */}
+          <View
             style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -242,22 +244,57 @@ export const AudioSegmentList = ({ chunks }: { chunks: ReadAudioChunk[] }) => {
               paddingVertical: theme.spaces.md,
             }}
           >
-            <View style={{ flex: 1, gap: theme.spaces.xs }}>
-              <Text style={{ fontWeight: '600' }}>
-                {t('pages.protest_mode.sessions.audio_segment', { index: index + 1 })}
-              </Text>
-              <Text textColor="muted" style={{ fontVariant: ['tabular-nums'] }}>
-                {format.dateTime(item.startedAt, {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
+            <Pressable
+              onPress={() => select(item.uri)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: item.uri === selected }}
+              accessibilityLabel={t('pages.protest_mode.sessions.audio_segment', {
+                index: index + 1,
+              })}
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: theme.spaces.md,
+              }}
+            >
+              <View style={{ flex: 1, gap: theme.spaces.xs }}>
+                <Text style={{ fontWeight: '600' }}>
+                  {t('pages.protest_mode.sessions.audio_segment', { index: index + 1 })}
+                </Text>
+                <Text textColor="muted" style={{ fontVariant: ['tabular-nums'] }}>
+                  {format.dateTime(item.startedAt, {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                  })}
+                  {item.synced ? '' : ` · ${t('pages.protest_mode.sessions.not_sent_yet')}`}
+                </Text>
+              </View>
+              {/* The duration gives way to the actions on the open row, as
+                  Voice Memos does - the transport below already shows the
+                  length, so the figure is redundant exactly there. */}
+              {item.uri === selected ? null : (
+                <Text textColor="muted" style={{ fontVariant: ['tabular-nums'] }}>
+                  {formatClock(item.durationMs / 1000)}
+                </Text>
+              )}
+            </Pressable>
+            {item.uri === selected ? (
+              <MediaActionsMenu
+                accessibilityLabel={t('pages.protest_mode.sessions.audio_segment', {
+                  index: index + 1,
                 })}
-              </Text>
-            </View>
-            <Text textColor="muted" style={{ fontVariant: ['tabular-nums'] }}>
-              {formatClock(item.durationMs / 1000)}
-            </Text>
-          </Pressable>
+                onShare={() =>
+                  void shareMediaChunk({
+                    kind: 'audio',
+                    uri: item.uri,
+                    startedAt: item.startedAt,
+                  })
+                }
+              />
+            ) : null}
+          </View>
 
           {item.uri === selected ? (
             <Animated.View

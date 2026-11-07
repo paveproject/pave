@@ -112,9 +112,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       NSLocationAlwaysAndWhenInUseUsageDescription:
         'When protest mode is active and position recording is on, your location is recorded in the background so your trajectory is preserved even while the app is not open - it is encrypted on your device and never readable by us.',
       NSMicrophoneUsageDescription:
-        'The microphone is used to record audio when you manually start a recording in protest mode, and to upload profile videos.',
+        'The microphone is used to record audio when you manually start a recording in protest mode, and to film with sound.',
       NSCameraUsageDescription:
-        'The camera is used to upload profile pictures, playlist covers, story background images, and to scan trusted-contact codes.',
+        'The camera is used to film in protest mode, to upload profile pictures, playlist covers and story background images, and to scan trusted-contact codes.',
       NSPhotoLibraryUsageDescription:
         'Photos are used to select profile images, playlist covers, and shared story backgrounds.',
       // `audio` keeps a protest recording running once the phone is in a
@@ -194,9 +194,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-camera',
       {
         cameraPermission:
-          'The camera is used to upload profile pictures, playlist covers, story background images, and to scan trusted-contact codes.',
-        microphonePermission: false,
-        recordAudioAndroid: false,
+          'The camera is used to film in protest mode, to upload profile pictures, playlist covers and story background images, and to scan trusted-contact codes.',
+        // Both on since protest mode films with sound. `false` here does not
+        // just skip the key - `createPermissionsPlugin` removes it - and the
+        // Android permission has to be declared for `recordAsync` to capture
+        // any audio at all.
+        microphonePermission:
+          'The microphone is used to record audio when you manually start a recording in protest mode, and to film with sound.',
+        recordAudioAndroid: true,
       },
     ],
     'expo-secure-store',

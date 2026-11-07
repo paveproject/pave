@@ -21,6 +21,7 @@ import {
   frame,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
+import { useRouter } from 'expo-router';
 import { useTranslations } from 'use-intl';
 import { LocateFixed, Mic, Video } from 'lucide-react-native';
 import type { LucideProps } from 'lucide-react-native';
@@ -189,6 +190,7 @@ const ProtestModeScreen = () => {
     useProtestSession();
   const gpsEnabled = useProtestSettingsStore((state) => state.gpsEnabled);
   const audio = useProtestAudio();
+  const router = useRouter();
   const reducedMotion = useReducedMotion();
 
   const startedAtMs = session?.startedAt.getTime();
@@ -226,6 +228,11 @@ const ProtestModeScreen = () => {
         : undefined,
     );
   }, [start, t]);
+
+  const handleVideo = useCallback(() => {
+    if (!session) return;
+    router.push({ pathname: '/protest-mode/camera', params: { sessionId: session.id } });
+  }, [router, session]);
 
   const handleAudio = useCallback(async () => {
     if (audio.isRecording) {
@@ -395,9 +402,9 @@ const ProtestModeScreen = () => {
             <ToolButton
               icon={Video}
               label={t('pages.protest_mode.video_recording')}
-              hint={t('pages.protest_mode.coming_soon')}
               enabled={false}
-              available={false}
+              available
+              onPress={handleVideo}
             />
           </View>
         ) : null}

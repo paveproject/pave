@@ -97,7 +97,8 @@
     "protest_sessions": "Sessions de manifestation",
     "close": "Fermer",
     "play": "Lecture",
-    "pause": "Pause"
+    "pause": "Pause",
+    "share": "Partager"
   },
   "pages": {
     "onboarding": {
@@ -385,15 +386,22 @@
         "no_audio": "Aucun audio dans cette session",
         "no_video": "Aucune vidéo dans cette session",
         "skip_back": "{seconds} secondes en arrière",
-        "skip_forward": "{seconds} secondes en avant"
+        "skip_forward": "{seconds} secondes en avant",
+        "video_clip": "Séquence {index}"
       },
       "audio_recording": "Enregistrer l'audio",
-      "coming_soon": "Bientôt",
       "video_recording": "Filmer",
       "audio_running": "Audio en cours",
       "microphone_denied_title": "L’accès au micro est désactivé",
       "microphone_denied_message": "Sans lui il n’y a rien à enregistrer. Autorisez l’accès, puis retouchez le bouton.",
-      "gps_off_hint": "L’enregistrement de la trajectoire est désactivé — activez-le dans les réglages du mode manif."
+      "gps_off_hint": "L’enregistrement de la trajectoire est désactivé — activez-le dans les réglages du mode manif.",
+      "camera": {
+        "permission": "Filmer nécessite l'appareil photo et le micro.",
+        "flip": "Changer de caméra",
+        "start": "Filmer",
+        "stop": "Arrêter de filmer",
+        "torch": "Lampe"
+      }
     }
   }
 }

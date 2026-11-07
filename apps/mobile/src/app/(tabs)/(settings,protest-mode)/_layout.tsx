@@ -91,6 +91,10 @@ const TabStackLayout = () => {
           name="protest-mode/sessions"
           options={{ title: t('pages.protest_mode.sessions.title') }}
         />
+        {/* `fullScreenModal` even though it lives in the tab stack: it is a
+            viewfinder, so it has to cover the tab bar, and a sheet would both
+            crop the frame and let a swipe dismiss a recording in progress. */}
+        <Stack.Screen name="protest-mode/camera" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="settings/account" options={{ title: t('messages.account') }} />
         <Stack.Screen
           name="settings/trusted-contacts"

@@ -97,7 +97,8 @@
     "protest_sessions": "Protest sessions",
     "close": "Close",
     "play": "Play",
-    "pause": "Pause"
+    "pause": "Pause",
+    "share": "Share"
   },
   "pages": {
     "onboarding": {
@@ -385,15 +386,22 @@
         "no_audio": "No audio in this session",
         "no_video": "No video in this session",
         "skip_back": "Back {seconds} seconds",
-        "skip_forward": "Forward {seconds} seconds"
+        "skip_forward": "Forward {seconds} seconds",
+        "video_clip": "Clip {index}"
       },
       "audio_recording": "Record audio",
-      "coming_soon": "Coming soon",
       "video_recording": "Film",
       "audio_running": "Recording audio",
       "microphone_denied_title": "Microphone access is off",
       "microphone_denied_message": "Without it there is nothing to record. Grant access, then tap again.",
-      "gps_off_hint": "Trajectory recording is off — turn it on in protest-mode settings."
+      "gps_off_hint": "Trajectory recording is off — turn it on in protest-mode settings.",
+      "camera": {
+        "permission": "Filming needs the camera and the microphone.",
+        "flip": "Switch camera",
+        "start": "Start filming",
+        "stop": "Stop filming",
+        "torch": "Flashlight"
+      }
     }
   }
 }

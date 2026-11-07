@@ -15,6 +15,7 @@ import { ProtestTraceMap } from './components/ProtestTraceMap';
 import { View } from '../../components/ui/view';
 import { Text } from '../../components/ui/text';
 import { Icons } from '../../constants/icons';
+import { clamp } from 'lodash';
 
 interface ProtestSessionDetailScreenProps {
   /** Overrides the route param, for a caller whose segment isn't named `id`. */
@@ -45,10 +46,8 @@ const ProtestSessionDetailScreen = ({
   const router = useRouter();
   const { colors, theme, mode } = useTheme();
   const { height } = useWindowDimensions();
-  const { points, audio, startedAt, endedAt, syncedCount, isReadingRemote } = useSessionTrace(
-    id,
-    source,
-  );
+  const { points, audio, video, startedAt, endedAt, syncedCount, isReadingRemote } =
+    useSessionTrace(id, source);
 
   const summary =
     points.length === 0 && isReadingRemote
@@ -64,7 +63,7 @@ const ProtestSessionDetailScreen = ({
     Platform.OS === 'ios' ? [listRowBackground(colors.background)] : undefined;
 
   const header = (
-    <View style={{ gap: theme.spaces.sm, paddingVertical: theme.spaces.sm }}>
+    <View style={{ gap: theme.spaces.sm }}>
       <Text variant="title">
         {startedAt
           ? format.dateTime(startedAt, {
@@ -95,7 +94,7 @@ const ProtestSessionDetailScreen = ({
           // The radius lives here with `overflow: hidden`: a native map view
           // does not clip itself to its own `borderRadius` on Android.
           style={{
-            height: height * MAP_HEIGHT_RATIO,
+            height: clamp(height * MAP_HEIGHT_RATIO, 200, 400),
             borderRadius: theme.border.radius.lg,
             overflow: 'hidden',
             backgroundColor: colors.muted,
@@ -167,6 +166,9 @@ const ProtestSessionDetailScreen = ({
                 {t('pages.protest_mode.sessions.videos')}
               </NativeText>
               <Spacer flexible />
+              <NativeText textStyle={{ color: colors.mutedForeground }}>
+                {String(video.length)}
+              </NativeText>
               <Icon
                 name={Icons.chevronRight}
                 size={theme.icons.sizes.sm}
