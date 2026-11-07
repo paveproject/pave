@@ -36,16 +36,21 @@ const TabsLayout = () => {
         <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md="home" />
       </NativeTabs.Trigger>
       {/* `hidden`, not `Protected`: `NativeTabs` doesn't honour it (only
-          `withLayoutContext` layouts do), so the route is barred in
-          `protest-mode/_layout.tsx` instead and this just drops the tab. */}
-      <NativeTabs.Trigger name="protest-mode" hidden={!user} disableAutomaticContentInsets={isIOS}>
+          `withLayoutContext` layouts do), so the routes are barred in
+          `(settings,protest-mode)/_layout.tsx` instead and this just drops the
+          tab. */}
+      <NativeTabs.Trigger
+        name="(protest-mode)"
+        hidden={!user}
+        disableAutomaticContentInsets={isIOS}
+      >
         <NativeTabs.Trigger.Label hidden>{t('pages.protest_mode.title')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf={{ default: 'megaphone', selected: 'megaphone.fill' }}
           md="campaign"
         />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="settings" disableAutomaticContentInsets={isIOS}>
+      <NativeTabs.Trigger name="(settings)" disableAutomaticContentInsets={isIOS}>
         <NativeTabs.Trigger.Label hidden>{t('messages.settings')}</NativeTabs.Trigger.Label>
         {user?.image ? (
           <NativeTabs.Trigger.Icon src={{ uri: user.image }} />

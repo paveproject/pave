@@ -31,7 +31,7 @@ interface UIStore {
   setMapStyle: (style: MapStyleVariant) => void;
 
   // Debug mode - see `settings/index.tsx`'s version-footer triple-tap and
-  // `settings/_layout.tsx`'s route guard.
+  // the tab stack layout's route guard.
   debug: boolean;
   toggleDebug: () => void;
 }
