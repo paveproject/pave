@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useTranslations } from 'use-intl';
 import { useTheme } from '../../../providers/ThemeProvider';
+import { useAuth } from '../../../providers/AuthProvider';
 import { Button } from '../../../components/ui/Button';
 import { Icons } from '../../../constants/IconsOld';
 
@@ -18,6 +19,7 @@ const ProtestModeLayout = () => {
   const t = useTranslations();
   const router = useRouter();
   const { defaultScreenOptions, theme } = useTheme();
+  const { user } = useAuth();
 
   const goToSessions = useCallback(() => {
     router.push('/(tabs)/protest-mode/sessions');
@@ -67,8 +69,14 @@ const ProtestModeLayout = () => {
           ],
         }}
       />
-      <Stack.Screen name="sessions" options={{ title: t('pages.protest_mode.sessions.title') }} />
-      <Stack.Screen name="[id]" options={{ title: t('pages.protest_mode.sessions.detail') }} />
+      {/* The recordings need an account - sealed under the account DEK and
+          read back through `/user/{id}/...`. `index` stays out so the route
+          still resolves while the tab is hidden (see `(tabs)/_layout.tsx`),
+          which is what keeps a signed-out user out. */}
+      <Stack.Protected guard={!!user}>
+        <Stack.Screen name="sessions" options={{ title: t('pages.protest_mode.sessions.title') }} />
+        <Stack.Screen name="[id]" options={{ title: t('pages.protest_mode.sessions.detail') }} />
+      </Stack.Protected>
     </Stack>
   );
 };

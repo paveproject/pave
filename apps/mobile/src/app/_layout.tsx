@@ -55,6 +55,12 @@ const RootLayoutNav = () => {
   const hasOwnDevicePending = !!pendingActions?.some(
     (action) => action.kind === 'own_device_registration',
   );
+  const hasPendingDataAccessApproval = !!pendingActions?.some(
+    (action) => action.kind === 'data_access_request_contact',
+  );
+  const hasDataAccessRequestOnMyData = !!pendingActions?.some(
+    (action) => action.kind === 'data_access_request_owner',
+  );
 
   return (
     <Stack
@@ -171,6 +177,45 @@ const RootLayoutNav = () => {
             }}
           />
         </Stack.Protected>
+        <Stack.Protected guard={hasPendingDataAccessApproval}>
+          <Stack.Screen
+            name="validation/data-access/as-contact/[id]"
+            options={{
+              title: t('pages.pending_actions.data_access_request.title'),
+              presentation: 'formSheet',
+              sheetGrabberVisible: false,
+              gestureEnabled: false,
+              sheetAllowedDetents: 'fitToContents',
+              sheetInitialDetentIndex: 0,
+              ...(isLiquidGlassAvailable
+                ? {
+                    contentStyle: { backgroundColor: 'transparent' },
+                    headerStyle: { backgroundColor: 'transparent' },
+                  }
+                : {}),
+            }}
+          />
+        </Stack.Protected>
+        {/* The grabber and swipe stay available here, unlike its siblings:
+            dismissing is "do nothing", which is a legitimate answer. */}
+        <Stack.Protected guard={hasDataAccessRequestOnMyData}>
+          <Stack.Screen
+            name="validation/data-access/as-owner/[id]"
+            options={{
+              title: t('pages.pending_actions.data_access_request.owner.sheet_title'),
+              presentation: 'formSheet',
+              sheetGrabberVisible: true,
+              sheetAllowedDetents: 'fitToContents',
+              sheetInitialDetentIndex: 0,
+              ...(isLiquidGlassAvailable
+                ? {
+                    contentStyle: { backgroundColor: 'transparent' },
+                    headerStyle: { backgroundColor: 'transparent' },
+                  }
+                : {}),
+            }}
+          />
+        </Stack.Protected>
         <Stack.Protected guard={hasOwnDevicePending}>
           <Stack.Screen
             name="validation/own-device/[id]"
@@ -208,6 +253,22 @@ const RootLayoutNav = () => {
                   }
                 : {}),
             }}
+          />
+        </Stack.Protected>
+        {/* TRUSTED CONTACT - no `_layout.tsx` in that folder, so each nested
+            path is registered here, same as the VALIDATION routes above. */}
+        <Stack.Protected guard={!!user}>
+          <Stack.Screen
+            name="trusted-contact/[id]/index"
+            options={{ title: t('messages.trusted_contact') }}
+          />
+          <Stack.Screen
+            name="trusted-contact/[id]/protest-sessions"
+            options={{ title: t('messages.protest_sessions') }}
+          />
+          <Stack.Screen
+            name="trusted-contact/[id]/protest-session/[sessionId]"
+            options={{ title: t('pages.protest_mode.sessions.detail') }}
           />
         </Stack.Protected>
         {/* WELCOME (see hooks/gates/useWelcomeGate) - grabber + gesture dismiss

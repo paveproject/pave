@@ -35,7 +35,10 @@ const TabsLayout = () => {
         <NativeTabs.Trigger.Label hidden>{t('messages.home')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md="home" />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="protest-mode" disableAutomaticContentInsets={isIOS}>
+      {/* `hidden`, not `Protected`: `NativeTabs` doesn't honour it (only
+          `withLayoutContext` layouts do), so the route is barred in
+          `protest-mode/_layout.tsx` instead and this just drops the tab. */}
+      <NativeTabs.Trigger name="protest-mode" hidden={!user} disableAutomaticContentInsets={isIOS}>
         <NativeTabs.Trigger.Label hidden>{t('pages.protest_mode.title')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf={{ default: 'megaphone', selected: 'megaphone.fill' }}
