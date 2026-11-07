@@ -279,6 +279,14 @@ const RootLayoutNav = () => {
               transparent alone would still sit on an opaque bar, and the map
               has to run underneath. */}
           <Stack.Screen
+            name="protest-session/[id]/audios"
+            options={{ title: t('pages.protest_mode.sessions.audio_recordings') }}
+          />
+          <Stack.Screen
+            name="protest-session/[id]/videos"
+            options={{ title: t('pages.protest_mode.sessions.videos') }}
+          />
+          <Stack.Screen
             name="protest-session/[id]/trace"
             options={{
               title: t('pages.protest_mode.sessions.trace'),

@@ -18,11 +18,13 @@ const LogEntryRow = ({
   colors: Theme['colors'];
 }) => {
   const format = useFormatter();
+  const insets = useSafeAreaInsets();
 
   return (
     <View
       style={{
-        paddingHorizontal: theme.spaces.horizontal,
+        paddingLeft: insets.left + theme.spaces.horizontal,
+        paddingRight: insets.right + theme.spaces.horizontal,
         paddingVertical: theme.spaces.xs,
       }}
     >
@@ -58,7 +60,17 @@ const SyncLogDebugScreen = () => {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {entries.length === 0 ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingTop: theme.spaces.vertical,
+            paddingLeft: insets.left + theme.spaces.horizontal,
+            paddingRight: insets.right + theme.spaces.horizontal,
+            paddingBottom: insets.bottom + theme.spaces.vertical,
+          }}
+        >
           <Text textColor="muted">Nothing logged yet.</Text>
         </View>
       ) : (
@@ -67,8 +79,10 @@ const SyncLogDebugScreen = () => {
           keyExtractor={(entry) => entry.id}
           renderItem={({ item }) => <LogEntryRow entry={item} theme={theme} colors={colors} />}
           contentContainerStyle={{
+            paddingTop: theme.spaces.vertical,
             paddingBottom: insets.bottom + theme.spaces.vertical,
           }}
+          scrollIndicatorInsets={{ bottom: insets.bottom }}
         />
       )}
     </View>

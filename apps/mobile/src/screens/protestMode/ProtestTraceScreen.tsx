@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { ActivityIndicator, View as RNView } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslations } from 'use-intl';
 import { useTheme } from '../../providers/ThemeProvider';
 import { useSessionTrace } from '../../hooks/protestMode/useSessionTrace';
@@ -25,17 +26,16 @@ interface ProtestTraceScreenProps {
  * Its own route rather than a modal over the session's figure: both are
  * native GL surfaces, and mounting two at once crashes the app.
  *
- * The recentre action lives in the header, not over the map, so it never sits
- * on top of the trace it is meant to reveal. Both header forms are declared,
- * as in `settings/trusted-contacts/_layout.tsx`:
- * `unstable_headerRightItems` renders native bar items where supported,
- * `headerRight` is the RN fallback.
+ * Both header forms are declared, as in
+ * `settings/trusted-contacts/_layout.tsx`: `unstable_headerRightItems`
+ * renders native bar items where supported, `headerRight` is the fallback.
  */
 const ProtestTraceScreen = ({ sessionId, source }: ProtestTraceScreenProps = {}) => {
   const params = useLocalSearchParams<{ id?: string }>();
   const id = sessionId ?? params.id;
   const t = useTranslations();
   const { colors, theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const { points, isReadingRemote } = useSessionTrace(id, source);
   const map = useRef<ProtestTraceMapRef>(null);
 
@@ -49,6 +49,10 @@ const ProtestTraceScreen = ({ sessionId, source }: ProtestTraceScreenProps = {})
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: colors.background,
+          paddingTop: theme.spaces.vertical,
+          paddingLeft: insets.left + theme.spaces.horizontal,
+          paddingRight: insets.right + theme.spaces.horizontal,
+          paddingBottom: insets.bottom + theme.spaces.vertical,
         }}
       >
         {isReadingRemote ? (

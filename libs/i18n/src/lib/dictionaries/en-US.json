@@ -95,7 +95,9 @@
     "trusts_me": "Trusts me",
     "trusted_contact": "Trusted contact",
     "protest_sessions": "Protest sessions",
-    "close": "Close"
+    "close": "Close",
+    "play": "Play",
+    "pause": "Pause"
   },
   "pages": {
     "onboarding": {
@@ -370,7 +372,6 @@
         "all_sent": "all sent",
         "trace": "Trace",
         "reading": "Reading the recording…",
-        "audio": "Audio",
         "audio_segment": "Audio segment {index}",
         "audio_gaps": "Recorded in segments, so each one is safe on the server before the next starts. The short gaps between them are real.",
         "recenter": "Fit the whole trace",
@@ -378,7 +379,13 @@
         "not_sent_yet": "Not sent yet",
         "no_trace": "No trajectory in this session",
         "not_found": "This recording is not available",
-        "no_key": "No key for this recording on this device"
+        "no_key": "No key for this recording on this device",
+        "audio_recordings": "Audio recordings",
+        "videos": "Videos",
+        "no_audio": "No audio in this session",
+        "no_video": "No video in this session",
+        "skip_back": "Back {seconds} seconds",
+        "skip_forward": "Forward {seconds} seconds"
       },
       "audio_recording": "Record audio",
       "coming_soon": "Coming soon",

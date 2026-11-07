@@ -179,6 +179,31 @@ export const Icons = {
     android: import('@expo/material-symbols/location_disabled.xml'),
   }),
   microphone: Icon.select({ ios: 'mic', android: import('@expo/material-symbols/mic.xml') }),
+  waveform: Icon.select({
+    ios: 'waveform',
+    android: import('@expo/material-symbols/graphic_eq.xml'),
+  }),
+  video: Icon.select({
+    ios: 'video',
+    android: import('@expo/material-symbols/videocam.xml'),
+  }),
+
+  play: Icon.select({
+    ios: 'play.fill',
+    android: import('@expo/material-symbols/play_arrow.xml'),
+  }),
+  pause: Icon.select({ ios: 'pause.fill', android: import('@expo/material-symbols/pause.xml') }),
+  // SF puts the number in the glyph; Material Symbols has 5, 10 and 30 but no
+  // 15, so Android gets a bare arrow and the amount lives in the
+  // accessibility label. 10s would match exactly on both.
+  skipBack: Icon.select({
+    ios: 'gobackward.15',
+    android: import('@expo/material-symbols/rotate_left.xml'),
+  }),
+  skipForward: Icon.select({
+    ios: 'goforward.15',
+    android: import('@expo/material-symbols/rotate_right.xml'),
+  }),
 };
 
 export type IconKey = keyof typeof Icons;

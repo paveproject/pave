@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable } from 'react-native';
 import { LegendList } from '@legendapp/list/react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFormatter } from 'use-intl';
 import type { OfflineTransaction } from '@tanstack/offline-transactions/react-native';
 import { reportsExecutor } from '../../../../../providers/sync/offlineExecutor/reportsExecutor';
@@ -39,12 +40,14 @@ const OutboxEntryRow = ({
   colors: Theme['colors'];
 }) => {
   const format = useFormatter();
+  const insets = useSafeAreaInsets();
   const { transaction } = entry;
 
   return (
     <View
       style={{
-        paddingHorizontal: theme.spaces.horizontal,
+        paddingLeft: insets.left + theme.spaces.horizontal,
+        paddingRight: insets.right + theme.spaces.horizontal,
         paddingVertical: theme.spaces.xs,
         borderBottomWidth: 1,
         borderBottomColor: colors.muted,
@@ -81,6 +84,7 @@ const OutboxEntryRow = ({
  */
 const SyncOutboxDebugScreen = () => {
   const { theme, colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [outbox, setOutbox] = useState<OutboxEntry[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -140,10 +144,19 @@ const SyncOutboxDebugScreen = () => {
         renderItem={({ item }) => <OutboxEntryRow entry={item} theme={theme} colors={colors} />}
         refreshing={isRefreshing}
         onRefresh={handleRefresh}
+        contentContainerStyle={{ paddingBottom: insets.bottom + theme.spaces.vertical }}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
         // In the header, not below the list: `LegendList` takes the remaining
         // height, so a sibling underneath renders at zero height.
         ListHeaderComponent={
-          <View style={{ padding: theme.spaces.horizontal, gap: theme.spaces.sm }}>
+          <View
+            style={{
+              paddingVertical: theme.spaces.horizontal,
+              paddingLeft: insets.left + theme.spaces.horizontal,
+              paddingRight: insets.right + theme.spaces.horizontal,
+              gap: theme.spaces.sm,
+            }}
+          >
             {EXECUTORS.map(({ name, executor }) => {
               const queued = outbox.filter((entry) => entry.executor === name).length;
               return (
@@ -178,7 +191,9 @@ const SyncOutboxDebugScreen = () => {
               flex: 1,
               alignItems: 'center',
               justifyContent: 'center',
-              padding: theme.spaces.xl,
+              paddingVertical: theme.spaces.xl,
+              paddingLeft: insets.left + theme.spaces.xl,
+              paddingRight: insets.right + theme.spaces.xl,
             }}
           >
             <Text textColor="muted">Nothing waiting - either idle, or already synced.</Text>

@@ -32,6 +32,7 @@ import { Text } from '../../components/ui/text';
 import { NativeButton } from '../../components/ui/NativeButton';
 import { Waveform } from './components/Waveform';
 import { useProtestAudio } from '../../providers/ProtestAudioProvider';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
@@ -183,6 +184,7 @@ const BUTTON_SIZE = 184;
 const ProtestModeScreen = () => {
   const t = useTranslations();
   const { colors, theme, isLiquidGlassAvailable } = useTheme();
+  const insets = useSafeAreaInsets();
   const { session, isActive, pendingPositions, pendingAudio, isBusy, start, stop } =
     useProtestSession();
   const gpsEnabled = useProtestSettingsStore((state) => state.gpsEnabled);
@@ -267,13 +269,13 @@ const ProtestModeScreen = () => {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        // Nothing here overflows on a normal phone, and a bounce with nothing
-        // to scroll reads as a loose layout.
         bounces={false}
         overScrollMode="never"
         contentContainerStyle={{
-          padding: theme.spaces.horizontal,
+          paddingTop: theme.spaces.vertical,
+          paddingLeft: insets.left + theme.spaces.horizontal,
+          paddingRight: insets.right + theme.spaces.horizontal,
+          paddingBottom: insets.bottom + theme.spaces.vertical,
           gap: theme.spaces['2xl'],
         }}
       >

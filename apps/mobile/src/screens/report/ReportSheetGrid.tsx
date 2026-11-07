@@ -114,10 +114,12 @@ export const ReportSheetGrid = <T extends string>({
         renderItem={renderItem}
         contentContainerStyle={{
           gap: theme.spaces.md,
-          paddingHorizontal: theme.spaces.horizontal,
+          paddingLeft: insets.left + theme.spaces.horizontal,
+          paddingRight: insets.right + theme.spaces.horizontal,
           paddingTop: navigationHeaderHeight + theme.spaces.vertical,
           paddingBottom: insets.bottom + theme.spaces.vertical,
         }}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
       />
     </>
   );

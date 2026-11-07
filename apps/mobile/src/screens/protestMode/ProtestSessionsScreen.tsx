@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { Pressable } from 'react-native';
+import { ActivityIndicator, Pressable } from 'react-native';
 import { LegendList } from '@legendapp/list/react-native';
 import { useRouter } from 'expo-router';
 import { useFormatter, useTranslations } from 'use-intl';
@@ -14,6 +14,7 @@ import Empty from '../../components/ui/empty';
 import { Icons } from '../../constants/icons';
 import { useRemoteProtestSessions } from '../../hooks/protestMode/useRemoteProtestSessions';
 import type { ProtestDataSource } from '../../lib/protestMode/readSession';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /**
  * One line, whichever side the recording came from.
@@ -82,8 +83,6 @@ const SessionRow = ({
         // Centres the badge against the whole two-line block.
         alignItems: 'center',
         gap: theme.spaces.md,
-        paddingHorizontal: theme.spaces.horizontal,
-        paddingVertical: theme.spaces.md,
       }}
     >
       <View style={{ flex: 1, gap: theme.spaces.xs }}>
@@ -126,7 +125,8 @@ const NEVER_OBSERVABLE: Subscribable<ProtestSession[]> = {
 const ProtestSessionsScreen = ({ source }: ProtestSessionsScreenProps) => {
   const t = useTranslations();
   const router = useRouter();
-  const { colors, theme } = useTheme();
+  const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const getSessions = useCallback(() => (source ? NEVER_OBSERVABLE : observeSessions()), [source]);
   const local = useObservable<ProtestSession[]>(getSessions, []);
@@ -163,43 +163,48 @@ const ProtestSessionsScreen = ({ source }: ProtestSessionsScreenProps) => {
     ...lines.extra.map((line) => ({ kind: 'remote' as const, line })),
   ];
 
+  if (items.length === 0) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingTop: theme.spaces.vertical,
+          paddingLeft: insets.left + theme.spaces.horizontal,
+          paddingRight: insets.right + theme.spaces.horizontal,
+          paddingBottom: insets.bottom + theme.spaces.vertical,
+        }}
+      >
+        {isReadingRemote ? (
+          <ActivityIndicator />
+        ) : (
+          <Empty icon={Icons.waveform} title={t('pages.protest_mode.sessions.empty')} />
+        )}
+      </View>
+    );
+  }
+
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <LegendList
-        data={items}
-        keyExtractor={(item) => (item.kind === 'local' ? item.session.id : item.line.id)}
-        renderItem={({ item }) =>
-          item.kind === 'local' ? (
-            <LocalSessionRow session={item.session} onPress={handlePress} />
-          ) : (
-            <SessionRow line={item.line} onPress={handlePress} />
-          )
-        }
-        contentInsetAdjustmentBehavior="automatic"
-        ListEmptyComponent={
-          <View
-            style={{
-              flex: 1,
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: theme.spaces.xl,
-            }}
-          >
-            <Empty
-              icon={Icons.megaphone}
-              title={t(
-                // A device that has just been set up has nothing local, and
-                // the server's copies are still being fetched and decrypted -
-                // "no recordings" would be wrong, not just early.
-                isReadingRemote
-                  ? 'pages.protest_mode.sessions.reading'
-                  : 'pages.protest_mode.sessions.empty',
-              )}
-            />
-          </View>
-        }
-      />
-    </View>
+    <LegendList
+      data={items}
+      keyExtractor={(item) => (item.kind === 'local' ? item.session.id : item.line.id)}
+      renderItem={({ item }) =>
+        item.kind === 'local' ? (
+          <LocalSessionRow session={item.session} onPress={handlePress} />
+        ) : (
+          <SessionRow line={item.line} onPress={handlePress} />
+        )
+      }
+      contentContainerStyle={{
+        paddingTop: theme.spaces.vertical,
+        paddingLeft: insets.left + theme.spaces.horizontal,
+        paddingRight: insets.right + theme.spaces.horizontal,
+        paddingBottom: insets.bottom + theme.spaces.vertical,
+        gap: theme.spaces.md,
+      }}
+      scrollIndicatorInsets={{ bottom: insets.bottom }}
+    />
   );
 };
 

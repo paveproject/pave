@@ -3,7 +3,6 @@ import {
   AudioQuality,
   IOSOutputFormat,
   requestRecordingPermissionsAsync,
-  setAudioModeAsync,
   useAudioRecorder,
 } from 'expo-audio';
 import type { RecordingOptions } from 'expo-audio';
@@ -11,6 +10,7 @@ import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import { useAuth } from './AuthProvider';
 import { useProtestSettingsStore } from '../stores/useProtestSettingsStore';
 import { claimSegmentFile, sealChunk } from '../lib/protestMode/protestAudio';
+import { setPlaybackAudioMode, setRecordingAudioMode } from '../lib/protestMode/audioMode';
 import { recordAudioChunk } from '../lib/watermelon/protestSessions';
 import { logger } from '../logger';
 
@@ -172,15 +172,7 @@ export const ProtestAudioProvider = ({ children }: { children: React.ReactNode }
         const permission = await requestRecordingPermissionsAsync();
         if (!permission.granted) return 'no-permission';
 
-        await setAudioModeAsync({
-          allowsRecording: true,
-          allowsBackgroundRecording: true,
-          // Ducking rather than exclusive focus: taking audio away from
-          // whatever else is playing is a visible, surprising side effect of
-          // starting a recording.
-          interruptionMode: 'duckOthers',
-          playsInSilentMode: true,
-        });
+        await setRecordingAudioMode();
 
         sessionIdRef.current = sessionId;
         gapRef.current = 0;
@@ -200,7 +192,12 @@ export const ProtestAudioProvider = ({ children }: { children: React.ReactNode }
 
   const stop = useCallback(async (): Promise<void> => {
     clearTimers();
-    if (!sessionIdRef.current) return;
+    // Restored even with nothing to close: a reload mid-recording loses the
+    // ref but not the native session, which would stay in `playAndRecord`.
+    if (!sessionIdRef.current) {
+      await setPlaybackAudioMode();
+      return;
+    }
     try {
       await rotate(true);
     } catch (error) {
@@ -211,7 +208,7 @@ export const ProtestAudioProvider = ({ children }: { children: React.ReactNode }
       setIsRecording(false);
       setStartedAtMs(null);
       levels.set(new Array(WAVEFORM_BARS).fill(0));
-      await setAudioModeAsync({ allowsRecording: false, allowsBackgroundRecording: false });
+      await setPlaybackAudioMode();
     }
   }, [clearTimers, rotate, levels]);
 
