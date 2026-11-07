@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query';
 import {
   generateInvite,
+  getCurrentDataAccessRequest,
   getCurrentRecoveryRequest,
   listAsContact,
   listDevices,
@@ -80,6 +81,24 @@ export const userTrustedContactInviteOptions = ({ userId }: { userId?: string })
     queryFn: async () => {
       const { data, error } = await generateInvite({ path: { user_id: userId! } });
       if (error) throw error;
+      return data;
+    },
+    enabled: !!userId,
+  });
+
+/** `null`, not a thrown error, when nothing is pending - the expected steady
+ * state. A request here is somebody asking to read this account's recordings,
+ * so the owner has to see it while the veto window is still open. */
+export const userDataAccessRequestCurrentOptions = ({ userId }: { userId?: string }) =>
+  queryOptions({
+    queryKey: userKeys.dataAccessRequestCurrent({ userId: userId! }),
+    queryFn: async () => {
+      const { data, error, response } = await getCurrentDataAccessRequest({
+        path: { user_id: userId! },
+      });
+      if (response.status === 404) return null;
+      if (error) throw error;
+      if (data === undefined) throw new Error('No data');
       return data;
     },
     enabled: !!userId,

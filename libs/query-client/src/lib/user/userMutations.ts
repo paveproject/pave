@@ -1,8 +1,10 @@
-import { createRecoveryRequest, setDevice, setShares } from '@libs/api-js';
+import { createDataAccessRequest, createRecoveryRequest, setDevice, setShares } from '@libs/api-js';
 import type { DeviceType, MeTrustedContactsShareUpdate } from '@libs/api-js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toApiCallError } from '../apiError';
 import { mePendingActionsOptions } from '../me/meOptions';
 import { userDevicesOptions, userRecoveryRequestCurrentOptions } from './userOptions';
+import { upsertMyDataAccessRequest } from '../dataAccess/request/dataAccessRequestMutations';
 
 /** `useEnsureRecoveryIdentity` calls this on every launch, well before
  * anything else notices this device might now be a pending
@@ -44,6 +46,29 @@ export const useUserTrustedContactSharesSetMutation = ({ userId }: { userId?: st
       const { error } = await setShares({ path: { user_id: userId }, body: { shares } });
       if (error) throw error;
     },
+  });
+};
+
+/**
+ * A trusted contact asking to read `userId`'s recordings - for when that
+ * person is detained or their phone is gone. Nothing opens immediately: a
+ * majority of the account's *other* contacts has to approve, and the owner
+ * keeps a veto window after that.
+ */
+export const useUserDataAccessRequestsCreateMutation = ({ userId }: { userId?: string }) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!userId) throw new Error('No user id');
+      const { data, error, response } = await createDataAccessRequest({
+        path: { user_id: userId },
+      });
+      if (error) throw toApiCallError(response.status, error);
+      if (data === undefined) throw new Error('No data');
+      return data;
+    },
+    // The response is the request, so the waiting section needs no refetch.
+    onSuccess: (request) => upsertMyDataAccessRequest(queryClient, request),
   });
 };
 

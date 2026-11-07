@@ -29,4 +29,8 @@ export const userKeys = {
   /** At most one pending request per account at a time. */
   recoveryRequestCurrent: ({ userId }: { userId: string }) =>
     [...userKeys.details({ userId }), 'recovery-request', 'current'] as const,
+  /** The live request a trusted contact has made against this account - what
+   * the owner needs on screen to be able to refuse it in time. */
+  dataAccessRequestCurrent: ({ userId }: { userId: string }) =>
+    [...userKeys.details({ userId }), 'data-access', 'request', 'current'] as const,
 };

@@ -4,6 +4,7 @@ import {
   getMe,
   getPendingActions,
   getRecoveryKeyMnemonic,
+  listMyDataAccessRequests,
 } from '@libs/api-js';
 import { meKeys } from './meKeys';
 import { utilsKeys } from '../utilsKeys';
@@ -45,10 +46,10 @@ export const meUsernameAvailableOptions = (username: string | undefined) =>
 
 /* ----------------------------- Pending actions ---------------------------- */
 
-/** Fetched on launch, kept live by `useUserEventsSocket`, and refetched on
- * every app refocus for free - `ReactQueryProvider` wires `AppState` into
- * react-query's `focusManager`. That is what covers a device that was offline
- * at the exact moment a realtime event fired. */
+/** Kept live by `useUserEventsSocket`; the refocus refetch is what covers a
+ * device that was offline when an event fired. `refetchOnWindowFocus` is set
+ * here because `ReactQueryProvider` turns it *off* globally - relying on the
+ * wired `focusManager` alone silently did nothing. */
 export const mePendingActionsOptions = () =>
   queryOptions({
     queryKey: meKeys.pendingActions(),
@@ -58,6 +59,30 @@ export const mePendingActionsOptions = () =>
       if (data === undefined) throw new Error('No data');
       return data;
     },
+    refetchOnWindowFocus: true,
+  });
+
+/* -------------------------- Data access requests -------------------------- */
+
+/**
+ * Requests the caller made, newest first.
+ *
+ * `staleTime: 0` and a refocus refetch because `access` turns over on the
+ * clock alone - no event is sent at `releaseAt`, so a cached copy is wrong
+ * from that instant. `useOwnerDataAccess` schedules a refetch for the app
+ * that stays open across it.
+ */
+export const meDataAccessRequestsOptions = () =>
+  queryOptions({
+    queryKey: meKeys.dataAccessRequests(),
+    queryFn: async () => {
+      const { data, error } = await listMyDataAccessRequests();
+      if (error) throw error;
+      if (data === undefined) throw new Error('No data');
+      return data;
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
 /* -------------------------- Recovery key mnemonic ------------------------- */

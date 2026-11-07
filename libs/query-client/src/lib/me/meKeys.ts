@@ -8,4 +8,6 @@ export const meKeys = {
   pendingActions: () => [meKeys.base, 'pending-actions'] as const,
   /** One blob per account, no params needed. */
   recoveryKeyMnemonic: () => [meKeys.base, 'recovery-key-mnemonic'] as const,
+  /** Data-access requests the caller has made against other accounts. */
+  dataAccessRequests: () => [meKeys.base, 'data-access', 'requests'] as const,
 };

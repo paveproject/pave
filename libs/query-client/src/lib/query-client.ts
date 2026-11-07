@@ -1,5 +1,6 @@
 export * from './apiError';
 export * from './auth';
+export * from './dataAccess';
 export * from './device';
 export * from './me';
 export * from './recoveryRequest';
