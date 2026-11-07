@@ -75,7 +75,6 @@ const ProtestModeLayout = () => {
           which is what keeps a signed-out user out. */}
       <Stack.Protected guard={!!user}>
         <Stack.Screen name="sessions" options={{ title: t('pages.protest_mode.sessions.title') }} />
-        <Stack.Screen name="[id]" options={{ title: t('pages.protest_mode.sessions.detail') }} />
       </Stack.Protected>
     </Stack>
   );

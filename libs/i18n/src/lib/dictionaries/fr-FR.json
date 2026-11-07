@@ -94,7 +94,8 @@
     "my_contacts": "Mes contacts",
     "trusts_me": "Me font confiance",
     "trusted_contact": "Contact de confiance",
-    "protest_sessions": "Sessions de manifestation"
+    "protest_sessions": "Sessions de manifestation",
+    "close": "Fermer"
   },
   "pages": {
     "onboarding": {
@@ -368,10 +369,24 @@
         "pending": "{count, plural, one {# non envoyée} other {# non envoyées}}",
         "all_sent": "tout est envoyé",
         "trace": "Tracé",
-        "reading": "Lecture de l’enregistrement…"
+        "reading": "Lecture de l’enregistrement…",
+        "audio": "Audio",
+        "audio_segment": "Segment audio {index}",
+        "audio_gaps": "Enregistré par segments, pour que chacun soit à l’abri sur le serveur avant que le suivant commence. Les courtes coupures entre eux sont réelles.",
+        "recenter": "Recadrer sur tout le tracé",
+        "open_map": "Ouvrir la carte",
+        "not_sent_yet": "Pas encore envoyé",
+        "no_trace": "Aucun tracé dans cette session",
+        "not_found": "Cet enregistrement n’est pas disponible",
+        "no_key": "Aucune clé pour cet enregistrement sur cet appareil"
       },
       "audio_recording": "Enregistrer l'audio",
-      "coming_soon": "Bientôt"
+      "coming_soon": "Bientôt",
+      "video_recording": "Filmer",
+      "audio_running": "Audio en cours",
+      "microphone_denied_title": "L’accès au micro est désactivé",
+      "microphone_denied_message": "Sans lui il n’y a rien à enregistrer. Autorisez l’accès, puis retouchez le bouton.",
+      "gps_off_hint": "L’enregistrement de la trajectoire est désactivé — activez-le dans les réglages du mode manif."
     }
   }
 }

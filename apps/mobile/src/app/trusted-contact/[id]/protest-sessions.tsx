@@ -1,5 +1,5 @@
 import { ActivityIndicator } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useTranslations } from 'use-intl';
 import ProtestSessionsScreen from '../../../screens/protestMode/ProtestSessionsScreen';
 import { useTrustedContactDataAccess } from '../../../hooks/dataAccess/useOwnerDataAccess';
@@ -12,7 +12,6 @@ import { Icons } from '../../../constants/icons';
 const TrustedContactProtestSessionsScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useTranslations();
-  const router = useRouter();
   const { source, isLoading } = useTrustedContactDataAccess(id);
 
   if (isLoading) {
@@ -31,17 +30,7 @@ const TrustedContactProtestSessionsScreen = () => {
     );
   }
 
-  return (
-    <ProtestSessionsScreen
-      source={source}
-      onPressSession={(sessionId) =>
-        router.push({
-          pathname: '/trusted-contact/[id]/protest-session/[sessionId]',
-          params: { id, sessionId },
-        })
-      }
-    />
-  );
+  return <ProtestSessionsScreen source={source} />;
 };
 
 export default TrustedContactProtestSessionsScreen;

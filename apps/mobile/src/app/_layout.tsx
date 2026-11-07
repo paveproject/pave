@@ -266,9 +266,25 @@ const RootLayoutNav = () => {
             name="trusted-contact/[id]/protest-sessions"
             options={{ title: t('messages.protest_sessions') }}
           />
+          {/* One session route, whoever owns it: `useSessionSource` resolves
+              the owner from the id, so a recording of one's own and one read
+              under a grant are the same screen. */}
           <Stack.Screen
-            name="trusted-contact/[id]/protest-session/[sessionId]"
+            name="protest-session/[id]/index"
             options={{ title: t('pages.protest_mode.sessions.detail') }}
+          />
+          {/* A header, unlike the home map: that one is a tab root, this is
+              pushed and needs the back button. `headerStyle` is overridden
+              because `defaultScreenOptions` paints it `colors.background` -
+              transparent alone would still sit on an opaque bar, and the map
+              has to run underneath. */}
+          <Stack.Screen
+            name="protest-session/[id]/trace"
+            options={{
+              title: t('pages.protest_mode.sessions.trace'),
+              headerTransparent: true,
+              headerStyle: { backgroundColor: 'transparent' },
+            }}
           />
         </Stack.Protected>
         {/* WELCOME (see hooks/gates/useWelcomeGate) - grabber + gesture dismiss

@@ -115,7 +115,6 @@ const SessionRow = ({
 interface ProtestSessionsScreenProps {
   /** Whose recordings, when not the signed-in user's. */
   source?: ProtestDataSource;
-  onPressSession?: (sessionId: string) => void;
 }
 
 /** Stands in for the local database on the foreign-source path: it only ever
@@ -124,7 +123,7 @@ const NEVER_OBSERVABLE: Subscribable<ProtestSession[]> = {
   subscribe: () => ({ unsubscribe: () => undefined }),
 };
 
-const ProtestSessionsScreen = ({ source, onPressSession }: ProtestSessionsScreenProps) => {
+const ProtestSessionsScreen = ({ source }: ProtestSessionsScreenProps) => {
   const t = useTranslations();
   const router = useRouter();
   const { colors, theme } = useTheme();
@@ -133,12 +132,12 @@ const ProtestSessionsScreen = ({ source, onPressSession }: ProtestSessionsScreen
   const local = useObservable<ProtestSession[]>(getSessions, []);
   const { sessions: remote, isLoading: isReadingRemote } = useRemoteProtestSessions(source);
 
+  // One route for every session, whoever owns it - see `useSessionSource`.
   const handlePress = useCallback(
     (sessionId: string) => {
-      if (onPressSession) return onPressSession(sessionId);
-      router.push(`/(tabs)/protest-mode/${sessionId}`);
+      router.push({ pathname: '/protest-session/[id]', params: { id: sessionId } });
     },
-    [onPressSession, router],
+    [router],
   );
 
   // Local first, then whatever the server holds that this device doesn't.

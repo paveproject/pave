@@ -155,6 +155,12 @@ export const Icons = {
     android: import('@expo/material-symbols/error.xml'),
   }),
 
+  // Reframes a map on everything it has to show, which is not "locate me" -
+  // hence its own icon rather than one of the three below.
+  fitBounds: Icon.select({
+    ios: 'viewfinder',
+    android: import('@expo/material-symbols/crop_free.xml'),
+  }),
   // Map locate button's 3 states (idle -> focused -> heading-follow).
   locate: Icon.select({
     ios: 'location',

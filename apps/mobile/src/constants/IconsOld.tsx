@@ -59,6 +59,7 @@ import {
   RectangleVerticalIcon,
   RefreshCcw,
   RotateCcwIcon,
+  ScanIcon,
   ScanLineIcon,
   SearchIcon,
   SendIcon,
@@ -123,6 +124,8 @@ export const Icons = {
   UserPlus: UserPlusIcon,
   QrCode: QrCodeIcon,
   Scan: ScanLineIcon,
+  // Viewfinder corners, pairing with the `viewfinder` SF Symbol.
+  Fit: ScanIcon,
   Camera: CameraIcon,
   logout: LogOutIcon,
   settings: SettingsIcon,

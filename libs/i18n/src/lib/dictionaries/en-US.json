@@ -94,7 +94,8 @@
     "my_contacts": "My contacts",
     "trusts_me": "Trusts me",
     "trusted_contact": "Trusted contact",
-    "protest_sessions": "Protest sessions"
+    "protest_sessions": "Protest sessions",
+    "close": "Close"
   },
   "pages": {
     "onboarding": {
@@ -368,10 +369,24 @@
         "pending": "{count, plural, one {# not sent} other {# not sent}}",
         "all_sent": "all sent",
         "trace": "Trace",
-        "reading": "Reading the recording…"
+        "reading": "Reading the recording…",
+        "audio": "Audio",
+        "audio_segment": "Audio segment {index}",
+        "audio_gaps": "Recorded in segments, so each one is safe on the server before the next starts. The short gaps between them are real.",
+        "recenter": "Fit the whole trace",
+        "open_map": "Open the map",
+        "not_sent_yet": "Not sent yet",
+        "no_trace": "No trajectory in this session",
+        "not_found": "This recording is not available",
+        "no_key": "No key for this recording on this device"
       },
       "audio_recording": "Record audio",
-      "coming_soon": "Coming soon"
+      "coming_soon": "Coming soon",
+      "video_recording": "Film",
+      "audio_running": "Recording audio",
+      "microphone_denied_title": "Microphone access is off",
+      "microphone_denied_message": "Without it there is nothing to record. Grant access, then tap again.",
+      "gps_off_hint": "Trajectory recording is off — turn it on in protest-mode settings."
     }
   }
 }
