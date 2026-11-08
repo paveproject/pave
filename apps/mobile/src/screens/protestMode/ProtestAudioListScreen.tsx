@@ -1,4 +1,4 @@
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslations } from 'use-intl';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -23,13 +23,16 @@ const ProtestAudioListScreen = ({ sessionId, source }: ProtestAudioListScreenPro
   const t = useTranslations();
   const { colors, theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { audio, isReadingRemote } = useSessionTrace(id, source);
+  const { audio, isReadingRemote, refresh, isRefreshing } = useSessionTrace(id, source);
 
+  // A `ScrollView`, not a plain `View`: empty and loading are exactly the
+  // states where the answer may be stale, so they have to be the ones that can
+  // be pulled to retry.
   if (audio.length === 0) {
     return (
-      <View
-        style={{
-          flex: 1,
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
           alignItems: 'center',
           justifyContent: 'center',
           paddingTop: theme.spaces.vertical,
@@ -37,19 +40,23 @@ const ProtestAudioListScreen = ({ sessionId, source }: ProtestAudioListScreenPro
           paddingRight: insets.right + theme.spaces.horizontal,
           paddingBottom: insets.bottom + theme.spaces.vertical,
         }}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={() => void refresh()} />
+        }
       >
         {isReadingRemote ? (
           <ActivityIndicator />
         ) : (
           <Empty icon={Icons.waveform} title={t('pages.protest_mode.sessions.no_audio')} />
         )}
-      </View>
+      </ScrollView>
     );
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <AudioSegmentList chunks={audio} />
+      <AudioSegmentList chunks={audio} onRefresh={refresh} isRefreshing={isRefreshing} />
     </View>
   );
 };

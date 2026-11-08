@@ -2,8 +2,21 @@ pub mod dto;
 pub mod handlers;
 
 use crate::state::AppState;
+use axum::extract::DefaultBodyLimit;
 use axum::routing::put;
 use axum::Router;
+
+/// Raised for this route alone, because `axum`'s default is 2 MB and a video
+/// segment is the first payload here to go past it - audio runs about 360 KB a
+/// minute and position batches are tiny, so the limit only showed up once
+/// filming landed.
+///
+/// Sized off the recorder, not off the clip: `SEGMENT_SECONDS` (120) at the
+/// Android bitrate (2 Mbps) caps a segment near 30 MB, whatever the length of
+/// the recording it came from. `upload_blob` reads the whole body into memory
+/// before putting it in the bucket, so this is also the per-upload memory
+/// cost - which is the other reason not to make it generous.
+const MAX_BLOB_BYTES: usize = 64 * 1024 * 1024;
 
 /// One protest-mode session, by its id, and its encrypted payloads.
 ///
@@ -30,7 +43,9 @@ pub fn router() -> Router<AppState> {
         )
         .route(
             "/protest-session/{protest_session_id}/blob/{blob_id}",
-            put(handlers::upload_blob).get(handlers::download_blob),
+            put(handlers::upload_blob)
+                .get(handlers::download_blob)
+                .layer(DefaultBodyLimit::max(MAX_BLOB_BYTES)),
         )
 }
 

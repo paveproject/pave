@@ -22,16 +22,25 @@ const localProtestMediaKey = (sessionId: string) =>
 export const useLocalProtestMedia = (
   sessionId: string | undefined,
   source?: ProtestDataSource,
-): { audio: ReadAudioChunk[]; video: ReadVideoChunk[] } => {
+): {
+  audio: ReadAudioChunk[];
+  video: ReadVideoChunk[];
+  refetch: () => Promise<unknown>;
+} => {
   const { user } = useAuth();
   const userId = user?.id;
 
-  const { data } = useQuery({
+  const { data, refetch } = useQuery({
     queryKey: localProtestMediaKey(sessionId ?? ''),
     queryFn: () => readLocalMediaChunks(userId!, sessionId!),
     enabled: !!userId && !!sessionId && !source,
     staleTime: 30 * 1000,
+    // Required: `onlineManager` is wired to NetInfo, so the default
+    // `'online'` mode *pauses* this query while offline and never calls the
+    // queryFn - even though it only reads this device's own disk. Offline is
+    // precisely when it is the only source there is.
+    networkMode: 'always',
   });
 
-  return { audio: data?.audio ?? [], video: data?.video ?? [] };
+  return { audio: data?.audio ?? [], video: data?.video ?? [], refetch };
 };

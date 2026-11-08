@@ -21,12 +21,14 @@ import { Scrubber } from '../../../components/ui/Scrubber';
 import { MediaActionsMenu } from '../../../components/ui/MediaActionsMenu';
 import { shareMediaChunk } from '../../../lib/protestMode/shareMedia';
 import { setPlaybackAudioMode } from '../../../lib/protestMode/audioMode';
+import { useDecryptedMediaCleanup } from '../../../hooks/protestMode/useDecryptedMediaCleanup';
 import { logger } from '../../../logger';
 import { Icons } from '../../../constants/icons';
 import type { ReadAudioChunk } from '../../../lib/protestMode/readSession';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const SKIP_SECONDS = 15;
+/** Drawn into `Icons.skipBack`/`skipForward` - change both together. */
+const SKIP_SECONDS = 10;
 
 /** `useAudioPlayerStatus` polls rather than streams, so the bar is animated
  * across one interval instead of stepping twice a second. */
@@ -174,12 +176,21 @@ const PlayerPanel = ({ player }: { player: AudioPlayer }) => {
  * per row would let two segments sound at once, and would hold a decoder open
  * for every segment of a three-hour recording.
  */
-export const AudioSegmentList = ({ chunks }: { chunks: ReadAudioChunk[] }) => {
+export const AudioSegmentList = ({
+  chunks,
+  onRefresh,
+  isRefreshing,
+}: {
+  chunks: ReadAudioChunk[];
+  onRefresh: () => Promise<unknown>;
+  isRefreshing: boolean;
+}) => {
   const { colors, theme } = useTheme();
   const t = useTranslations();
   const format = useFormatter();
   const reducedMotion = useReducedMotion();
   const player = useAudioPlayer();
+  const cleanUpDecrypted = useDecryptedMediaCleanup();
   const insets = useSafeAreaInsets();
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -190,7 +201,15 @@ export const AudioSegmentList = ({ chunks }: { chunks: ReadAudioChunk[] }) => {
     );
   }, []);
 
-  useEffect(() => () => player.pause(), [player]);
+  // Paused *then* cleaned: the decrypted files are plaintext recordings, and
+  // this screen is the only reason they exist.
+  useEffect(
+    () => () => {
+      player.pause();
+      cleanUpDecrypted();
+    },
+    [player, cleanUpDecrypted],
+  );
 
   const select = useCallback(
     (uri: string) => {
@@ -230,6 +249,8 @@ export const AudioSegmentList = ({ chunks }: { chunks: ReadAudioChunk[] }) => {
         paddingBottom: insets.bottom + theme.spaces.vertical,
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
+      refreshing={isRefreshing}
+      onRefresh={() => void onRefresh()}
       renderItem={({ item, index }) => (
         <View>
           {/* The menu is a *sibling* of the row's `Pressable`, not a child:

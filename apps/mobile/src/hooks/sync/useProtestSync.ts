@@ -7,6 +7,7 @@ import {
 import { useSyncTaskReporter } from '../../providers/sync/useSyncTaskReporter';
 import { SYNC_TASK_IDS } from '../../providers/sync/types';
 import { useAuth } from '../../providers/AuthProvider';
+import { useDecryptedMediaCleanup } from '../protestMode/useDecryptedMediaCleanup';
 
 /**
  * Startup catch-up for protest-mode data, mirroring `useReportSync`.
@@ -24,6 +25,7 @@ export const useProtestSync = () => {
   const { user } = useAuth();
   const userId = user?.id;
   const reporter = useSyncTaskReporter({ id: SYNC_TASK_IDS.protest, enabled: !!userId });
+  const cleanUpDecrypted = useDecryptedMediaCleanup();
 
   // Reported continuously, not just at startup: positions pile up for a whole
   // session between flushes, so a count taken once goes stale within seconds -
@@ -38,11 +40,13 @@ export const useProtestSync = () => {
 
   useEffect(() => {
     if (!userId) return;
+    // Plaintext a playback screen left behind when it never got to unmount.
+    cleanUpDecrypted();
     reporter.reportStart();
     getUnsyncedProtestCount().then((count) => reporter.reportPendingCount(count));
     reconcileUnsyncedProtestData(userId)
       .then(() => reporter.reportSuccess())
       .catch((error) => reporter.reportError(error))
       .finally(() => getUnsyncedProtestCount().then((count) => reporter.reportPendingCount(count)));
-  }, [reporter, userId]);
+  }, [reporter, userId, cleanUpDecrypted]);
 };

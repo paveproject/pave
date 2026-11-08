@@ -58,7 +58,15 @@ pub async fn set_avatar(
             .into_response();
     }
 
-    let bytes = field.bytes().await.expect("failed to read uploaded file");
+    // Not `.expect()`: a client that drops mid-upload would panic the task,
+    // and the same reasoning is why `upload_blob` returns a status instead.
+    let bytes = match field.bytes().await {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            tracing::error!(?error, "failed to read the uploaded avatar");
+            return (StatusCode::BAD_REQUEST, "could not read the file").into_response();
+        }
+    };
     // Only the bare filename is stored (see `media::resolve_media_url`) -
     // the folder is still needed to build the actual S3 object key, but
     // never persisted, so a future bucket/endpoint/CDN change is an env
@@ -71,7 +79,7 @@ pub async fn set_avatar(
         .put_object()
         .bucket(&state.config.s3_bucket_public)
         .key(&key)
-        .body(aws_sdk_s3::primitives::ByteStream::from(bytes.to_vec()))
+        .body(aws_sdk_s3::primitives::ByteStream::from(bytes))
         .content_type(content_type)
         .send()
         .await

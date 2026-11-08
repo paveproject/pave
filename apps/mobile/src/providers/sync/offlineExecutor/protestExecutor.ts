@@ -1,8 +1,8 @@
 import { startOfflineExecutor } from '@tanstack/offline-transactions/react-native';
 import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
-import { upsertSession, uploadBlob, endSession, listSessions } from '@libs/api-js';
+import { upsertSession, endSession, listSessions } from '@libs/api-js';
 import { Q } from '@nozbe/watermelondb';
-import { File, Paths } from 'expo-file-system';
+import { File, Paths, UploadType } from 'expo-file-system';
 import { createOfflineTransactionsStorage } from './mmkvStorageAdapter';
 import { throwForFailedResponse } from './classifyError';
 import { database } from '../../../lib/watermelon/database';
@@ -18,6 +18,8 @@ import {
   PROTEST_SESSION_TABLE,
 } from '../../../lib/watermelon/schema';
 import { encryptBlob, openSessionKey } from '../../../lib/protestMode/crypto';
+import { API_ENDPOINT } from '../../../env/common';
+import { getSessionToken } from '../../../lib/auth/session';
 import { getProtestSessionKey } from '../../../lib/protestMode/keyStore';
 import { logger } from '../../../logger';
 
@@ -151,54 +153,75 @@ const resolveSessionKey = async ({
 }: ProtestPushBase): Promise<Uint8Array> =>
   (await getProtestSessionKey(userId, sessionId)) ?? openSessionKey(userId, sealedKey);
 
+type BlobKind = 'position_batch' | 'audio_chunk' | 'video_chunk';
+
 /**
- * Uploads one blob's ciphertext.
+ * Uploads one already-sealed file.
  *
- * Staged to a file because a `Uint8Array` cannot become a multipart part
- * directly: RN's `Blob` constructor throws on typed arrays
- * (`Libraries/Blob/BlobManager.js`). The part must then be the
- * `expo-file-system` `File` instance itself - a `{ uri, name, type }` object,
- * which RN's FormData docs show, does not go through this generated client.
+ * `File.upload` rather than the generated client: it hands the transfer to a
+ * background `NSURLSession` (`sessionType` defaults to `'background'`), so the
+ * OS carries it on after the app is suspended - a `fetch` dies with the
+ * process, which meant a clip sent as the phone went into a pocket only
+ * resumed when the app was next opened. It also streams from disk instead of
+ * loading the whole file into JS memory to build a `FormData`.
+ *
+ * If the app is *killed* mid-transfer the JS promise is not restored, so the
+ * row stays unsynced and `reconcileUnsyncedProtestData` re-queues it. That is
+ * safe only because `blobId` is minted with the row: `upload_blob` returns the
+ * stored blob unchanged for an id it already holds, without even reading the
+ * body.
  */
+const uploadSealedFile = async (
+  meta: { sessionId: string; blobId: string; seq: number },
+  kind: BlobKind,
+  file: File,
+): Promise<void> => {
+  // Before the request: a missing file makes the native layer fail with no
+  // response at all, which reads as a bare "network error".
+  if (!file.exists) throw new Error(`sealed blob is not on disk: ${file.uri}`);
+
+  const token = await getSessionToken();
+  if (!token) throw new Error('not signed in');
+
+  const url = `${API_ENDPOINT}/protest-session/${meta.sessionId}/blob/${meta.blobId}`;
+  let result;
+  try {
+    result = await file.upload(url, {
+      httpMethod: 'PUT',
+      uploadType: UploadType.MULTIPART,
+      fieldName: 'file',
+      mimeType: 'application/octet-stream',
+      parameters: { kind, seq: String(meta.seq) },
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch (error) {
+    describeFailure('uploadBlob', meta.sessionId, error, undefined);
+    throw error;
+  }
+
+  if (result.status < 200 || result.status >= 300) {
+    describeFailure('uploadBlob', meta.sessionId, result.body, undefined);
+    throwForFailedResponse(result.status, `protest ${kind}`);
+  }
+};
+
+/** For a payload built in memory - only the position batches, which have no
+ * file of their own. Media is already sealed on disk. */
 const uploadCiphertext = async (
   meta: { sessionId: string; blobId: string; seq: number },
-  kind: 'position_batch' | 'audio_chunk' | 'video_chunk',
+  kind: BlobKind,
   ciphertext: Uint8Array,
 ): Promise<void> => {
   const staged = new File(Paths.cache, `protest-${meta.blobId}.bin`);
   try {
     staged.create({ overwrite: true, intermediates: true });
     // `write` is async, unlike `create` and `delete`. Not awaiting it uploads
-    // a file that isn't on disk yet, which surfaces as a bare "network error".
+    // a file that isn't on disk yet.
     await staged.write(ciphertext);
-
-    // Before the request: a missing file makes the native layer fail with no
-    // response at all, which also reads as "network error".
-    if (!staged.exists) {
-      throw new Error(`staged blob was not written to disk: ${staged.uri}`);
-    }
-
-    const form = new FormData();
-    form.append('kind', kind);
-    form.append('seq', String(meta.seq));
-    form.append('file', staged as unknown as Blob);
-
-    const { error, response } = await uploadBlob({
-      path: { protest_session_id: meta.sessionId, blob_id: meta.blobId },
-      // Multipart isn't representable in the generated types - same escape
-      // hatch as the avatar upload.
-      body: form as never,
-      bodySerializer: (value) => value,
-    });
-    if (error) {
-      describeFailure('uploadBlob', meta.sessionId, error, response);
-      throwForFailedResponse(response?.status, `protest ${kind}`);
-    }
+    await uploadSealedFile(meta, kind, staged);
   } finally {
     // Ciphertext in the cache is still someone's recording.
     try {
-      // Guarded: the upload can consume the file, and `delete` throws on a
-      // missing path.
       if (staged.exists) staged.delete();
     } catch (cleanupError) {
       logger.error('protest: failed to clean up a staged blob', { cleanupError });
@@ -337,11 +360,9 @@ export const protestExecutor = startOfflineExecutor({
         return;
       }
 
-      await uploadCiphertext(
-        meta,
-        meta.kind === 'video' ? 'video_chunk' : 'audio_chunk',
-        await chunk.bytes(),
-      );
+      // Straight from the sealed file: reading it into memory first would
+      // mean a second copy of a clip that can run to tens of megabytes.
+      await uploadSealedFile(meta, meta.kind === 'video' ? 'video_chunk' : 'audio_chunk', chunk);
 
       protestMutationMarkers.utils.acceptMutations(transaction);
 

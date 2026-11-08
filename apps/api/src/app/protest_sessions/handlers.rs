@@ -6,6 +6,7 @@ use crate::app::access::can_read_owner;
 use crate::libs::media;
 use crate::state::AppState;
 use auth::AppAuthSchema;
+use axum::body::{Body, Bytes};
 use axum::extract::{Multipart, Path, State};
 use axum::http::{header, StatusCode};
 use axum::response::IntoResponse;
@@ -14,6 +15,7 @@ use better_auth::integrations::axum::CurrentSession;
 use db_rs::sea_orm_active_enums::ProtestBlobKindEnum;
 use db_rs::{protest_blob, protest_session};
 use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 
 /// Only the two read handlers use this. Every write keeps
@@ -388,7 +390,10 @@ pub async fn upload_blob(
 
     let mut kind: Option<ProtestBlobKindEnum> = None;
     let mut seq: Option<i32> = None;
-    let mut bytes: Option<Vec<u8>> = None;
+    // Kept as `Bytes`: `field.bytes()` has already accumulated the whole body
+    // into one, and a `to_vec()` here was a second full copy of the blob -
+    // 128 MB resident for a 64 MB upload.
+    let mut bytes: Option<Bytes> = None;
 
     loop {
         match multipart.next_field().await {
@@ -413,7 +418,7 @@ pub async fn upload_blob(
                     }
                 }
                 "file" => match field.bytes().await {
-                    Ok(read) => bytes = Some(read.to_vec()),
+                    Ok(read) => bytes = Some(read),
                     Err(error) => {
                         tracing::error!(?error, "failed to read the uploaded blob");
                         return (StatusCode::BAD_REQUEST, "could not read the file")
@@ -445,6 +450,11 @@ pub async fn upload_blob(
         blob_uuid
     );
 
+    // Taken before the body is handed over, so the `ByteStream` can consume
+    // `bytes` instead of cloning it - on a video segment that clone was a
+    // second full copy of the blob in memory.
+    let size = i32::try_from(bytes.len()).unwrap_or(i32::MAX);
+
     // `?` rather than the avatar path's `.expect()`: the outbox retries a
     // 500, where a panic loses the blob.
     if let Err(error) = state
@@ -452,7 +462,7 @@ pub async fn upload_blob(
         .put_object()
         .bucket(&state.config.s3_bucket_private)
         .key(&key)
-        .body(aws_sdk_s3::primitives::ByteStream::from(bytes.clone()))
+        .body(aws_sdk_s3::primitives::ByteStream::from(bytes))
         .content_type("application/octet-stream")
         .send()
         .await
@@ -465,7 +475,6 @@ pub async fn upload_blob(
             .into_response();
     }
 
-    let size = i32::try_from(bytes.len()).unwrap_or(i32::MAX);
     let insert = protest_blob::Entity::insert(protest_blob::ActiveModel {
         id: Set(blob_uuid),
         session_id: Set(session_id),
@@ -567,16 +576,21 @@ pub async fn download_blob(
         }
     };
 
-    match object.body.collect().await {
-        Ok(data) => (
-            StatusCode::OK,
-            [(header::CONTENT_TYPE, "application/octet-stream")],
-            data.into_bytes(),
-        )
-            .into_response(),
-        Err(error) => {
-            tracing::error!(?error, "failed to read the protest blob stream");
-            (StatusCode::INTERNAL_SERVER_ERROR, "could not read the blob").into_response()
-        }
-    }
+    // Streamed, not `collect()`ed: buffering the object held a whole blob in
+    // memory per concurrent download, and reading a session back fetches every
+    // blob it has - thirty of them for an hour of video.
+    //
+    // The cost is that an S3 failure part-way through can no longer become a
+    // 500; the response is already in flight, so it truncates instead. The
+    // length below is what lets a client notice.
+    let body = Body::from_stream(ReaderStream::new(object.body.into_async_read()));
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, "application/octet-stream".to_string()),
+            (header::CONTENT_LENGTH, blob.size.to_string()),
+        ],
+        body,
+    )
+        .into_response()
 }

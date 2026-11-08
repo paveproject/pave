@@ -193,16 +193,13 @@ export const Icons = {
     android: import('@expo/material-symbols/play_arrow.xml'),
   }),
   pause: Icon.select({ ios: 'pause.fill', android: import('@expo/material-symbols/pause.xml') }),
-  // SF puts the number in the glyph; Material Symbols has 5, 10 and 30 but no
-  // 15, so Android gets a bare arrow and the amount lives in the
-  // accessibility label. 10s would match exactly on both.
   skipBack: Icon.select({
-    ios: 'gobackward.15',
-    android: import('@expo/material-symbols/rotate_left.xml'),
+    ios: 'gobackward.10',
+    android: import('@expo/material-symbols/replay_10.xml'),
   }),
   skipForward: Icon.select({
-    ios: 'goforward.15',
-    android: import('@expo/material-symbols/rotate_right.xml'),
+    ios: 'goforward.10',
+    android: import('@expo/material-symbols/forward_10.xml'),
   }),
 };
 

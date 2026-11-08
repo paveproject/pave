@@ -1,4 +1,4 @@
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslations } from 'use-intl';
@@ -23,13 +23,16 @@ const ProtestVideoListScreen = ({ sessionId, source }: ProtestVideoListScreenPro
   const t = useTranslations();
   const { colors, theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { video, isReadingRemote } = useSessionTrace(id, source);
+  const { video, isReadingRemote, refresh, isRefreshing } = useSessionTrace(id, source);
 
+  // A `ScrollView`, not a plain `View`: empty and loading are exactly the
+  // states where the answer may be stale, so they have to be the ones that can
+  // be pulled to retry.
   if (video.length === 0) {
     return (
-      <View
-        style={{
-          flex: 1,
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
           alignItems: 'center',
           justifyContent: 'center',
           paddingTop: theme.spaces.vertical,
@@ -37,19 +40,23 @@ const ProtestVideoListScreen = ({ sessionId, source }: ProtestVideoListScreenPro
           paddingRight: insets.right + theme.spaces.horizontal,
           paddingBottom: insets.bottom + theme.spaces.vertical,
         }}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={() => void refresh()} />
+        }
       >
         {isReadingRemote ? (
           <ActivityIndicator />
         ) : (
           <Empty icon={Icons.video} title={t('pages.protest_mode.sessions.no_video')} />
         )}
-      </View>
+      </ScrollView>
     );
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <VideoClipList clips={video} />
+      <VideoClipList clips={video} onRefresh={refresh} isRefreshing={isRefreshing} />
     </View>
   );
 };

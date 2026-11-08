@@ -1,4 +1,4 @@
-import { File, Paths } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import { Q } from '@nozbe/watermelondb';
 import { database } from '../watermelon/database';
 import { PROTEST_MEDIA_CHUNK_TABLE } from '../watermelon/schema';
@@ -7,6 +7,33 @@ import { getProtestSessionKey } from './keyStore';
 import { decryptBlob, parseMediaChunk } from './crypto';
 import type { ReadAudioChunk, ReadVideoChunk } from './readSession';
 import { logger } from '../../logger';
+
+/** Prefix of every decrypted file, written both here and by `readSession`. */
+const DECRYPTED_PREFIX = /^protest-(audio|video)-/;
+
+/**
+ * Deletes the plaintext media left in the cache by a playback screen.
+ *
+ * Both read paths have to write the decrypted bytes to a file, because a
+ * player takes a uri and nothing in `expo-audio`/`expo-video` accepts raw
+ * bytes. That plaintext is exactly what sealing a chunk exists to avoid, so it
+ * is cleared as soon as the screen that needed it is gone, and again at
+ * startup to catch a crash in between. Nothing else evicts it: the OS only
+ * reclaims a cache directory under disk pressure.
+ */
+export const sweepDecryptedMedia = (): void => {
+  const cache = new Directory(Paths.cache);
+  if (!cache.exists) return;
+
+  for (const entry of cache.list()) {
+    if (entry instanceof Directory || !DECRYPTED_PREFIX.test(entry.name)) continue;
+    try {
+      entry.delete();
+    } catch (error) {
+      logger.error('protest: failed to sweep a decrypted media file', { error });
+    }
+  }
+};
 
 /**
  * The media this device still holds for a session, decrypted.

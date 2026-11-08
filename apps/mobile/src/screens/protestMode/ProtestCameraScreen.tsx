@@ -14,8 +14,9 @@ import { RecordButton, type RecordPhase } from './components/RecordButton';
 import { PinchZoom } from './components/PinchZoom';
 import { Icons as LucideIcons } from '../../constants/IconsOld';
 import {
-  captureClip,
+  claimSegment,
   recordingOptions,
+  sealSegment,
   VIDEO_BITRATE,
   VIDEO_QUALITY,
 } from '../../lib/protestMode/protestVideo';
@@ -49,8 +50,14 @@ const ProtestCameraScreen = () => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const camera = useRef<CameraViewType>(null);
-  const startedAtRef = useRef<Date | null>(null);
+  /** Per-segment, written by `onRecordingProgress` and read at its close. */
   const durationRef = useRef(0);
+  /** Everything already closed, so the readout counts the whole run rather
+   * than restarting at each rotation. */
+  const recordedMsRef = useRef(0);
+  /** Set by `stop` so a resolved `recordAsync` can be told apart: the promise
+   * looks identical whether the user stopped or `maxDuration` elapsed. */
+  const stoppingRef = useRef(false);
 
   const [permission, requestPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
@@ -67,50 +74,78 @@ const ProtestCameraScreen = () => {
   const isIdle = phase === 'idle';
   const isRecording = phase === 'recording';
 
+  /** One `recordAsync`, with the HEVC fallback around it. */
+  const recordOneSegment = useCallback(async () => {
+    try {
+      return await camera.current?.recordAsync(recordingOptions(hevcAvailable));
+    } catch (error) {
+      if (!hevcAvailable) throw error;
+      logger.error('protest: HEVC is unavailable, recording h264 instead', { error });
+      hevcAvailable = false;
+      return camera.current?.recordAsync(recordingOptions(false));
+    }
+  }, []);
+
+  /**
+   * Films until the user stops, closing a segment every `SEGMENT_SECONDS`.
+   *
+   * The loop exists because `maxDuration` ends the recording rather than
+   * splitting it, so without it filming simply stopped on the user mid-event.
+   * Each segment is a whole, independently playable blob - which is what lets
+   * a long recording have mostly reached the server before a seizure.
+   */
   const start = useCallback(async () => {
     if (!userId || !sessionId) return;
-    const startedAt = new Date();
-    startedAtRef.current = startedAt;
+    stoppingRef.current = false;
+    recordedMsRef.current = 0;
     durationRef.current = 0;
     setElapsed(0);
     // Not `recording` yet: `recordAsync` returns before the camera has written
     // a frame, and the first progress event is the only signal that it has.
     setPhase('starting');
 
+    // Sealing is queued rather than awaited in the loop: it is crypto over the
+    // whole segment and would leave the camera off for its duration. The gap
+    // then costs only the camera restart, which the next segment records.
+    const seals: Promise<void>[] = [];
+    let previousEndedAtMs: number | null = null;
+
     try {
-      let recorded;
-      try {
-        recorded = await camera.current?.recordAsync(recordingOptions(hevcAvailable));
-      } catch (error) {
-        if (!hevcAvailable) throw error;
-        logger.error('protest: HEVC is unavailable, recording h264 instead', { error });
-        hevcAvailable = false;
-        recorded = await camera.current?.recordAsync(recordingOptions(false));
+      while (!stoppingRef.current) {
+        const startedAt = new Date();
+        const gapBeforeMs =
+          previousEndedAtMs === null ? 0 : Math.max(0, startedAt.getTime() - previousEndedAtMs);
+        durationRef.current = 0;
+
+        const recorded = await recordOneSegment();
+        if (!recorded?.uri) break;
+
+        // The recorder's own count, because the wall clock also counts the
+        // moment spent finalising the file.
+        const durationMs = durationRef.current || Date.now() - startedAt.getTime();
+        previousEndedAtMs = startedAt.getTime() + durationMs;
+        recordedMsRef.current += durationMs;
+
+        const claimedUri = claimSegment(recorded.uri, sessionId);
+        seals.push(
+          sealSegment({ userId, sessionId, claimedUri, startedAt, durationMs, gapBeforeMs }).catch(
+            (error) => logger.error('protest: a video segment was lost', { error }),
+          ),
+        );
       }
-      if (!recorded?.uri) return;
-
-      // The recording itself is over the moment `recordAsync` resolves. What
-      // follows is the seal, and it is slow enough to need saying so: the
-      // whole clip is read into memory and encrypted in JS.
-      setPhase('saving');
-
-      await captureClip({
-        userId,
-        sessionId,
-        recordedUri: recorded.uri,
-        startedAt,
-        // The recorder's own count where it arrived, because the wall clock
-        // also counts the moment spent finalising the file.
-        durationMs: durationRef.current || Date.now() - startedAt.getTime(),
-      });
     } catch (error) {
-      logger.error('protest: a video clip was lost', { error });
+      logger.error('protest: video recording failed', { error });
     } finally {
+      setPhase('saving');
+      await Promise.all(seals);
       setPhase('idle');
     }
-  }, [sessionId, userId]);
+  }, [recordOneSegment, sessionId, userId]);
 
-  const stop = useCallback(() => void camera.current?.stopRecording(), []);
+  const stop = useCallback(() => {
+    stoppingRef.current = true;
+    void camera.current?.stopRecording();
+  }, []);
 
   const flip = useCallback(
     () => setFacing((current) => (current === 'back' ? 'front' : 'back')),
@@ -239,7 +274,7 @@ const ProtestCameraScreen = () => {
           videoBitrate={VIDEO_BITRATE}
           onRecordingProgress={({ duration }) => {
             durationRef.current = Math.round(duration * 1000);
-            setElapsed(duration);
+            setElapsed(recordedMsRef.current / 1000 + duration);
             setPhase((current) => (current === 'starting' ? 'recording' : current));
           }}
         />

@@ -30,15 +30,20 @@ const VIDEO_BITRATE_H264 = 2_000_000;
 export const VIDEO_BITRATE = Platform.OS === 'ios' ? VIDEO_BITRATE_HEVC : VIDEO_BITRATE_H264;
 
 /**
- * A hard stop, not a rotation.
+ * A rotation, not a cap on how long you may film.
  *
- * An MP4 keeps its index (`moov`) at the end of the file and the OS only
- * writes it when the recording stops, so nothing uploads until then and a
- * clip that never stops is a clip that is never saved. Five minutes bounds
- * what a seizure costs and what one blob weighs (~45 MB at the bitrate
- * above).
+ * An MP4 keeps its index (`moov`) at the end of the file and the OS writes it
+ * only when a recording stops, so nothing can upload before then - a single
+ * 20-minute clip is 20 minutes lost to a seizure at minute 19. The blob model
+ * is already the unit of upload, and unlike an S3 multipart part a blob is
+ * independently *decryptable and playable*, so closing one every two minutes
+ * is what turns a long recording into something a seized phone has already
+ * sent most of.
+ *
+ * Two minutes also keeps a segment near 30 MB at the Android bitrate, which
+ * is what `MAX_BLOB_BYTES` is sized against.
  */
-export const MAX_CLIP_SECONDS = 300;
+export const SEGMENT_SECONDS = 120;
 
 const MIME_TYPE = 'video/mp4';
 
@@ -49,31 +54,44 @@ const MIME_TYPE = 'video/mp4';
  * rather than falling back, hence the second form.
  */
 export const recordingOptions = (hevc: boolean): CameraRecordingOptions => ({
-  maxDuration: MAX_CLIP_SECONDS,
+  maxDuration: SEGMENT_SECONDS,
   ...(Platform.OS === 'ios' ? { codec: hevc ? 'hvc1' : 'avc1' } : {}),
 });
 
 /**
- * Seals a just-finished clip and queues it, in that order.
+ * Moves a just-closed segment out of the camera's own path.
+ *
+ * Split from `sealSegment` so the next segment can start first: sealing is
+ * JS-side crypto over the whole file and takes seconds, where this is a
+ * rename. Doing them in one step left the camera off for the length of the
+ * encryption.
+ */
+export const claimSegment = (recordedUri: string, sessionId: string): string =>
+  claimSegmentFile(recordedUri, sessionId, 'video');
+
+/**
+ * Seals one claimed segment and queues it, in that order.
  *
  * Same contract as an audio segment: the plaintext the camera wrote is gone
  * before this returns, and the row is only a pointer to ciphertext.
  */
-export const captureClip = async (params: {
+export const sealSegment = async (params: {
   userId: string;
   sessionId: string;
-  recordedUri: string;
+  claimedUri: string;
   startedAt: Date;
   durationMs: number;
+  /** Frames lost while the camera restarted, before this segment. */
+  gapBeforeMs: number;
 }): Promise<void> => {
-  const claimed = claimSegmentFile(params.recordedUri, params.sessionId, 'video');
   const sealed = await sealChunk({
     kind: 'video',
     userId: params.userId,
     sessionId: params.sessionId,
-    sourceUri: claimed,
+    sourceUri: params.claimedUri,
     startedAt: params.startedAt,
     durationMs: params.durationMs,
+    gapBeforeMs: params.gapBeforeMs,
     mimeType: MIME_TYPE,
   });
   await recordMediaChunk({

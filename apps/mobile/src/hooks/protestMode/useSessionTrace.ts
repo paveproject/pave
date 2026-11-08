@@ -64,7 +64,12 @@ export const useSessionTrace = (id: string | undefined, source?: ProtestDataSour
   const local = useObservable<ProtestPosition[]>(getPositions, []);
   // Just this one, by id - no need to pull and decrypt every sibling to show
   // one trajectory.
-  const { session: remote, isLoading: isReadingRemote } = useRemoteProtestSession(id, source);
+  const {
+    session: remote,
+    isLoading: isReadingRemote,
+    isRefetching,
+    refetch: refetchRemote,
+  } = useRemoteProtestSession(id, source);
 
   // Local wins when it has anything: it is instant, works offline, and is the
   // only side that knows what is still unsent. The server is the fallback for
@@ -104,10 +109,18 @@ export const useSessionTrace = (id: string | undefined, source?: ProtestDataSour
     [remote, localMedia.video],
   );
 
+  // Both sides, because either can be the one holding a chunk: the server
+  // for what has uploaded, this device for what has not.
+  const refresh = useCallback(async () => {
+    await Promise.all([refetchRemote(), localMedia.refetch()]);
+  }, [refetchRemote, localMedia]);
+
   return {
     points,
     audio,
     video,
+    refresh,
+    isRefreshing: isRefetching,
     startedAt: session?.startedAt ?? remote?.startedAt,
     endedAt: session?.endedAt ?? remote?.endedAt ?? null,
     syncedCount: points.filter((point) => point.synced).length,

@@ -18,16 +18,21 @@ import { remoteProtestSessionsKey } from './useRemoteProtestSessions';
 export const useRemoteProtestSession = (
   sessionId: string | undefined,
   source?: ProtestDataSource,
-): { session: ReadSession | null; isLoading: boolean } => {
+): {
+  session: ReadSession | null;
+  isLoading: boolean;
+  isRefetching: boolean;
+  refetch: () => Promise<unknown>;
+} => {
   const { user } = useAuth();
   const userId = source?.ownerUserId ?? user?.id;
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: [...remoteProtestSessionsKey(userId), sessionId ?? ''],
     queryFn: () => readRemoteSession(userId!, sessionId!, source?.dek),
     enabled: !!userId && !!sessionId,
     staleTime: 5 * 60 * 1000,
   });
 
-  return { session: data ?? null, isLoading };
+  return { session: data ?? null, isLoading, isRefetching, refetch };
 };

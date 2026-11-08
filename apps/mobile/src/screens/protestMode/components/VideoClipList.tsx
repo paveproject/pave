@@ -16,6 +16,7 @@ import { Text } from '../../../components/ui/text';
 import { MediaActionsMenu } from '../../../components/ui/MediaActionsMenu';
 import { shareMediaChunk } from '../../../lib/protestMode/shareMedia';
 import type { ReadVideoChunk } from '../../../lib/protestMode/readSession';
+import { useDecryptedMediaCleanup } from '../../../hooks/protestMode/useDecryptedMediaCleanup';
 
 /** 16:9, the shape every clip is recorded in (`VIDEO_QUALITY`). */
 const ASPECT_RATIO = 16 / 9;
@@ -31,7 +32,15 @@ const formatClock = (seconds: number): string => {
  * **One player for the whole list**, its source swapped with `replace`: one
  * per row would hold a decoder open for every clip and let two sound at once.
  */
-export const VideoClipList = ({ clips }: { clips: ReadVideoChunk[] }) => {
+export const VideoClipList = ({
+  clips,
+  onRefresh,
+  isRefreshing,
+}: {
+  clips: ReadVideoChunk[];
+  onRefresh: () => Promise<unknown>;
+  isRefreshing: boolean;
+}) => {
   const { colors, theme } = useTheme();
   const t = useTranslations();
   const format = useFormatter();
@@ -40,8 +49,17 @@ export const VideoClipList = ({ clips }: { clips: ReadVideoChunk[] }) => {
   const [selected, setSelected] = useState<string | null>(null);
 
   const player = useVideoPlayer(null);
+  const cleanUpDecrypted = useDecryptedMediaCleanup();
 
-  useEffect(() => () => player.pause(), [player]);
+  // Paused *then* cleaned: the decrypted files are plaintext recordings, and
+  // this screen is the only reason they exist.
+  useEffect(
+    () => () => {
+      player.pause();
+      cleanUpDecrypted();
+    },
+    [player, cleanUpDecrypted],
+  );
 
   const select = useCallback(
     (uri: string) => {
@@ -78,6 +96,8 @@ export const VideoClipList = ({ clips }: { clips: ReadVideoChunk[] }) => {
         paddingBottom: insets.bottom + theme.spaces.vertical,
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
+      refreshing={isRefreshing}
+      onRefresh={() => void onRefresh()}
       renderItem={({ item, index }) => (
         <View>
           {/* The menu is a *sibling* of the row's `Pressable`, not a child:
